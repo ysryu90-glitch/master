@@ -15,31 +15,26 @@ struct NotificationSettingsView: View {
     @AppStorage(SharedStore.primaryLocationKey, store: SharedStore.defaults)
     private var primaryLocationID = WeatherLocation.all[0].id
 
-    @State private var notificationDenied = false
+    @State private var authorization: UNAuthorizationStatus = .notDetermined
+    @State private var scheduled: [ScheduledNotification] = []
     @State private var editing: MedicationReminder?
     @State private var previewSent = false
 
+    private var notificationDenied: Bool { authorization == .denied }
+
     var body: some View {
         Form {
-            if notificationDenied {
+            statusSection
+
+            if previewSent {
                 Section {
-                    Label("알림이 꺼져 있어요", systemImage: "bell.slash.fill")
-                        .foregroundStyle(.red)
-                    Button("설정 앱에서 알림 허용하기") {
-                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
-                    }
+                    Label("5초 뒤 미리보기 알림이 와요. 홈 화면으로 나가서 기다려 보세요.", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
                 }
             }
 
             reportSection
             medicationSection
-
-            if previewSent {
-                Section {
-                    Label("5초 뒤 미리보기 알림이 와요", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-            }
         }
         .navigationTitle("알림")
         .navigationBarTitleDisplayMode(.inline)
@@ -61,7 +56,94 @@ struct NotificationSettingsView: View {
         .onChange(of: reportMinute) { _, _ in rescheduleReport() }
         .onChange(of: includeWeather) { _, _ in rescheduleReport() }
         .onChange(of: primaryLocationID) { _, _ in rescheduleReport() }
-        .task { await checkPermission() }
+        .task { await refreshStatus() }
+    }
+
+    // MARK: - 알림 상태 (문제 확인용)
+
+    private var statusSection: some View {
+        Section {
+            HStack {
+                Label("알림 권한", systemImage: notificationDenied ? "bell.slash.fill" : "bell.fill")
+                Spacer()
+                Text(authorizationText)
+                    .foregroundStyle(authorization == .authorized ? .green : .red)
+            }
+            switch authorization {
+            case .notDetermined:
+                Button("알림 권한 요청하기") {
+                    Task { _ = await ensurePermission() }
+                }
+            case .denied:
+                Button("설정 앱에서 알림 허용하기") {
+                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                }
+            default:
+                EmptyView()
+            }
+
+            LabeledContent("예약된 알림", value: "\(scheduled.count)개")
+            ForEach(scheduled.prefix(5)) { item in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.subheadline)
+                    Text(item.date.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button("모든 알림 다시 예약하기") {
+                Task {
+                    guard await ensurePermission() else { return }
+                    await medications.reschedule()
+                    await BriefingScheduler.reschedule(report: weather.reports[primaryLocationID])
+                    await refreshStatus()
+                }
+            }
+        } header: {
+            Text("알림 상태")
+        } footer: {
+            Text("알림이 안 오면: ① 권한이 '허용됨'인지 ② 예약된 알림이 있는지 ③ 아이폰의 집중 모드(방해금지·수면)가 꺼져 있는지 확인하세요.")
+        }
+    }
+
+    private var authorizationText: String {
+        switch authorization {
+        case .authorized: "허용됨"
+        case .denied: "거부됨"
+        case .provisional, .ephemeral: "임시 허용"
+        case .notDetermined: "아직 요청 안 함"
+        @unknown default: "알 수 없음"
+        }
+    }
+
+    /// 권한이 없으면 요청하고, 허용 여부를 돌려준다.
+    private func ensurePermission() async -> Bool {
+        let granted = await BriefingScheduler.requestAuthorization()
+        await refreshStatus()
+        return granted
+    }
+
+    private func refreshStatus() async {
+        let center = UNUserNotificationCenter.current()
+        authorization = await center.notificationSettings().authorizationStatus
+        scheduled = await center.pendingNotificationRequests()
+            .compactMap { request -> ScheduledNotification? in
+                let date = (request.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate()
+                    ?? (request.trigger as? UNTimeIntervalNotificationTrigger)?.nextTriggerDate()
+                return date.map { ScheduledNotification(id: request.identifier, title: request.content.title, date: $0) }
+            }
+            .sorted { $0.date < $1.date }
+    }
+
+    private func sendPreview(_ send: @escaping () async -> Void) {
+        Task {
+            guard await ensurePermission() else { return }
+            await send()
+            previewSent = true
+            await refreshStatus()
+        }
     }
 
     // MARK: - 컨디션 리포트
@@ -83,10 +165,8 @@ struct NotificationSettingsView: View {
                     }
                 }
                 Button("미리보기 보내기") {
-                    Task {
-                        await BriefingScheduler.sendPreview(report: weather.reports[primaryLocationID])
-                        previewSent = true
-                    }
+                    let report = weather.reports[primaryLocationID]
+                    sendPreview { await BriefingScheduler.sendPreview(report: report) }
                 }
             }
         } header: {
@@ -113,7 +193,15 @@ struct NotificationSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .buttonStyle(.borderless)
                     Spacer()
+                    Button {
+                        sendPreview { await medications.sendPreview(reminder) }
+                    } label: {
+                        Image(systemName: "bell.badge")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("미리보기 알림 보내기")
                     Toggle("", isOn: enabledBinding(for: reminder))
                         .labelsHidden()
                 }
@@ -121,13 +209,6 @@ struct NotificationSettingsView: View {
                     Button("삭제", role: .destructive) {
                         medications.reminders.removeAll { $0.id == reminder.id }
                     }
-                    Button("미리보기") {
-                        Task {
-                            await medications.sendPreview(reminder)
-                            previewSent = true
-                        }
-                    }
-                    .tint(.blue)
                 }
             }
 
@@ -139,7 +220,7 @@ struct NotificationSettingsView: View {
         } header: {
             Text("복약 알림")
         } footer: {
-            Text("매일 같은 시각에 울립니다. 알림을 길게 누르면 '복용 완료' 또는 '30분 뒤 다시 알림'을 고를 수 있어요. 이름을 누르면 수정, 왼쪽으로 밀면 삭제 · 미리보기.")
+            Text("매일 같은 시각에 울립니다. 알림을 길게 누르면 '복용 완료' 또는 '30분 뒤 다시 알림'을 고를 수 있어요. 이름을 누르면 수정, 🔔 버튼은 5초 뒤 미리보기, 왼쪽으로 밀면 삭제.")
         }
     }
 
@@ -168,20 +249,25 @@ struct NotificationSettingsView: View {
     /// 알림 권한을 요청하고, 허용되면 모든 알림을 다시 예약한다.
     private func enableNotifications() {
         Task {
-            notificationDenied = !(await BriefingScheduler.requestAuthorization())
+            guard await ensurePermission() else { return }
             await medications.reschedule()
             await BriefingScheduler.reschedule(report: weather.reports[primaryLocationID])
+            await refreshStatus()
         }
     }
 
     private func rescheduleReport() {
-        Task { await BriefingScheduler.reschedule(report: weather.reports[primaryLocationID]) }
+        Task {
+            await BriefingScheduler.reschedule(report: weather.reports[primaryLocationID])
+            await refreshStatus()
+        }
     }
+}
 
-    private func checkPermission() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        notificationDenied = settings.authorizationStatus == .denied
-    }
+private struct ScheduledNotification: Identifiable {
+    let id: String
+    let title: String
+    let date: Date
 }
 
 /// 약 이름 · 시각 편집

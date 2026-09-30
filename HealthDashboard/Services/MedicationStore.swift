@@ -126,7 +126,8 @@ final class MedicationStore {
 
     func sendPreview(_ reminder: MedicationReminder) async {
         let request = UNNotificationRequest(
-            identifier: "medication-preview",
+            // 'medication-' 접두어를 쓰면 reschedule()이 지워버리므로 다른 이름을 쓴다.
+            identifier: "preview-medication",
             content: content(for: reminder),
             trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
         )
