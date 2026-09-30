@@ -85,22 +85,104 @@ final class HealthKitService: @unchecked Sendable {
 
     // MARK: - 준비 점수 입력
 
+    /// 애플 준비 점수처럼 '잠자는 동안'의 HRV와 심박수를 우선 사용한다.
+    /// 수면 기록이 1주일 미만이면 하루 평균 HRV와 안정 시 심박수로 대신한다.
     func readinessInputs(sleepNights: [SleepNight]) async -> ReadinessInputs {
         let days = ReadinessInputs.lookbackDays
-        async let hrv = hrvTrend(days: days)
+        async let overnightRMSSD = overnightAverages(.hrvRMSSD, nights: sleepNights)
+        async let overnightSDNN = overnightAverages(.heartRateVariabilitySDNN, nights: sleepNights)
+        async let sleepingHeartRate = overnightAverages(.heartRate, nights: sleepNights)
+        async let dailyHRV = hrvTrend(days: days)
         async let restingHeartRate = trend(.restingHeartRate, days: days)
         async let activeEnergy = trend(.activeEnergyBurned, days: days)
         async let wristTemperature = trend(.appleSleepingWristTemperature, days: days)
         async let respiratoryRate = trend(.respiratoryRate, days: days)
 
-        return ReadinessInputs(
-            hrv: await hrv,
-            restingHeartRate: await restingHeartRate,
+        var inputs = ReadinessInputs(
             activeEnergy: await activeEnergy,
             wristTemperature: await wristTemperature,
             respiratoryRate: await respiratoryRate,
             sleepNights: sleepNights
         )
+
+        let rmssd = await overnightRMSSD
+        let sdnn = await overnightSDNN
+        if rmssd.count >= 7 {
+            inputs.hrv = rmssd
+            inputs.hrvIsOvernight = true
+        } else if sdnn.count >= 7 {
+            inputs.hrv = sdnn
+            inputs.hrvIsOvernight = true
+        } else {
+            inputs.hrv = await dailyHRV
+        }
+
+        let sleepingHR = await sleepingHeartRate
+        if sleepingHR.count >= 7 {
+            inputs.restingHeartRate = sleepingHR
+            inputs.heartRateIsSleeping = true
+        } else {
+            inputs.restingHeartRate = await restingHeartRate
+        }
+        return inputs
+    }
+
+    /// 밤마다 잠든 시각~깬 시각 사이의 평균값. 날짜는 일어난 날로 기록한다.
+    private func overnightAverages(_ id: HKQuantityTypeIdentifier, nights: [SleepNight]) async -> [TrendPoint] {
+        guard let metric = HealthMetric.metric(id) else { return [] }
+        let store = self.store
+        return await withTaskGroup(of: TrendPoint?.self) { group in
+            for night in nights {
+                guard let start = night.bedtime, let end = night.wakeTime, end > start else { continue }
+                let wakeDay = night.wakeDate
+                group.addTask {
+                    let descriptor = HKStatisticsQueryDescriptor(
+                        predicate: .quantitySample(
+                            type: metric.type,
+                            predicate: HKQuery.predicateForSamples(withStart: start, end: end)
+                        ),
+                        options: .discreteAverage
+                    )
+                    guard let average = try? await descriptor.result(for: store)?.averageQuantity() else { return nil }
+                    return TrendPoint(date: wakeDay, value: metric.displayValue(average))
+                }
+            }
+            var points: [TrendPoint] = []
+            for await point in group {
+                if let point { points.append(point) }
+            }
+            return points.sorted { $0.date < $1.date }
+        }
+    }
+
+    // MARK: - 백그라운드 갱신
+
+    /// 워치에서 새 데이터가 들어오면 iOS가 앱을 백그라운드로 깨워 `onUpdate`를 호출한다.
+    /// (iOS 정책상 대부분 최대 1시간에 한 번)
+    func startBackgroundDelivery(onUpdate: @escaping @Sendable () async -> Void) {
+        let types: [HKSampleType] = [
+            HKQuantityType(.stepCount),
+            HKQuantityType(.activeEnergyBurned),
+            HKQuantityType(.appleExerciseTime),
+            HKQuantityType(.appleStandTime),
+            HKQuantityType(.restingHeartRate),
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKCategoryType(.sleepAnalysis),
+        ]
+        for type in types {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
+                guard error == nil else {
+                    completion()
+                    return
+                }
+                Task {
+                    await onUpdate()
+                    completion()
+                }
+            }
+            store.execute(query)
+            store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
+        }
     }
 
     /// iOS 27 + 애플워치 Series 12의 RMSSD 기록이 충분하면 그것을, 아니면 기존 SDNN을 사용

@@ -6,6 +6,9 @@ import WidgetKit
 @MainActor
 @Observable
 final class DashboardModel {
+    /// 백그라운드 갱신(HealthKit 백그라운드 전달)에서도 같은 인스턴스를 쓰기 위해 하나만 만든다.
+    static let shared = DashboardModel()
+
     private enum Keys {
         static let demoMode = "demoMode"
         static let requested = "hasRequestedAuthorization"
@@ -22,9 +25,11 @@ final class DashboardModel {
     private(set) var readiness: [ReadinessScore] = []
     private(set) var mindfulMinutesToday: Double = 0
     private(set) var workouts: [WorkoutItem] = []
+    private(set) var yesterdaySteps: Double?
     private(set) var isLoading = false
     private(set) var lastUpdated: Date?
     var errorMessage: String?
+    private var backgroundDeliveryStarted = false
 
     var demoMode: Bool {
         didSet {
@@ -81,6 +86,22 @@ final class DashboardModel {
             errorMessage = "건강 데이터 권한을 요청하지 못했습니다: \(error.localizedDescription)"
         }
         hasRequestedAuthorization = true
+        startBackgroundUpdates()
+        await refresh()
+    }
+
+    /// 앱 실행 시 한 번 호출. 워치 데이터가 들어올 때마다 위젯·알림 내용을 갱신한다.
+    func startBackgroundUpdates() {
+        guard hasRequestedAuthorization, !demoMode, !backgroundDeliveryStarted else { return }
+        backgroundDeliveryStarted = true
+        service.startBackgroundDelivery { [weak self] in
+            await self?.backgroundUpdate()
+        }
+    }
+
+    /// 여러 종류의 데이터가 한꺼번에 들어와도 5분에 한 번만 새로고침한다.
+    private func backgroundUpdate() async {
+        if let lastUpdated, Date.now.timeIntervalSince(lastUpdated) < 5 * 60 { return }
         await refresh()
     }
 
@@ -96,6 +117,7 @@ final class DashboardModel {
             readiness = ReadinessCalculator.history(days: 7, inputs: DemoData.readinessInputs())
             mindfulMinutesToday = 10
             workouts = DemoData.workouts()
+            yesterdaySteps = 7_920
         } else {
             // 기기가 잠겨 있으면 건강 데이터를 읽을 수 없다. 빈 값으로 덮어쓰지 않고 알림만 갱신한다.
             guard UIApplication.shared.isProtectedDataAvailable else {
@@ -109,12 +131,14 @@ final class DashboardModel {
             async let sleep = try? service.sleepNights(days: ReadinessInputs.lookbackDays)
             async let mindful = try? service.mindfulMinutesToday()
             async let workouts = try? service.recentWorkouts(limit: 30)
+            async let steps = Self.stepsByDay(service)
 
             self.values = await values
             self.activity = await activity ?? []
             self.sleepNights = await sleep ?? []
             self.mindfulMinutesToday = await mindful ?? 0
             self.workouts = await workouts ?? []
+            self.yesterdaySteps = await steps.first { Calendar.current.isDateInYesterday($0.date) }?.value
 
             let inputs = await service.readinessInputs(sleepNights: sleepNights)
             readiness = ReadinessCalculator.history(days: 7, inputs: inputs)
@@ -143,9 +167,22 @@ final class DashboardModel {
             steps: values[.stepCount]?.value,
             sleepSeconds: lastNight.flatMap { Calendar.current.isDateInToday($0.wakeDate) ? $0.asleep : nil },
             restingHeartRate: values[.restingHeartRate]?.value,
-            isDemo: demoMode
+            isDemo: demoMode,
+            highlights: readiness?.highlights,
+            yesterdaySteps: yesterdaySteps,
+            yesterdayMove: yesterday?.move,
+            yesterdayMoveGoal: yesterday?.moveGoal
         )
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private var yesterday: DailyActivity? {
+        activity.first { Calendar.current.isDateInYesterday($0.date) }
+    }
+
+    private nonisolated static func stepsByDay(_ service: HealthKitService) async -> [TrendPoint] {
+        guard let metric = HealthMetric.metric(.stepCount) else { return [] }
+        return (try? await service.dailyTrend(for: metric, days: 2)) ?? []
     }
 
     private nonisolated static func fetchValues(_ service: HealthKitService) async -> [HKQuantityTypeIdentifier: MetricValue] {

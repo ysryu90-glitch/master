@@ -61,11 +61,17 @@ struct ActivityWidgetView: View {
                 }
                 .frame(maxHeight: .infinity)
                 .overlay(alignment: .bottom) {
-                    if let steps = snapshot?.steps {
-                        Text("\(Int(steps).formatted()) 걸음")
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                    VStack(spacing: 0) {
+                        if let steps = snapshot?.steps {
+                            Text("\(Int(steps).formatted()) 걸음")
+                                .font(.caption2.monospacedDigit())
+                        }
+                        if let updated = entry.snapshot?.updatedAt {
+                            Text("\(updated, style: .relative) 전")
+                                .font(.system(size: 9))
+                        }
                     }
+                    .foregroundStyle(.secondary)
                 }
             }
         }

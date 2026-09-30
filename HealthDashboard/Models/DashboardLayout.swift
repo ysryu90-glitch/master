@@ -2,17 +2,18 @@ import HealthKit
 import SwiftUI
 
 enum DashboardSection: Hashable, Codable, Identifiable {
-    case readiness, recommendation, favorites, activityRings, sleep, workouts
+    case readiness, medication, recommendation, favorites, activityRings, sleep, workouts
     case metrics(MetricCategory)
 
     static let defaultOrder: [DashboardSection] =
-        [.readiness, .recommendation, .favorites, .activityRings, .sleep]
+        [.readiness, .medication, .recommendation, .favorites, .activityRings, .sleep]
         + MetricCategory.allCases.map { .metrics($0) }
         + [.workouts]
 
     var id: String {
         switch self {
         case .readiness: "readiness"
+        case .medication: "medication"
         case .recommendation: "recommendation"
         case .favorites: "favorites"
         case .activityRings: "activityRings"
@@ -25,6 +26,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
     var title: String {
         switch self {
         case .readiness: "준비 점수"
+        case .medication: "오늘의 복약"
         case .recommendation: "오늘의 운동 추천"
         case .favorites: "즐겨찾기"
         case .activityRings: "활동 링"
@@ -37,6 +39,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
     var symbol: String {
         switch self {
         case .readiness: "gauge.with.needle.fill"
+        case .medication: "pills.fill"
         case .recommendation: "figure.run.circle.fill"
         case .favorites: "star.fill"
         case .activityRings: "circle.circle"
@@ -49,6 +52,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
     var tint: Color {
         switch self {
         case .readiness: .mint
+        case .medication: .purple
         case .recommendation: .green
         case .favorites: .yellow
         case .activityRings: .red
@@ -77,9 +81,9 @@ struct DashboardLayout: Codable, Equatable {
               var layout = try? JSONDecoder().decode(DashboardLayout.self, from: data) else {
             return DashboardLayout()
         }
-        // 앱 업데이트로 새로 생긴 섹션은 뒤에 붙인다.
-        for section in DashboardSection.defaultOrder where !layout.order.contains(section) {
-            layout.order.append(section)
+        // 앱 업데이트로 새로 생긴 섹션은 기본 순서의 자리에 끼워 넣는다.
+        for (index, section) in DashboardSection.defaultOrder.enumerated() where !layout.order.contains(section) {
+            layout.order.insert(section, at: min(index, layout.order.count))
         }
         layout.order.removeAll { !DashboardSection.defaultOrder.contains($0) }
         return layout

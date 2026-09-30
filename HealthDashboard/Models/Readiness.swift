@@ -10,11 +10,14 @@ struct ReadinessComponent: Identifiable {
     let score: Double
     let weight: Double
     let detail: String
+    /// 데이터 출처에 따라 제목을 바꿀 때 (예: 수면 중 심박수)
+    var customTitle: String? = nil
 
     var id: Kind { kind }
 
     var title: String {
-        switch kind {
+        if let customTitle { return customTitle }
+        return switch kind {
         case .hrv: "심박 변이 (HRV)"
         case .restingHeartRate: "안정 시 심박수"
         case .sleep: "수면"
@@ -59,6 +62,11 @@ struct ReadinessScore: Identifiable {
     var id: Date { date }
     var level: ReadinessLevel { ReadinessLevel(score: score) }
     var scoreText: String { score.formatted(.number.precision(.fractionLength(1))) }
+
+    /// 알림에 쓰는 짧은 상태 요약. 예: ["심박 변이 좋음", "수면 보통"]
+    var highlights: [String] {
+        components.map { "\($0.title.replacingOccurrences(of: " (HRV)", with: "")) \($0.status)" }
+    }
 }
 
 /// 점수 계산에 필요한 일별 데이터
@@ -69,6 +77,10 @@ struct ReadinessInputs {
     var wristTemperature: [TrendPoint] = []
     var respiratoryRate: [TrendPoint] = []
     var sleepNights: [SleepNight] = []
+    /// HRV가 '수면 중 평균'인지 (아니면 하루 전체 평균)
+    var hrvIsOvernight = false
+    /// 심박수가 '수면 중 평균 심박수'인지 (아니면 안정 시 심박수)
+    var heartRateIsSleeping = false
 
     /// 오늘을 포함해 필요한 조회 기간 (기준선 30일 + 기록 7일)
     static let lookbackDays = 38
@@ -98,7 +110,7 @@ enum ReadinessCalculator {
             let z = zScore(hrv.today, hrv.baseline)
             components.append(ReadinessComponent(
                 kind: .hrv, score: clamp(65 + z * 20), weight: 0.30,
-                detail: "오늘 \(format(hrv.today))ms · 평소 \(format(mean(hrv.baseline)))ms"
+                detail: "\(inputs.hrvIsOvernight ? "지난밤 수면 중" : "오늘") \(format(hrv.today))ms · 평소 \(format(mean(hrv.baseline)))ms"
             ))
         }
 
@@ -107,7 +119,8 @@ enum ReadinessCalculator {
             let z = zScore(rhr.today, rhr.baseline)
             components.append(ReadinessComponent(
                 kind: .restingHeartRate, score: clamp(65 - z * 20), weight: 0.20,
-                detail: "오늘 \(format(rhr.today))BPM · 평소 \(format(mean(rhr.baseline)))BPM"
+                detail: "\(inputs.heartRateIsSleeping ? "지난밤" : "오늘") \(format(rhr.today))BPM · 평소 \(format(mean(rhr.baseline)))BPM",
+                customTitle: inputs.heartRateIsSleeping ? "수면 중 심박수" : nil
             ))
         }
 

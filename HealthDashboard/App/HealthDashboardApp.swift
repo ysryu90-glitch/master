@@ -3,11 +3,15 @@ import UserNotifications
 
 @main
 struct HealthDashboardApp: App {
-    @State private var model = DashboardModel()
+    @State private var model = DashboardModel.shared
     @State private var weather = WeatherModel()
+    @State private var medications = MedicationStore.shared
 
     init() {
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+        NotificationDelegate.registerCategories()
+        // 앱이 백그라운드로 깨어났을 때도 HealthKit 관찰을 다시 등록해야 새 데이터를 받을 수 있다.
+        DashboardModel.shared.startBackgroundUpdates()
     }
 
     var body: some Scene {
@@ -15,6 +19,7 @@ struct HealthDashboardApp: App {
             RootView()
                 .environment(model)
                 .environment(weather)
+                .environment(medications)
         }
         // 아침 브리핑 전에 iOS가 앱을 깨우면 날씨·건강 요약과 알림을 갱신한다.
         .backgroundTask(.appRefresh(BriefingScheduler.backgroundTaskID)) {

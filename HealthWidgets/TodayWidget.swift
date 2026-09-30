@@ -157,6 +157,12 @@ struct TodayWidgetView: View {
                             .font(.caption.monospacedDigit())
                     }
                 }
+
+                if let updated = entry.snapshot?.updatedAt {
+                    Text("\(updated, style: .relative) 전 갱신")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer(minLength: 0)
         }

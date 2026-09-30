@@ -70,19 +70,62 @@ enum BriefingScheduler {
         snapshot: HealthSnapshot?
     ) -> UNMutableNotificationContent {
         let calendar = Calendar.current
-        let forecast = weather?.days.first { calendar.isDate($0.date, inSameDayAs: date) }
+        let includeWeather = SharedStore.reportIncludeWeather
+        let forecast = includeWeather
+            ? weather?.days.first(where: { calendar.isDate($0.date, inSameDayAs: date) })
+            : nil
         // 대기질은 현재 값이라 알림 시각이 가까울 때만 사용
-        let air = date.timeIntervalSince(weather?.fetchedAt ?? .distantPast) < 12 * 3600 ? weather?.airQuality : nil
+        let air = includeWeather && date.timeIntervalSince(weather?.fetchedAt ?? .distantPast) < 12 * 3600
+            ? weather?.airQuality : nil
         let readiness = snapshot?.readiness(on: date)
 
+        // 요약이 알림 당일에 저장된 것인지, 전날 저장된 것인지에 따라 '어제' 값이 달라진다.
+        let savedToday = snapshot.map { calendar.isDate($0.updatedAt, inSameDayAs: date) } ?? false
+        let savedYesterday = snapshot.map {
+            calendar.isDate($0.updatedAt, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: date) ?? date)
+        } ?? false
+
         var lines: [String] = []
+
+        // 1. 준비 점수와 요소별 상태
         if let readiness {
             let score = readiness.score.formatted(.number.precision(.fractionLength(1)))
             lines.append("💪 준비 점수 \(score) · \(readiness.level.title)")
+            if let highlights = snapshot?.highlights, !highlights.isEmpty {
+                lines.append("🩺 " + highlights.joined(separator: " · "))
+            }
         } else {
             lines.append("💪 앱을 열면 오늘의 준비 점수를 계산해요.")
         }
 
+        // 2. 몸 상태: 지난밤 수면, 안정 시 심박수
+        var body: [String] = []
+        if savedToday, let sleep = snapshot?.sleepSeconds {
+            body.append("수면 \(sleep.hoursMinutesText)")
+        }
+        if savedToday || savedYesterday, let heartRate = snapshot?.restingHeartRate {
+            body.append("안정 시 심박 \(Int(heartRate))BPM")
+        }
+        if !body.isEmpty {
+            lines.append("😴 " + body.joined(separator: " · "))
+        }
+
+        // 3. 어제 활동
+        let yesterdaySteps = savedToday ? snapshot?.yesterdaySteps : (savedYesterday ? snapshot?.steps : nil)
+        let yesterdayMove = savedToday ? snapshot?.yesterdayMove : (savedYesterday ? snapshot?.move : nil)
+        let yesterdayMoveGoal = savedToday ? snapshot?.yesterdayMoveGoal : (savedYesterday ? snapshot?.moveGoal : nil)
+        var activity: [String] = []
+        if let yesterdaySteps {
+            activity.append("걸음 \(Int(yesterdaySteps).formatted())")
+        }
+        if let yesterdayMove, let yesterdayMoveGoal, yesterdayMoveGoal > 0 {
+            activity.append("움직이기 \(Int(yesterdayMove / yesterdayMoveGoal * 100))%")
+        }
+        if !activity.isEmpty {
+            lines.append("👟 어제 " + activity.joined(separator: " · "))
+        }
+
+        // 4. 날씨와 운동 추천
         if let forecast {
             var weatherLine = "\(location.name) \(forecast.condition.description) · \(forecast.low.degreesText) / \(forecast.high.degreesText)"
             if let probability = forecast.precipitationProbability, probability >= 20 {
@@ -103,7 +146,7 @@ enum BriefingScheduler {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = "좋은 아침이에요! 오늘의 브리핑"
+        content.title = "오늘의 컨디션 리포트"
         content.body = lines.joined(separator: "\n")
         content.sound = .default
         return content
@@ -129,14 +172,42 @@ enum BriefingScheduler {
     }
 }
 
-/// 앱을 보고 있는 중에도 브리핑 알림(미리보기 포함)이 배너로 보이게 한다.
+/// 알림 표시와 알림 버튼(복용 완료 / 30분 뒤) 처리
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationDelegate()
 
+    /// 복약 알림을 길게 누르면 나오는 버튼
+    static func registerCategories() {
+        let taken = UNNotificationAction(identifier: MedicationStore.takenActionID, title: "복용 완료 ✅", options: [])
+        let snooze = UNNotificationAction(identifier: MedicationStore.snoozeActionID, title: "30분 뒤 다시 알림", options: [])
+        let category = UNNotificationCategory(
+            identifier: MedicationStore.categoryID, actions: [taken, snooze], intentIdentifiers: [], options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
+    /// 앱을 보고 있는 중에도 알림(미리보기 포함)이 배너로 보이게 한다.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .list, .sound]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard let idText = response.notification.request.content.userInfo[MedicationStore.userInfoKey] as? String,
+              let id = UUID(uuidString: idText) else { return }
+
+        switch response.actionIdentifier {
+        case MedicationStore.takenActionID:
+            await MedicationStore.shared.setTaken(true, id: id)
+        case MedicationStore.snoozeActionID:
+            await MedicationStore.shared.snooze(id: id)
+        default:
+            break
+        }
     }
 }

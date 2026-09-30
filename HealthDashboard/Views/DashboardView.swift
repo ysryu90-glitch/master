@@ -6,6 +6,7 @@ struct DashboardView: View {
     @Environment(WeatherModel.self) private var weather
     @State private var showSettings = false
     @State private var showEditor = false
+    @State private var showNotifications = false
     @AppStorage(SharedStore.primaryLocationKey, store: SharedStore.defaults)
     private var primaryLocationID = WeatherLocation.all[0].id
 
@@ -37,6 +38,11 @@ struct DashboardView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
+                        showNotifications = true
+                    } label: {
+                        Image(systemName: "bell")
+                    }
+                    Button {
                         showEditor = true
                     } label: {
                         Image(systemName: "slider.horizontal.3")
@@ -51,6 +57,16 @@ struct DashboardView: View {
             .refreshable { await model.refresh() }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showEditor) { DashboardEditorView() }
+            .sheet(isPresented: $showNotifications) {
+                NavigationStack {
+                    NotificationSettingsView()
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("완료") { showNotifications = false }
+                            }
+                        }
+                }
+            }
             .task {
                 await model.refresh()
                 await weather.refresh()
@@ -84,6 +100,9 @@ struct DashboardView: View {
                 ReadinessCard(score: model.todayReadiness)
             }
             .buttonStyle(.plain)
+
+        case .medication:
+            MedicationCard { showNotifications = true }
 
         case .recommendation:
             RecommendationCard(

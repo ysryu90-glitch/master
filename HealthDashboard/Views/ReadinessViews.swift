@@ -137,7 +137,7 @@ struct ReadinessDetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("이 점수에 대해", systemImage: "info.circle")
                         .font(.headline)
-                    Text("애플워치 Series 12의 공식 '준비 점수'는 애플이 다른 앱에 제공하지 않습니다. 이 화면의 점수는 같은 원리(심박 변이, 안정 시 심박수, 수면, 운동 부하, 야간 손목 온도·호흡수)를 최근 30일 내 기준선과 비교해 이 앱이 직접 계산한 추정치라, 공식 점수와 조금 다를 수 있습니다.")
+                    Text("애플워치 Series 12의 공식 '준비 점수'는 애플이 다른 앱에 제공하지 않습니다. 이 화면의 점수는 같은 원리(잠자는 동안의 심박 변이·심박수, 수면, 운동 부하, 야간 손목 온도·호흡수)를 최근 30일 내 기준선과 비교해 이 앱이 직접 계산한 추정치라, 공식 점수와 조금 다를 수 있습니다. 수면 기록이 1주일 미만이면 하루 평균 HRV와 안정 시 심박수로 대신 계산합니다.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text("의료적 판단이 아닌 참고용 지표입니다.")

@@ -16,6 +16,11 @@ struct HealthSnapshot: Codable {
     var sleepSeconds: Double?
     var restingHeartRate: Double?
     var isDemo = false
+    /// 컨디션 리포트용: 준비 점수 요소별 상태 ("심박 변이 좋음" 등)
+    var highlights: [String]?
+    var yesterdaySteps: Double?
+    var yesterdayMove: Double?
+    var yesterdayMoveGoal: Double?
 
     /// `date`와 같은 날의 준비 점수가 있을 때만 반환
     func readiness(on date: Date) -> (score: Double, level: ReadinessLevel)? {
@@ -71,6 +76,13 @@ enum SharedStore {
     }
 
     static var briefingEnabled: Bool { defaults.bool(forKey: Keys.briefingEnabled) }
+
+    static let reportIncludeWeatherKey = "reportIncludeWeather"
+
+    /// 컨디션 리포트에 날씨·운동 추천을 넣을지 (기본: 넣음)
+    static var reportIncludeWeather: Bool {
+        defaults.object(forKey: reportIncludeWeatherKey) as? Bool ?? true
+    }
 
     static var briefingTime: DateComponents {
         let hour = defaults.object(forKey: Keys.briefingHour) as? Int ?? 7
