@@ -102,6 +102,14 @@ final class HabitStore {
         set(tags, on: date)
     }
 
+    /// 자동 기록용: 이미 있으면 그대로 둔다.
+    func add(_ tag: HabitTag, on date: Date) {
+        var tags = tags(on: date)
+        guard !tags.contains(tag) else { return }
+        tags.insert(tag)
+        set(tags, on: date)
+    }
+
     /// '특별한 일 없음' 기록
     func markNothing(on date: Date) { set([], on: date) }
 
@@ -256,6 +264,32 @@ enum HabitAnalyzer {
         if let insight = compare(id: "earlyBed", emoji: "🌙", title: "11시 전 취침",
                                  phrase: "11시 전에 잔 날", with: earlyBed, without: lateBed) {
             results.append(insight)
+        }
+
+        // 식단 기록 기반: 2끼 이상 기록한 날끼리 비교
+        let mealStore = MealStore.shared
+        let mealDays = dayData.filter { mealStore.meals(on: $0.date).count >= 2 }
+        if !mealDays.isEmpty {
+            let averageCalories = ReadinessCalculator.mean(mealDays.map { mealStore.totals(on: $0.date).calories })
+            let bigDays = mealDays.filter { mealStore.totals(on: $0.date).calories > averageCalories * 1.2 }
+            if let insight = compare(
+                id: "overeating", emoji: "🍽", title: "많이 먹은 날",
+                phrase: "평소보다 20% 이상 많이 먹은 날",
+                with: bigDays,
+                without: mealDays.filter { day in !bigDays.contains { $0.date == day.date } }
+            ) {
+                results.append(insight)
+            }
+
+            let proteinDays = mealDays.filter { mealStore.totals(on: $0.date).protein >= 80 }
+            if let insight = compare(
+                id: "protein", emoji: "🍗", title: "단백질 충분",
+                phrase: "단백질을 80g 이상 먹은 날",
+                with: proteinDays,
+                without: mealDays.filter { day in !proteinDays.contains { $0.date == day.date } }
+            ) {
+                results.append(insight)
+            }
         }
 
         let workoutDays = Set(workouts.map { calendar.startOfDay(for: $0.start) })

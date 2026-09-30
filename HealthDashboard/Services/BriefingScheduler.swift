@@ -124,6 +124,10 @@ enum BriefingScheduler {
         if !activity.isEmpty {
             lines.append("👟 어제 " + activity.joined(separator: " · "))
         }
+        if savedToday, let calories = snapshot?.yesterdayCalories {
+            let protein = snapshot?.yesterdayProtein.map { " · 단백질 \(Int($0))g" } ?? ""
+            lines.append("🍽 어제 식단 \(Int(calories).formatted())kcal" + protein)
+        }
 
         // 4. 날씨와 운동 추천
         if let forecast {

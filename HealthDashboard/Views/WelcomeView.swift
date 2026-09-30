@@ -47,7 +47,7 @@ struct WelcomeView: View {
                     model.demoMode = true
                 }
 
-                Text("이 앱은 건강 데이터를 읽기만 하며, 기기 밖으로 전송하지 않습니다.")
+                Text("건강 데이터는 기기 밖으로 전송하지 않습니다. 직접 기록한 식단만 건강 앱에 저장해요.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

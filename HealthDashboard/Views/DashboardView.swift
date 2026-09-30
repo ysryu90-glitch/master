@@ -4,6 +4,7 @@ struct DashboardView: View {
     @Environment(DashboardModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @Environment(WeatherModel.self) private var weather
+    @Environment(AppRouter.self) private var router
     @State private var showSettings = false
     @State private var showEditor = false
     @State private var showNotifications = false
@@ -131,6 +132,14 @@ struct DashboardView: View {
 
         case .schedule:
             TodayScheduleCard()
+
+        case .diet:
+            Button {
+                router.tab = .diet
+            } label: {
+                DietSummaryCard(showHeader: true)
+            }
+            .buttonStyle(.plain)
 
         case .recommendation:
             RecommendationCard(

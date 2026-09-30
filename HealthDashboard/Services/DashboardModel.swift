@@ -214,9 +214,17 @@ final class DashboardModel {
             highlights: readiness?.highlights,
             yesterdaySteps: yesterdaySteps,
             yesterdayMove: yesterday?.move,
-            yesterdayMoveGoal: yesterday?.moveGoal
+            yesterdayMoveGoal: yesterday?.moveGoal,
+            yesterdayCalories: yesterdayNutrition?.calories,
+            yesterdayProtein: yesterdayNutrition?.protein
         )
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private var yesterdayNutrition: NutritionTotals? {
+        guard let date = Calendar.current.date(byAdding: .day, value: -1, to: .now),
+              !MealStore.shared.meals(on: date).isEmpty else { return nil }
+        return MealStore.shared.totals(on: date)
     }
 
     private var yesterday: DailyActivity? {

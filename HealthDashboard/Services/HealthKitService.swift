@@ -13,12 +13,65 @@ final class HealthKitService: @unchecked Sendable {
         types.insert(HKCategoryType(.mindfulSession))
         types.insert(HKObjectType.workoutType())
         types.insert(HKObjectType.activitySummaryType())
+        for type in Self.dietaryWriteTypes { types.insert(HKQuantityType(type)) }
         return types
+    }
+
+    /// 식단 기록을 건강 앱에 저장할 때 쓰는 항목 (이 앱이 '쓰는' 유일한 데이터)
+    static let dietaryWriteTypes: [HKQuantityTypeIdentifier] = [
+        .dietaryEnergyConsumed, .dietaryCarbohydrates, .dietaryProtein,
+        .dietaryFatTotal, .dietarySugar, .dietarySodium,
+    ]
+
+    private var shareTypes: Set<HKSampleType> {
+        Set(Self.dietaryWriteTypes.map { HKQuantityType($0) as HKSampleType })
     }
 
     /// 아직 허용 여부를 묻지 않은 항목이 있을 때만 시스템 권한 화면이 나타난다.
     func requestAuthorization() async throws {
-        try await store.requestAuthorization(toShare: [], read: readTypes)
+        try await store.requestAuthorization(toShare: shareTypes, read: readTypes)
+    }
+
+    // MARK: - 식단 저장
+
+    /// 앱 기록과 건강 앱 기록을 연결하는 메타데이터 키
+    static let mealIDKey = "HealthDashboardMealID"
+
+    /// 한 끼를 건강 앱에 '음식' 기록(영양소 묶음)으로 저장한다.
+    func saveMeal(_ meal: MealEntry) async throws {
+        let totals = meal.totals
+        let metadata: [String: Any] = [HKMetadataKeyFoodType: meal.title, Self.mealIDKey: meal.id.uuidString]
+        let values: [(HKQuantityTypeIdentifier, Double, HKUnit)] = [
+            (.dietaryEnergyConsumed, totals.calories, .kilocalorie()),
+            (.dietaryCarbohydrates, totals.carbohydrates, .gram()),
+            (.dietaryProtein, totals.protein, .gram()),
+            (.dietaryFatTotal, totals.fat, .gram()),
+            (.dietarySugar, totals.sugar, .gram()),
+            (.dietarySodium, totals.sodium, .gramUnit(with: .milli)),
+        ]
+        let samples: Set<HKSample> = Set(values.compactMap { (id, value, unit) -> HKSample? in
+            guard value > 0 else { return nil }
+            return HKQuantitySample(
+                type: HKQuantityType(id),
+                quantity: HKQuantity(unit: unit, doubleValue: value),
+                start: meal.date, end: meal.date, metadata: metadata
+            )
+        })
+        guard !samples.isEmpty else { return }
+        let food = HKCorrelation(
+            type: HKCorrelationType(.food), start: meal.date, end: meal.date,
+            objects: samples, metadata: metadata
+        )
+        try await store.save(food)
+    }
+
+    /// 이 앱이 저장한 해당 끼니 기록을 건강 앱에서 지운다.
+    func deleteMeal(id: UUID) async {
+        let predicate = HKQuery.predicateForObjects(withMetadataKey: Self.mealIDKey, allowedValues: [id.uuidString])
+        _ = try? await store.deleteObjects(of: HKCorrelationType(.food), predicate: predicate)
+        for type in Self.dietaryWriteTypes {
+            _ = try? await store.deleteObjects(of: HKQuantityType(type), predicate: predicate)
+        }
     }
 
     // MARK: - 수량 지표

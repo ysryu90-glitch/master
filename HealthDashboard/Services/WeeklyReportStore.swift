@@ -84,7 +84,7 @@ final class WeeklyReportStore {
         형식:
         한 줄 총평 (이모지 1개)
         👍 잘한 점: 1~2개 (숫자 인용)
-        👀 아쉬운 점: 1~2개 (숫자 인용)
+        👀 아쉬운 점: 1~2개 (숫자 인용, 식단 기록이 있으면 식단도 포함)
         🎯 이번 주 목표: 구체적인 행동 2개
         전체 8문장 이내. 의학적 진단은 하지 마세요.
         """
@@ -193,6 +193,34 @@ final class WeeklyReportStore {
                 calendar.date(byAdding: .day, value: offset, to: weekStart).map { medications.isTaken(reminder, on: $0) } ?? false
             }.count
             lines.append("\(reminder.name) 복용: 7일 중 \(taken)일")
+        }
+
+        // 식단
+        let mealStore = MealStore.shared
+        let weekDays = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: weekStart) }
+        let previousDays = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: previousStart) }
+        let loggedNow = weekDays.filter { !mealStore.meals(on: $0).isEmpty }
+        let loggedBefore = previousDays.filter { !mealStore.meals(on: $0).isEmpty }
+        if !loggedNow.isEmpty {
+            lines.append("식단 기록한 날: 7일 중 \(loggedNow.count)일")
+            lines += [
+                compare("하루 평균 섭취 칼로리",
+                        average(loggedNow.map { mealStore.totals(on: $0).calories }),
+                        average(loggedBefore.map { mealStore.totals(on: $0).calories }),
+                        unit: "kcal"),
+                compare("하루 평균 단백질",
+                        average(loggedNow.map { mealStore.totals(on: $0).protein }),
+                        average(loggedBefore.map { mealStore.totals(on: $0).protein }),
+                        unit: "g"),
+            ].compactMap { $0 }
+            let weekMeals = weekDays.flatMap { mealStore.meals(on: $0) }
+            let lateMeals = weekMeals.filter { $0.type == .lateNight }.count
+            let drinks = weekMeals.filter { $0.items.contains(where: \.isAlcohol) }.count
+            lines.append("야식 \(lateMeals)회, 술 \(drinks)회")
+            let sodium = average(loggedNow.map { mealStore.totals(on: $0).sodium }) ?? 0
+            if sodium > 0 {
+                lines.append("하루 평균 나트륨: \(Int(sodium))mg (권장 2,000mg 이하)")
+            }
         }
 
         let habits = HabitStore.shared

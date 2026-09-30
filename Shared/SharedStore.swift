@@ -21,6 +21,9 @@ struct HealthSnapshot: Codable {
     var yesterdaySteps: Double?
     var yesterdayMove: Double?
     var yesterdayMoveGoal: Double?
+    /// 어제 식단 합계 (기록이 있을 때)
+    var yesterdayCalories: Double?
+    var yesterdayProtein: Double?
 
     /// `date`와 같은 날의 준비 점수가 있을 때만 반환
     func readiness(on date: Date) -> (score: Double, level: ReadinessLevel)? {

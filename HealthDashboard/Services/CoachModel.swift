@@ -33,6 +33,8 @@ final class CoachModel {
         "내 습관 중 뭐가 제일 안 좋아?",
         "지난달이랑 비교해서 수면 어때?",
         "이번 주 가족 일정 알려줘",
+        "오늘 저녁 뭐 먹으면 좋을까?",
+        "이번 주 식단 평가해줘",
     ]
 
     private static let instructions = """
@@ -41,7 +43,8 @@ final class CoachModel {
     - 오늘 바로 할 수 있는 행동을 1~2개 제안하세요.
     - 데이터에 없는 내용은 추측하지 말고 모른다고 말하세요.
     - 의학적 진단이나 약 용량 조언은 하지 말고, 이상이 계속되면 전문의 상담을 권하세요.
-    - 요약에 없는 기간(지난주, 지난달, 몇 주 전과 비교 등)이나 가족 일정이 필요하면 getHealthHistory 도구로 먼저 조회하세요.
+    - 요약에 없는 기간(지난주, 지난달, 몇 주 전과 비교 등), 식단 기록, 가족 일정이 필요하면 getHealthHistory 도구로 먼저 조회하세요.
+    - 식단 조언은 오늘 먹은 양, 단백질 목표, 준비 점수, 운동 여부를 함께 고려하세요.
     """
 
     func checkAvailability() {
@@ -232,6 +235,23 @@ enum CoachContext {
             }
             lines.append(line)
         }
+
+        // 식단
+        let mealStore = MealStore.shared
+        let todayMeals = mealStore.meals(on: .now)
+        if !todayMeals.isEmpty {
+            lines.append("오늘 식단 합계: " + mealStore.totals(on: .now).summary)
+            for meal in todayMeals {
+                lines.append("- \(meal.type.title) \(meal.date.formatted(date: .omitted, time: .shortened)): \(meal.title) (\(Int(meal.totals.calories))kcal)")
+            }
+        } else {
+            lines.append("오늘 식단: 아직 기록 없음")
+        }
+        if let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: .now), !mealStore.meals(on: yesterday).isEmpty {
+            lines.append("어제 식단 합계: " + mealStore.totals(on: yesterday).summary)
+        }
+        let workoutToday = dashboard.workouts.contains { Calendar.current.isDateInToday($0.start) }
+        lines.append("하루 단백질 목표: \(Int(mealStore.proteinTarget(weightKg: dashboard.values[.bodyMass]?.value, workoutDay: workoutToday)))g")
 
         // 오늘 가족 일정
         let todayEvents = CalendarStore.shared.todayEventTitles()

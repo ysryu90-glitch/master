@@ -21,7 +21,8 @@ struct HealthHistoryTool: Tool {
         @Guide(description: """
         조회할 항목 하나: sleep(수면), readiness(준비 점수), steps(걸음 수), activeEnergy(활동 에너지), \
         exercise(운동 시간), restingHeartRate(안정 시 심박수), hrv(심박 변이), weight(체중), \
-        workouts(운동 기록), medication(복약 기록), habits(습관 기록), calendar(앞으로의 가족 일정)
+        workouts(운동 기록), medication(복약 기록), habits(습관 기록), diet(식단 · 섭취 칼로리 · 탄단지), \
+        calendar(앞으로의 가족 일정)
         """)
         var item: String
 
@@ -92,6 +93,20 @@ enum HealthHistoryProvider {
             }
             return lines.isEmpty ? "습관 기록 없음" : lines.joined(separator: "\n")
 
+        case "diet", "식단", "meals", "식사", "칼로리":
+            let store = MealStore.shared
+            let records = store.dailyNutrition(days: days)
+            guard !records.isEmpty else { return "해당 기간 식단 기록 없음" }
+            if records.count <= 7 {
+                return records.map { day in
+                    let meals = store.meals(on: day.date).map { "\($0.type.title) \($0.title)" }.joined(separator: " / ")
+                    return "\(label(day.date)): \(day.totals.summary) — \(meals)"
+                }.joined(separator: "\n")
+            }
+            let calories = weekly(records.map { TrendPoint(date: $0.date, value: $0.totals.calories) }, unit: "kcal", digits: 0)
+            let protein = weekly(records.map { TrendPoint(date: $0.date, value: $0.totals.protein) }, unit: "g", digits: 0)
+            return "기록한 날 \(records.count)일\n[하루 섭취 칼로리]\n\(calories)\n[하루 단백질]\n\(protein)"
+
         case "calendar", "일정", "캘린더":
             return CalendarStore.shared.upcomingSummary(days: days)
 
@@ -105,7 +120,7 @@ enum HealthHistoryProvider {
                 "weight": .bodyMass, "체중": .bodyMass,
             ]
             guard let id = mapping[key], let metric = HealthMetric.metric(id) else {
-                return "알 수 없는 항목입니다. sleep, readiness, steps, activeEnergy, exercise, restingHeartRate, hrv, weight, workouts, medication, habits, calendar 중 하나를 쓰세요."
+                return "알 수 없는 항목입니다. sleep, readiness, steps, activeEnergy, exercise, restingHeartRate, hrv, weight, workouts, medication, habits, diet, calendar 중 하나를 쓰세요."
             }
             let points: [TrendPoint]
             if dashboard.demoMode {

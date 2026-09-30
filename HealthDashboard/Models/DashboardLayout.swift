@@ -2,11 +2,11 @@ import HealthKit
 import SwiftUI
 
 enum DashboardSection: Hashable, Codable, Identifiable {
-    case earlyWarning, readiness, medication, schedule, recommendation, habits, favorites, activityRings, sleep, workouts
+    case earlyWarning, readiness, medication, schedule, diet, recommendation, habits, favorites, activityRings, sleep, workouts
     case metrics(MetricCategory)
 
     static let defaultOrder: [DashboardSection] =
-        [.earlyWarning, .readiness, .medication, .schedule, .recommendation, .habits, .favorites, .activityRings, .sleep]
+        [.earlyWarning, .readiness, .medication, .schedule, .diet, .recommendation, .habits, .favorites, .activityRings, .sleep]
         + MetricCategory.allCases.map { .metrics($0) }
         + [.workouts]
 
@@ -16,6 +16,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .readiness: "readiness"
         case .habits: "habits"
         case .schedule: "schedule"
+        case .diet: "diet"
         case .medication: "medication"
         case .recommendation: "recommendation"
         case .favorites: "favorites"
@@ -32,6 +33,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .readiness: "준비 점수"
         case .habits: "오늘의 습관"
         case .schedule: "오늘의 가족 일정"
+        case .diet: "오늘의 식단"
         case .medication: "오늘의 복약"
         case .recommendation: "오늘의 운동 추천"
         case .favorites: "즐겨찾기"
@@ -48,6 +50,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .readiness: "gauge.with.needle.fill"
         case .habits: "list.bullet.clipboard.fill"
         case .schedule: "calendar"
+        case .diet: "fork.knife"
         case .medication: "pills.fill"
         case .recommendation: "figure.run.circle.fill"
         case .favorites: "star.fill"
@@ -64,6 +67,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .readiness: .mint
         case .habits: .teal
         case .schedule: .pink
+        case .diet: .orange
         case .medication: .purple
         case .recommendation: .green
         case .favorites: .yellow
