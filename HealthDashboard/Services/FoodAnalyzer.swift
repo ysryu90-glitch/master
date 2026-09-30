@@ -7,6 +7,7 @@ import FoundationModels
 /// 아이폰 안의 AI로 음식 사진 · 영양성분표 · 문장을 분석해 음식 목록으로 바꾼다.
 /// - 문장 분석: iOS 26 이상
 /// - 사진 분석: iOS 27 이상 + Xcode 27 이상으로 빌드 (온디바이스 모델의 이미지 입력)
+///   IOS27_SDK 플래그는 project.yml에서 iOS 27 SDK로 빌드할 때만 켜진다.
 @MainActor
 enum FoodAnalyzer {
     enum PhotoKind {
@@ -48,7 +49,7 @@ enum FoodAnalyzer {
     """
 
     static var supportsPhotos: Bool {
-        #if compiler(>=6.3) && canImport(FoundationModels)
+        #if IOS27_SDK && canImport(FoundationModels)
         if #available(iOS 27.0, *) { return CoachModel.availabilityProblem() == nil }
         #endif
         return false
@@ -79,7 +80,7 @@ enum FoodAnalyzer {
     /// 음식 사진 또는 영양성분표 사진 분석
     static func analyze(image: UIImage, kind: PhotoKind, hint: String = "") async throws -> [FoodItem] {
         if let problem = CoachModel.availabilityProblem() { throw AnalyzerError.unavailable(problem) }
-        #if compiler(>=6.3) && canImport(FoundationModels)
+        #if IOS27_SDK && canImport(FoundationModels)
         if #available(iOS 27.0, *) {
             let small = image.resized(maxDimension: 1024)
             let session = LanguageModelSession(instructions: kind == .label ? labelInstructions : instructions)
