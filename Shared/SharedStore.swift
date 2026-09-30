@@ -1,0 +1,80 @@
+import Foundation
+
+/// 위젯과 아침 브리핑에 쓰는 오늘의 건강 요약. 앱이 새로고침할 때마다 저장한다.
+struct HealthSnapshot: Codable {
+    var updatedAt: Date
+    var readinessDate: Date?
+    var readinessScore: Double?
+    var readinessLevel: ReadinessLevel?
+    var move: Double?
+    var moveGoal: Double?
+    var exercise: Double?
+    var exerciseGoal: Double?
+    var stand: Double?
+    var standGoal: Double?
+    var steps: Double?
+    var sleepSeconds: Double?
+    var restingHeartRate: Double?
+    var isDemo = false
+
+    /// `date`와 같은 날의 준비 점수가 있을 때만 반환
+    func readiness(on date: Date) -> (score: Double, level: ReadinessLevel)? {
+        guard let readinessDate, let readinessScore, let readinessLevel,
+              Calendar.current.isDate(readinessDate, inSameDayAs: date) else { return nil }
+        return (readinessScore, readinessLevel)
+    }
+
+    var readinessScoreText: String? {
+        readinessScore?.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    static let placeholder = HealthSnapshot(
+        updatedAt: .now, readinessDate: .now, readinessScore: 7.6, readinessLevel: .ready,
+        move: 420, moveGoal: 500, exercise: 26, exerciseGoal: 30, stand: 9, standGoal: 12,
+        steps: 8_420, sleepSeconds: 7.1 * 3600, restingHeartRate: 58
+    )
+}
+
+/// 앱과 위젯이 함께 쓰는 저장소 (App Group)
+enum SharedStore {
+    static let appGroupID = Bundle.main.object(forInfoDictionaryKey: "AppGroupID") as? String
+
+    static let defaults: UserDefaults = appGroupID.flatMap { UserDefaults(suiteName: $0) } ?? .standard
+
+    private enum Keys {
+        static let snapshot = "healthSnapshot"
+        static let primaryLocation = "primaryLocationID"
+        static let briefingEnabled = "briefingEnabled"
+        static let briefingHour = "briefingHour"
+        static let briefingMinute = "briefingMinute"
+    }
+
+    static var healthSnapshot: HealthSnapshot? {
+        get {
+            guard let data = defaults.data(forKey: Keys.snapshot) else { return nil }
+            return try? JSONDecoder().decode(HealthSnapshot.self, from: data)
+        }
+        set {
+            defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: Keys.snapshot)
+        }
+    }
+
+    // 설정 화면의 @AppStorage와 같은 키를 사용한다.
+    static let primaryLocationKey = Keys.primaryLocation
+    static let briefingEnabledKey = Keys.briefingEnabled
+    static let briefingHourKey = Keys.briefingHour
+    static let briefingMinuteKey = Keys.briefingMinute
+
+    static var primaryLocation: WeatherLocation {
+        let id = defaults.string(forKey: Keys.primaryLocation)
+        return WeatherLocation.all.first { $0.id == id } ?? WeatherLocation.all[0]
+    }
+
+    static var briefingEnabled: Bool { defaults.bool(forKey: Keys.briefingEnabled) }
+
+    static var briefingTime: DateComponents {
+        let hour = defaults.object(forKey: Keys.briefingHour) as? Int ?? 7
+        let minute = defaults.object(forKey: Keys.briefingMinute) as? Int ?? 0
+        return DateComponents(hour: hour, minute: minute)
+    }
+}

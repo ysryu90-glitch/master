@@ -6,3 +6,6 @@ DerivedData/
 build/
 *.xcuserstate
 .DS_Store
+
+# 개인 서명 설정
+Configs/Local.xcconfig

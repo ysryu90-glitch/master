@@ -21,6 +21,10 @@ SwiftUI + HealthKit + Swift Charts로 만들었고, 데이터를 **읽기만** �
 | 마음챙김 | 오늘 마음챙김 시간 |
 | 운동 | 최근 운동 기록 (시간, 거리, 칼로리, 평균 심박수) |
 
+- **오늘의 운동 추천**: 준비 점수 + 기본 지역 날씨·미세먼지를 합쳐 야외/실내 운동과 강도를 추천
+- **아침 브리핑 알림**: 매일 정한 시각에 준비 점수, 날씨, 미세먼지, 운동 추천, 우산 여부를 알림으로
+- **위젯**: 오늘 한눈에(준비 점수·추천·날씨), 활동 링, 날씨(지역 선택 / 중간 크기는 세 지역) — 홈 화면·잠금 화면
+- **대시보드 편집**: 섹션 순서 변경·숨기기, 즐겨찾기 지표 (카드를 길게 눌러도 추가/제거)
 - **날씨 탭**: 서울 은평구 · 중구 소공동 · 평택의 현재 날씨, 시간별(24시간) · 7일 예보, 미세먼지/초미세먼지, 자외선, 일출·일몰
   ([Open-Meteo](https://open-meteo.com) 무료 API 사용, API 키 불필요)
 - 각 지표 카드를 누르면 **7 / 30 / 90일 추세 차트**와 평균·최저·최고가 나옵니다.
@@ -43,6 +47,22 @@ SwiftUI + HealthKit + Swift Charts로 만들었고, 데이터를 **읽기만** �
 
 기록이 없는 요소는 빼고 나머지로 계산하며, 수면이나 HRV 중 하나는 있어야 점수를 냅니다. 의료용이 아닌 참고용 지표입니다.
 
+## 처음 한 번: 서명 설정 파일 만들기
+
+위젯과 앱이 데이터를 공유(App Group)하려면 번들 ID와 팀이 고정되어 있어야 합니다.
+`Configs/Local.xcconfig` 파일을 만들고 두 줄을 적어 두면, `xcodegen generate`를 다시 해도 서명 설정이 유지됩니다.
+
+```bash
+# 팀 ID 확인 (Xcode에서 Team을 한 번 선택해 둔 프로젝트가 있을 때)
+grep -m1 DEVELOPMENT_TEAM HealthDashboard.xcodeproj/project.pbxproj
+
+# Local.xcconfig 만들기 (값은 본인 것으로)
+printf 'DEVELOPMENT_TEAM = ABCDE12345\nBUNDLE_ID_PREFIX = com.myname\n' > Configs/Local.xcconfig
+```
+
+앱 번들 ID는 `<BUNDLE_ID_PREFIX>.healthdashboard`, 위젯은 `<BUNDLE_ID_PREFIX>.healthdashboard.widgets`,
+App Group은 `group.<BUNDLE_ID_PREFIX>.healthdashboard`로 자동 설정됩니다.
+
 ## 빌드 방법 (Mac 필요)
 
 1. Xcode 15 이상 설치 (iOS 17 이상 대상)
@@ -53,10 +73,8 @@ SwiftUI + HealthKit + Swift Charts로 만들었고, 데이터를 **읽기만** �
    xcodegen generate
    open HealthDashboard.xcodeproj
    ```
-3. Xcode에서 `HealthDashboard` 타깃 → **Signing & Capabilities**
-   - Team: 본인 Apple ID(개인 팀) 선택
-   - Bundle Identifier를 고유한 값으로 변경 (예: `com.<내이름>.healthdashboard`)
-   - HealthKit capability가 포함되어 있는지 확인 (`project.yml`에서 자동 설정됨)
+3. 위의 `Configs/Local.xcconfig`를 만들었다면 서명은 자동으로 설정됩니다.
+   (만들지 않았다면 `HealthDashboard`와 `HealthWidgets` 두 타깃 모두 Signing & Capabilities에서 Team과 번들 ID를 지정)
 4. 아이폰을 연결하고 실행(⌘R) → 처음 실행 시 **"건강 데이터 연결하기"** 를 눌러 읽기 권한을 허용
 
 > 실제 데이터는 **실기기**에서만 보입니다. 시뮬레이터에서는 "샘플 데이터로 둘러보기"를 사용하세요.
@@ -65,23 +83,32 @@ SwiftUI + HealthKit + Swift Charts로 만들었고, 데이터를 **읽기만** �
 ## 프로젝트 구조
 
 ```
-project.yml                     XcodeGen 설정 (Info.plist 권한 문구, HealthKit entitlement 포함)
+project.yml                     XcodeGen 설정 (앱 + 위젯 타깃, 권한 문구, entitlements)
+Configs/Signing.xcconfig        서명 기본값 (개인 값은 Local.xcconfig)
+Shared/                         앱과 위젯이 함께 쓰는 코드
+├── SharedStore.swift           App Group 저장소, 위젯용 건강 요약
+├── ReadinessLevel.swift        준비 점수 단계
+├── WorkoutAdvisor.swift        준비 점수 + 날씨 → 운동 추천
+├── Weather.swift               지역, 날씨 코드, 미세먼지 등급
+└── WeatherService.swift        Open-Meteo 날씨·대기질 조회
+HealthWidgets/                  위젯 (오늘 한눈에 / 활동 링 / 날씨)
 HealthDashboard/
 ├── App/HealthDashboardApp.swift    앱 진입점, 첫 화면 분기
 ├── Models/
 │   ├── HealthMetric.swift          지표 정의 (HealthKit 타입, 단위, 카테고리, 아이콘)
 │   ├── HealthData.swift            활동 링 / 수면 / 운동 / 추세 데이터 모델
 │   ├── Readiness.swift             준비 점수 모델과 계산
-│   └── Weather.swift               지역, 날씨 코드, 미세먼지 등급
+│   └── DashboardLayout.swift       대시보드 순서 / 숨김 / 즐겨찾기
 ├── Services/
 │   ├── HealthKitService.swift      HealthKit 권한 요청과 조회
 │   ├── DashboardModel.swift        화면 상태 (@Observable), 새로고침
 │   ├── DemoData.swift              샘플 데이터
-│   └── WeatherService.swift        Open-Meteo 날씨·대기질 조회
+│   └── BriefingScheduler.swift     아침 브리핑 알림, 백그라운드 새로고침
 ├── Resources/                      앱 아이콘, Info.plist, entitlements
 └── Views/
     ├── DashboardView.swift         메인 요약 화면
     ├── ReadinessViews.swift        준비 점수 카드 / 상세
+    ├── DashboardEditorView.swift   대시보드 편집, 운동 추천 카드
     ├── WeatherView.swift           날씨 탭 / 지역별 상세
     ├── MetricDetailView.swift      지표별 추세 차트
     ├── SleepDetailView.swift       수면 상세
@@ -99,9 +126,15 @@ HealthMetric(id: .distanceSwimming, title: "수영 거리", symbol: "figure.pool
              unit: .meter(), unitLabel: "m", aggregation: .cumulative)
 ```
 
+## 아침 브리핑의 한계
+
+iOS는 앱을 정해진 시각에 정확히 실행해 주지 않습니다. 그래서 앱이 실행될 때마다(직접 열거나, iOS가 백그라운드로 깨울 때)
+앞으로 7일치 알림을 그때 알고 있는 최신 정보로 다시 예약합니다.
+날씨는 예보라 미리 알 수 있지만, 준비 점수는 그날 아침 데이터가 필요하고 잠긴 상태에서는 건강 데이터를 읽을 수 없어,
+그날 점수가 아직 없으면 알림에 "앱을 열면 계산해요"라고 표시됩니다.
+
 ## 다음에 해볼 만한 것
 
-- 홈 화면 위젯 (WidgetKit)으로 활동 링 / 걸음 수 표시
 - 심전도(ECG), 불규칙한 심장 리듬 알림 기록 표시
 - `HKObserverQuery` + 백그라운드 전달로 새 데이터가 들어오면 자동 갱신
 - 목표 설정 및 주간 리포트

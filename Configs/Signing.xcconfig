@@ -1,0 +1,11 @@
+// 서명 기본값입니다. 이 파일은 고치지 말고, 같은 폴더에 Local.xcconfig 를 만들어
+// 아래 두 줄을 본인 값으로 적어 주세요. (Local.xcconfig 는 git에 올라가지 않습니다)
+//
+//   DEVELOPMENT_TEAM = ABCDE12345
+//   BUNDLE_ID_PREFIX = com.내이름
+
+BUNDLE_ID_PREFIX = com.example
+DEVELOPMENT_TEAM =
+APP_GROUP_ID = group.$(BUNDLE_ID_PREFIX).healthdashboard
+
+#include? "Local.xcconfig"

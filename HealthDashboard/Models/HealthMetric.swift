@@ -2,7 +2,7 @@ import HealthKit
 import SwiftUI
 
 /// 대시보드에서 지표를 묶어 보여주는 카테고리 (건강 앱의 분류를 따름)
-enum MetricCategory: String, CaseIterable, Identifiable {
+enum MetricCategory: String, CaseIterable, Identifiable, Codable {
     case activity, heart, respiratory, vitals, body, mobility, hearing, nutrition
 
     var id: String { rawValue }

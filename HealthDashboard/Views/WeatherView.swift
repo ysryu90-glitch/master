@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WeatherView: View {
-    @State private var model = WeatherModel()
+    @Environment(WeatherModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {

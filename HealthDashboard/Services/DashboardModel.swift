@@ -1,5 +1,7 @@
 import HealthKit
 import Observation
+import UIKit
+import WidgetKit
 
 @MainActor
 @Observable
@@ -38,6 +40,11 @@ final class DashboardModel {
     /// 기록이 없는 지표 카드도 표시할지 여부
     var showEmptyMetrics: Bool {
         didSet { UserDefaults.standard.set(showEmptyMetrics, forKey: Keys.showEmpty) }
+    }
+
+    /// 대시보드 순서 / 숨김 / 즐겨찾기
+    var layout = DashboardLayout.load() {
+        didSet { layout.save() }
     }
 
     let isHealthDataAvailable = HealthKitService.isAvailable
@@ -89,26 +96,56 @@ final class DashboardModel {
             readiness = ReadinessCalculator.history(days: 7, inputs: DemoData.readinessInputs())
             mindfulMinutesToday = 10
             workouts = DemoData.workouts()
-            lastUpdated = .now
-            return
+        } else {
+            // 기기가 잠겨 있으면 건강 데이터를 읽을 수 없다. 빈 값으로 덮어쓰지 않고 알림만 갱신한다.
+            guard UIApplication.shared.isProtectedDataAvailable else {
+                await BriefingScheduler.reschedule()
+                return
+            }
+
+            let service = self.service
+            async let values = Self.fetchValues(service)
+            async let activity = try? service.dailyActivity(days: 7)
+            async let sleep = try? service.sleepNights(days: ReadinessInputs.lookbackDays)
+            async let mindful = try? service.mindfulMinutesToday()
+            async let workouts = try? service.recentWorkouts(limit: 30)
+
+            self.values = await values
+            self.activity = await activity ?? []
+            self.sleepNights = await sleep ?? []
+            self.mindfulMinutesToday = await mindful ?? 0
+            self.workouts = await workouts ?? []
+
+            let inputs = await service.readinessInputs(sleepNights: sleepNights)
+            readiness = ReadinessCalculator.history(days: 7, inputs: inputs)
         }
 
-        let service = self.service
-        async let values = Self.fetchValues(service)
-        async let activity = try? service.dailyActivity(days: 7)
-        async let sleep = try? service.sleepNights(days: ReadinessInputs.lookbackDays)
-        async let mindful = try? service.mindfulMinutesToday()
-        async let workouts = try? service.recentWorkouts(limit: 30)
-
-        self.values = await values
-        self.activity = await activity ?? []
-        self.sleepNights = await sleep ?? []
-        self.mindfulMinutesToday = await mindful ?? 0
-        self.workouts = await workouts ?? []
-
-        let inputs = await service.readinessInputs(sleepNights: sleepNights)
-        readiness = ReadinessCalculator.history(days: 7, inputs: inputs)
         lastUpdated = .now
+        publishSnapshot()
+        await BriefingScheduler.reschedule()
+    }
+
+    /// 위젯과 아침 브리핑이 읽을 수 있도록 오늘 요약을 공유 저장소에 저장한다.
+    private func publishSnapshot() {
+        let today = self.today
+        let readiness = todayReadiness
+        SharedStore.healthSnapshot = HealthSnapshot(
+            updatedAt: .now,
+            readinessDate: readiness?.date,
+            readinessScore: readiness?.score,
+            readinessLevel: readiness?.level,
+            move: today?.move,
+            moveGoal: today?.moveGoal,
+            exercise: today?.exercise,
+            exerciseGoal: today?.exerciseGoal,
+            stand: today?.stand,
+            standGoal: today?.standGoal,
+            steps: values[.stepCount]?.value,
+            sleepSeconds: lastNight.flatMap { Calendar.current.isDateInToday($0.wakeDate) ? $0.asleep : nil },
+            restingHeartRate: values[.restingHeartRate]?.value,
+            isDemo: demoMode
+        )
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private nonisolated static func fetchValues(_ service: HealthKitService) async -> [HKQuantityTypeIdentifier: MetricValue] {
