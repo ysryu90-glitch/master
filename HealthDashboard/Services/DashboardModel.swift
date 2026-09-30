@@ -14,7 +14,10 @@ final class DashboardModel {
 
     private(set) var values: [HKQuantityTypeIdentifier: MetricValue] = [:]
     private(set) var activity: [DailyActivity] = []
+    /// 준비 점수 기준선 계산을 위해 38일치를 보관한다.
     private(set) var sleepNights: [SleepNight] = []
+    /// 최근 7일 준비 점수 (오래된 날 → 오늘)
+    private(set) var readiness: [ReadinessScore] = []
     private(set) var mindfulMinutesToday: Double = 0
     private(set) var workouts: [WorkoutItem] = []
     private(set) var isLoading = false
@@ -52,6 +55,12 @@ final class DashboardModel {
 
     var lastNight: SleepNight? { sleepNights.last }
 
+    var recentSleepNights: [SleepNight] { Array(sleepNights.suffix(14)) }
+
+    var todayReadiness: ReadinessScore? {
+        readiness.last.flatMap { Calendar.current.isDateInToday($0.date) ? $0 : nil }
+    }
+
     func visibleMetrics(in category: MetricCategory) -> [HealthMetric] {
         HealthMetric.metrics(in: category).filter { showEmptyMetrics || values[$0.id] != nil }
     }
@@ -76,7 +85,8 @@ final class DashboardModel {
         if demoMode {
             values = DemoData.values()
             activity = DemoData.dailyActivity(days: 7)
-            sleepNights = DemoData.sleepNights(days: 14)
+            sleepNights = DemoData.sleepNights(days: ReadinessInputs.lookbackDays)
+            readiness = ReadinessCalculator.history(days: 7, inputs: DemoData.readinessInputs())
             mindfulMinutesToday = 10
             workouts = DemoData.workouts()
             lastUpdated = .now
@@ -86,7 +96,7 @@ final class DashboardModel {
         let service = self.service
         async let values = Self.fetchValues(service)
         async let activity = try? service.dailyActivity(days: 7)
-        async let sleep = try? service.sleepNights(days: 14)
+        async let sleep = try? service.sleepNights(days: ReadinessInputs.lookbackDays)
         async let mindful = try? service.mindfulMinutesToday()
         async let workouts = try? service.recentWorkouts(limit: 30)
 
@@ -95,6 +105,9 @@ final class DashboardModel {
         self.sleepNights = await sleep ?? []
         self.mindfulMinutesToday = await mindful ?? 0
         self.workouts = await workouts ?? []
+
+        let inputs = await service.readinessInputs(sleepNights: sleepNights)
+        readiness = ReadinessCalculator.history(days: 7, inputs: inputs)
         lastUpdated = .now
     }
 

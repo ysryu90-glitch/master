@@ -83,6 +83,38 @@ final class HealthKitService: @unchecked Sendable {
         return points
     }
 
+    // MARK: - 준비 점수 입력
+
+    func readinessInputs(sleepNights: [SleepNight]) async -> ReadinessInputs {
+        let days = ReadinessInputs.lookbackDays
+        async let hrv = hrvTrend(days: days)
+        async let restingHeartRate = trend(.restingHeartRate, days: days)
+        async let activeEnergy = trend(.activeEnergyBurned, days: days)
+        async let wristTemperature = trend(.appleSleepingWristTemperature, days: days)
+        async let respiratoryRate = trend(.respiratoryRate, days: days)
+
+        return ReadinessInputs(
+            hrv: await hrv,
+            restingHeartRate: await restingHeartRate,
+            activeEnergy: await activeEnergy,
+            wristTemperature: await wristTemperature,
+            respiratoryRate: await respiratoryRate,
+            sleepNights: sleepNights
+        )
+    }
+
+    /// iOS 27 + 애플워치 Series 12의 RMSSD 기록이 충분하면 그것을, 아니면 기존 SDNN을 사용
+    private func hrvTrend(days: Int) async -> [TrendPoint] {
+        let rmssd = await trend(.hrvRMSSD, days: days)
+        if rmssd.count >= 7 { return rmssd }
+        return await trend(.heartRateVariabilitySDNN, days: days)
+    }
+
+    private func trend(_ id: HKQuantityTypeIdentifier, days: Int) async -> [TrendPoint] {
+        guard let metric = HealthMetric.metric(id) else { return [] }
+        return (try? await dailyTrend(for: metric, days: days)) ?? []
+    }
+
     // MARK: - 활동 링
 
     func dailyActivity(days: Int) async throws -> [DailyActivity] {

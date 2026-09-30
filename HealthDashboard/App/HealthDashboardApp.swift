@@ -17,7 +17,12 @@ struct RootView: View {
 
     var body: some View {
         if model.hasRequestedAuthorization || model.demoMode {
-            DashboardView()
+            TabView {
+                DashboardView()
+                    .tabItem { Label("건강", systemImage: "heart.text.square.fill") }
+                WeatherView()
+                    .tabItem { Label("날씨", systemImage: "cloud.sun.fill") }
+            }
         } else {
             WelcomeView()
         }

@@ -67,7 +67,8 @@ struct HealthMetric: Identifiable, Hashable, @unchecked Sendable {
     /// 표시용 배율 (예: HealthKit 퍼센트 0.97 → 97%)
     var multiplier: Double = 1
 
-    var type: HKQuantityType { HKQuantityType(id) }
+    /// `all`에는 현재 iOS에서 지원되는 지표만 들어 있으므로 항상 값이 있다.
+    var type: HKQuantityType { HKQuantityType.quantityType(forIdentifier: id)! }
     var tint: Color { category.tint }
 
     func displayValue(_ quantity: HKQuantity) -> Double {
@@ -90,9 +91,20 @@ extension HKUnit {
     static let milligramsPerDeciliter = HKUnit(from: "mg/dL")
 }
 
+extension HKQuantityTypeIdentifier {
+    /// iOS 27에 추가된 RMSSD 심박 변이. 이전 SDK에서도 빌드되도록 문자열로 정의한다.
+    static let hrvRMSSD = HKQuantityTypeIdentifier(rawValue: "HKQuantityTypeIdentifierHeartRateVariabilityRMSSD")
+}
+
 extension HealthMetric {
-    /// 애플워치 / 아이폰이 기록하는 주요 수량 지표 전체 목록
-    static let all: [HealthMetric] = [
+    /// 애플워치 / 아이폰이 기록하는 주요 수량 지표 전체 목록 (현재 iOS에서 지원하는 것만)
+    static let all: [HealthMetric] = catalog.filter { HKQuantityType.quantityType(forIdentifier: $0.id) != nil }
+
+    static func metric(_ id: HKQuantityTypeIdentifier) -> HealthMetric? {
+        all.first { $0.id == id }
+    }
+
+    private static let catalog: [HealthMetric] = [
         // 활동
         HealthMetric(id: .stepCount, title: "걸음 수", symbol: "shoeprints.fill", category: .activity,
                      unit: .count(), unitLabel: "걸음", aggregation: .cumulative),
@@ -121,6 +133,8 @@ extension HealthMetric {
         HealthMetric(id: .walkingHeartRateAverage, title: "걷기 평균 심박수", symbol: "figure.walk.motion", category: .heart,
                      unit: .beatsPerMinute, unitLabel: "BPM", aggregation: .discrete),
         HealthMetric(id: .heartRateVariabilitySDNN, title: "심박 변이", symbol: "waveform.path.ecg", category: .heart,
+                     unit: .secondUnit(with: .milli), unitLabel: "ms", aggregation: .discrete),
+        HealthMetric(id: .hrvRMSSD, title: "심박 변이 (RMSSD)", symbol: "waveform.path.ecg.rectangle", category: .heart,
                      unit: .secondUnit(with: .milli), unitLabel: "ms", aggregation: .discrete),
         HealthMetric(id: .heartRateRecoveryOneMinute, title: "심박 회복", symbol: "arrow.down.heart", category: .heart,
                      unit: .beatsPerMinute, unitLabel: "BPM", aggregation: .discrete),

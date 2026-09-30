@@ -13,6 +13,13 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     header
 
+                    NavigationLink {
+                        ReadinessDetailView()
+                    } label: {
+                        ReadinessCard(score: model.todayReadiness)
+                    }
+                    .buttonStyle(.plain)
+
                     ActivitySummaryCard(today: model.today, week: model.activity)
 
                     NavigationLink {

@@ -7,7 +7,7 @@ enum DemoData {
         .basalEnergyBurned: 1_620, .appleExerciseTime: 38, .appleStandTime: 142,
         .flightsClimbed: 9, .distanceCycling: 4.3, .timeInDaylight: 64,
         .heartRate: 72, .restingHeartRate: 58, .walkingHeartRateAverage: 96,
-        .heartRateVariabilitySDNN: 46, .heartRateRecoveryOneMinute: 28, .vo2Max: 41.2,
+        .heartRateVariabilitySDNN: 46, .hrvRMSSD: 38, .heartRateRecoveryOneMinute: 28, .vo2Max: 41.2,
         .oxygenSaturation: 97, .respiratoryRate: 14.6,
         .appleSleepingWristTemperature: 35.42, .bodyTemperature: 36.5,
         .bloodPressureSystolic: 118, .bloodPressureDiastolic: 76, .bloodGlucose: 94,
@@ -96,6 +96,21 @@ enum DemoData {
             result.wakeTime = result.bedtime?.addingTimeInterval(result.inBed)
             return result
         }
+    }
+
+    static func readinessInputs() -> ReadinessInputs {
+        let days = ReadinessInputs.lookbackDays
+        func series(_ id: HKQuantityTypeIdentifier) -> [TrendPoint] {
+            HealthMetric.metric(id).map { trend(for: $0, days: days) } ?? []
+        }
+        return ReadinessInputs(
+            hrv: series(.heartRateVariabilitySDNN),
+            restingHeartRate: series(.restingHeartRate),
+            activeEnergy: series(.activeEnergyBurned),
+            wristTemperature: series(.appleSleepingWristTemperature),
+            respiratoryRate: series(.respiratoryRate),
+            sleepNights: sleepNights(days: days)
+        )
     }
 
     static func workouts() -> [WorkoutItem] {

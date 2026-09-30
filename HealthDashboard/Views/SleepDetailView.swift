@@ -27,11 +27,11 @@ struct SleepDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("최근 \(model.sleepNights.count)일 수면")
+                    Text("최근 \(model.recentSleepNights.count)일 수면")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
 
-                    if model.sleepNights.isEmpty {
+                    if model.recentSleepNights.isEmpty {
                         ContentUnavailableView("수면 기록이 없습니다", systemImage: "bed.double")
                             .frame(height: 240)
                     } else {
@@ -51,7 +51,7 @@ struct SleepDetailView: View {
     private var chart: some View {
         let stages: [SleepStage] = [.deep, .core, .rem, .unspecified, .awake]
         return Chart {
-            ForEach(model.sleepNights) { night in
+            ForEach(model.recentSleepNights) { night in
                 ForEach(stages) { stage in
                     BarMark(
                         x: .value("날짜", night.wakeDate, unit: .day),
@@ -78,7 +78,7 @@ struct SleepDetailView: View {
     }
 
     private var averageRow: some View {
-        let nights = model.sleepNights
+        let nights = model.recentSleepNights
         let average = nights.reduce(0) { $0 + $1.asleep } / Double(max(nights.count, 1))
         return HStack {
             Text("평균 수면 시간")
