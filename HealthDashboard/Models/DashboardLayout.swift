@@ -2,11 +2,11 @@ import HealthKit
 import SwiftUI
 
 enum DashboardSection: Hashable, Codable, Identifiable {
-    case earlyWarning, readiness, medication, recommendation, habits, favorites, activityRings, sleep, workouts
+    case earlyWarning, readiness, medication, schedule, recommendation, habits, favorites, activityRings, sleep, workouts
     case metrics(MetricCategory)
 
     static let defaultOrder: [DashboardSection] =
-        [.earlyWarning, .readiness, .medication, .recommendation, .habits, .favorites, .activityRings, .sleep]
+        [.earlyWarning, .readiness, .medication, .schedule, .recommendation, .habits, .favorites, .activityRings, .sleep]
         + MetricCategory.allCases.map { .metrics($0) }
         + [.workouts]
 
@@ -15,6 +15,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .earlyWarning: "earlyWarning"
         case .readiness: "readiness"
         case .habits: "habits"
+        case .schedule: "schedule"
         case .medication: "medication"
         case .recommendation: "recommendation"
         case .favorites: "favorites"
@@ -30,6 +31,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .earlyWarning: "컨디션 이상 경보 (있을 때만)"
         case .readiness: "준비 점수"
         case .habits: "오늘의 습관"
+        case .schedule: "오늘의 가족 일정"
         case .medication: "오늘의 복약"
         case .recommendation: "오늘의 운동 추천"
         case .favorites: "즐겨찾기"
@@ -45,6 +47,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .earlyWarning: "exclamationmark.triangle.fill"
         case .readiness: "gauge.with.needle.fill"
         case .habits: "list.bullet.clipboard.fill"
+        case .schedule: "calendar"
         case .medication: "pills.fill"
         case .recommendation: "figure.run.circle.fill"
         case .favorites: "star.fill"
@@ -60,6 +63,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .earlyWarning: .red
         case .readiness: .mint
         case .habits: .teal
+        case .schedule: .pink
         case .medication: .purple
         case .recommendation: .green
         case .favorites: .yellow

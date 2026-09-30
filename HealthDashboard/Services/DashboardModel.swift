@@ -120,6 +120,7 @@ final class DashboardModel {
     private func backgroundUpdate() async {
         if let lastUpdated, Date.now.timeIntervalSince(lastUpdated) < 5 * 60 { return }
         await refresh()
+        await WeeklyReportStore.shared.generateIfNeeded()
     }
 
     func refresh() async {

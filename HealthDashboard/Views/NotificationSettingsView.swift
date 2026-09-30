@@ -16,6 +16,7 @@ struct NotificationSettingsView: View {
     private var primaryLocationID = SharedStore.autoLocationToken
     @AppStorage(SharedStore.autoLocationKey, store: SharedStore.defaults) private var autoLocationID: String?
     @AppStorage(SharedStore.earlyWarningEnabledKey, store: SharedStore.defaults) private var earlyWarningEnabled = true
+    @AppStorage(WeeklyReportStore.enabledKey) private var weeklyReportEnabled = true
     @Environment(HabitStore.self) private var habits
 
     /// '자동'이면 현재 위치 기준으로 바꾼 실제 지역
@@ -200,6 +201,9 @@ struct NotificationSettingsView: View {
             Toggle(isOn: $earlyWarningEnabled) {
                 Label("컨디션 이상 경보", systemImage: "exclamationmark.triangle.fill")
             }
+            Toggle(isOn: $weeklyReportEnabled) {
+                Label("AI 주간 리포트 (월요일)", systemImage: "chart.bar.doc.horizontal")
+            }
             Toggle(isOn: $habits.reminderEnabled) {
                 Label("습관 기록 알림", systemImage: "list.bullet.clipboard.fill")
             }
@@ -213,7 +217,7 @@ struct NotificationSettingsView: View {
         } header: {
             Text("건강 알림")
         } footer: {
-            Text("컨디션 이상 경보: 수면 중 심박수↑ · HRV↓ · 손목 온도↑ · 호흡수↑ 중 여러 신호가 겹치면 하루 한 번 알려드려요. 습관 기록 알림: 매일 밤 오늘의 습관(술·카페인·야근 등)을 기록하라고 알려드려요.")
+            Text("컨디션 이상 경보: 수면 중 심박수↑ · HRV↓ · 손목 온도↑ · 호흡수↑ 중 여러 신호가 겹치면 하루 한 번 알려드려요. 습관 기록 알림: 매일 밤 오늘의 습관(술·카페인·야근 등)을 기록하라고 알려드려요. AI 주간 리포트: 월요일에 지난주 요약과 이번 주 목표를 AI가 써서 보내 드려요.")
         }
     }
 

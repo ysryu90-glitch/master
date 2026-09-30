@@ -31,6 +31,8 @@ final class CoachModel {
         "오늘 운동해도 될까?",
         "수면을 개선하려면?",
         "내 습관 중 뭐가 제일 안 좋아?",
+        "지난달이랑 비교해서 수면 어때?",
+        "이번 주 가족 일정 알려줘",
     ]
 
     private static let instructions = """
@@ -39,16 +41,22 @@ final class CoachModel {
     - 오늘 바로 할 수 있는 행동을 1~2개 제안하세요.
     - 데이터에 없는 내용은 추측하지 말고 모른다고 말하세요.
     - 의학적 진단이나 약 용량 조언은 하지 말고, 이상이 계속되면 전문의 상담을 권하세요.
+    - 요약에 없는 기간(지난주, 지난달, 몇 주 전과 비교 등)이나 가족 일정이 필요하면 getHealthHistory 도구로 먼저 조회하세요.
     """
 
     func checkAvailability() {
+        unavailableReason = Self.availabilityProblem()
+    }
+
+    /// nil이면 AI 모델 사용 가능
+    static func availabilityProblem() -> String? {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             switch SystemLanguageModel.default.availability {
             case .available:
-                unavailableReason = nil
+                return nil
             case .unavailable(let reason):
-                unavailableReason = switch reason {
+                return switch reason {
                 case .deviceNotEligible:
                     "이 기기는 Apple Intelligence를 지원하지 않아요."
                 case .appleIntelligenceNotEnabled:
@@ -59,12 +67,22 @@ final class CoachModel {
                     "지금은 AI 모델을 사용할 수 없어요."
                 }
             }
-        } else {
-            unavailableReason = "AI 코치는 iOS 26 이상에서 사용할 수 있어요."
         }
+        return "AI 코치는 iOS 26 이상에서 사용할 수 있어요."
         #else
-        unavailableReason = "AI 코치를 쓰려면 Xcode 26 이상으로 빌드해야 해요."
+        return "AI 코치를 쓰려면 Xcode 26 이상으로 빌드해야 해요."
         #endif
+    }
+
+    /// 한 번만 묻고 답을 받는 생성 (주간 리포트 등). 실패하면 nil
+    static func generate(instructions: String, prompt: String) async -> String? {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *), availabilityProblem() == nil {
+            let session = LanguageModelSession(instructions: instructions)
+            return try? await session.respond(to: prompt).content
+        }
+        #endif
+        return nil
     }
 
     /// 새 대화 시작 (최신 건강 데이터로 다시 시작)
@@ -104,7 +122,10 @@ final class CoachModel {
     @available(iOS 26.0, *)
     private func currentSession(context: String) -> LanguageModelSession {
         if let existing = session as? LanguageModelSession { return existing }
-        let created = LanguageModelSession(instructions: Self.instructions + "\n\n[내 건강 데이터]\n" + context)
+        let created = LanguageModelSession(
+            tools: [HealthHistoryTool()],
+            instructions: Self.instructions + "\n\n[내 건강 데이터]\n" + context
+        )
         session = created
         return created
     }
@@ -147,8 +168,8 @@ enum CoachContext {
             lines.append("⚠️ \(warning.title): " + warning.signals.joined(separator: ", "))
         }
 
-        // 수면 (최근 7일)
-        let nights = dashboard.sleepNights.suffix(7).map { night -> String in
+        // 수면 (최근 3일 — 더 긴 기간은 도구로 조회)
+        let nights = dashboard.sleepNights.suffix(3).map { night -> String in
             let bedtime = night.bedtime.map { $0.formatted(date: .omitted, time: .shortened) } ?? "?"
             return "\(night.wakeDate.formatted(.dateTime.month(.defaultDigits).day())) \(night.asleep.hoursMinutesText)(취침 \(bedtime))"
         }
@@ -196,7 +217,7 @@ enum CoachContext {
         if !todayTags.isEmpty {
             lines.append("오늘 기록한 습관: " + todayTags.map(\.title).joined(separator: ", "))
         }
-        for insight in dashboard.habitInsights(habits).prefix(4) {
+        for insight in dashboard.habitInsights(habits).prefix(2) {
             lines.append("습관 분석 - \(insight.title)(\(insight.count)일): " + insight.effects.map(\.text).joined(separator: ", "))
         }
 
@@ -210,6 +231,12 @@ enum CoachContext {
                 line += ", 미세먼지 \(grade.title)"
             }
             lines.append(line)
+        }
+
+        // 오늘 가족 일정
+        let todayEvents = CalendarStore.shared.todayEventTitles()
+        if !todayEvents.isEmpty {
+            lines.append("오늘 일정: " + todayEvents.joined(separator: ", "))
         }
 
         return lines.joined(separator: "\n")

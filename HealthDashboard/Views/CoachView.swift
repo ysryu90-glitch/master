@@ -27,6 +27,13 @@ struct CoachView: View {
             .navigationTitle("AI 코치")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink {
+                        WeeklyReportView()
+                    } label: {
+                        Label("주간 리포트", systemImage: "chart.bar.doc.horizontal")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         coach.reset()

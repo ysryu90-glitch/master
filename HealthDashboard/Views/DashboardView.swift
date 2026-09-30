@@ -85,6 +85,7 @@ struct DashboardView: View {
                 await LocationService.shared.refreshIfNeeded()
                 await model.refresh()
                 await weather.refresh()
+                await WeeklyReportStore.shared.generateIfNeeded()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
@@ -127,6 +128,9 @@ struct DashboardView: View {
 
         case .habits:
             HabitCard()
+
+        case .schedule:
+            TodayScheduleCard()
 
         case .recommendation:
             RecommendationCard(

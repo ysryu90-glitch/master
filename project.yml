@@ -10,8 +10,8 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.4"
-    CURRENT_PROJECT_VERSION: "5"
+    MARKETING_VERSION: "1.5"
+    CURRENT_PROJECT_VERSION: "6"
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1"
 # 실행(⌘R)은 앱 스킴으로. 위젯은 앱과 함께 설치된다.
@@ -43,6 +43,8 @@ targets:
           - UIInterfaceOrientationPortrait
         NSHealthShareUsageDescription: 걸음 수, 심박수, 수면, 운동 등 건강 데이터를 한 화면에 보여주기 위해 읽기 권한이 필요합니다.
         NSHealthUpdateUsageDescription: 이 앱은 건강 데이터를 기록하지 않습니다.
+        NSCalendarsFullAccessUsageDescription: 가족 캘린더의 일정을 보여주고, 앱에서 추가한 일정을 애플 캘린더에 저장하기 위해 사용합니다.
+        NSCalendarsUsageDescription: 가족 캘린더의 일정을 보여주고, 앱에서 추가한 일정을 애플 캘린더에 저장하기 위해 사용합니다.
         NSLocationWhenInUseUsageDescription: 지금 있는 곳과 가까운 지역(은평구·소공동·평택)의 날씨를 자동으로 보여주기 위해 사용합니다. 위치는 기기 밖으로 보내지 않습니다.
         UIBackgroundModes:
           - fetch
