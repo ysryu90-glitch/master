@@ -2,17 +2,19 @@ import HealthKit
 import SwiftUI
 
 enum DashboardSection: Hashable, Codable, Identifiable {
-    case readiness, medication, recommendation, favorites, activityRings, sleep, workouts
+    case earlyWarning, readiness, medication, recommendation, habits, favorites, activityRings, sleep, workouts
     case metrics(MetricCategory)
 
     static let defaultOrder: [DashboardSection] =
-        [.readiness, .medication, .recommendation, .favorites, .activityRings, .sleep]
+        [.earlyWarning, .readiness, .medication, .recommendation, .habits, .favorites, .activityRings, .sleep]
         + MetricCategory.allCases.map { .metrics($0) }
         + [.workouts]
 
     var id: String {
         switch self {
+        case .earlyWarning: "earlyWarning"
         case .readiness: "readiness"
+        case .habits: "habits"
         case .medication: "medication"
         case .recommendation: "recommendation"
         case .favorites: "favorites"
@@ -25,7 +27,9 @@ enum DashboardSection: Hashable, Codable, Identifiable {
 
     var title: String {
         switch self {
+        case .earlyWarning: "컨디션 이상 경보 (있을 때만)"
         case .readiness: "준비 점수"
+        case .habits: "오늘의 습관"
         case .medication: "오늘의 복약"
         case .recommendation: "오늘의 운동 추천"
         case .favorites: "즐겨찾기"
@@ -38,7 +42,9 @@ enum DashboardSection: Hashable, Codable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .earlyWarning: "exclamationmark.triangle.fill"
         case .readiness: "gauge.with.needle.fill"
+        case .habits: "list.bullet.clipboard.fill"
         case .medication: "pills.fill"
         case .recommendation: "figure.run.circle.fill"
         case .favorites: "star.fill"
@@ -51,7 +57,9 @@ enum DashboardSection: Hashable, Codable, Identifiable {
 
     var tint: Color {
         switch self {
+        case .earlyWarning: .red
         case .readiness: .mint
+        case .habits: .teal
         case .medication: .purple
         case .recommendation: .green
         case .favorites: .yellow

@@ -3,18 +3,22 @@ import SwiftUI
 import WidgetKit
 
 enum LocationOption: String, AppEnum {
-    case eunpyeong, sogong, pyeongtaek
+    case auto, eunpyeong, sogong, pyeongtaek
 
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "지역"
 
     static var caseDisplayRepresentations: [LocationOption: DisplayRepresentation] = [
+        .auto: "📍 자동 (현재 위치)",
         .eunpyeong: "은평구",
         .sogong: "소공동",
         .pyeongtaek: "평택",
     ]
 
+    /// 자동이면 앱이 마지막으로 확인한 현재 위치에서 가장 가까운 지역
     var location: WeatherLocation {
-        WeatherLocation.all.first { $0.id == rawValue } ?? WeatherLocation.all[0]
+        self == .auto
+            ? SharedStore.currentLocation
+            : WeatherLocation.all.first { $0.id == rawValue } ?? WeatherLocation.all[0]
     }
 }
 
@@ -22,7 +26,7 @@ struct SelectLocationIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "지역 선택"
     static var description = IntentDescription("위젯에 표시할 지역을 고르세요.")
 
-    @Parameter(title: "지역", default: .eunpyeong)
+    @Parameter(title: "지역", default: .auto)
     var location: LocationOption
 
     init() {}
@@ -34,6 +38,8 @@ struct WeatherEntry: TimelineEntry {
     let report: WeatherReport?
     /// 중간 크기 위젯용: 세 지역 모두
     var all: [WeatherLocation.ID: WeatherReport] = [:]
+    /// 현재 위치에서 가장 가까운 지역 (표시용)
+    var currentID: String? = SharedStore.autoLocationID
 }
 
 struct WeatherProvider: AppIntentTimelineProvider {
@@ -165,8 +171,14 @@ struct WeatherWidgetView: View {
 
     private func column(_ location: WeatherLocation, report: WeatherReport?) -> some View {
         VStack(spacing: 5) {
-            Text(location.name)
-                .font(.caption.weight(.semibold))
+            HStack(spacing: 2) {
+                if location.id == entry.currentID {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 8))
+                }
+                Text(location.name)
+            }
+            .font(.caption.weight(.semibold))
             if let report {
                 Image(systemName: report.current.condition.symbol(isDay: report.current.isDay))
                     .symbolRenderingMode(.multicolor)

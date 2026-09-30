@@ -3,16 +3,26 @@ import SwiftUI
 struct WeatherView: View {
     @Environment(WeatherModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(SharedStore.autoLocationKey, store: SharedStore.defaults) private var currentLocationID: String?
+
+    /// 지금 있는 곳과 가장 가까운 지역을 맨 위에
+    private var orderedLocations: [WeatherLocation] {
+        model.locations.sorted { $0.id == currentLocationID && $1.id != currentLocationID }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    ForEach(model.locations) { location in
+                    ForEach(orderedLocations) { location in
                         NavigationLink {
                             WeatherDetailView(location: location, report: model.reports[location.id])
                         } label: {
-                            LocationWeatherCard(location: location, report: model.reports[location.id])
+                            LocationWeatherCard(
+                                location: location,
+                                report: model.reports[location.id],
+                                isCurrent: location.id == currentLocationID
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -34,7 +44,10 @@ struct WeatherView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("날씨")
             .refreshable { await model.refresh(force: true) }
-            .task { await model.refresh() }
+            .task {
+                await LocationService.shared.refreshIfNeeded()
+                await model.refresh()
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await model.refresh() } }
             }
@@ -50,12 +63,23 @@ struct WeatherView: View {
 private struct LocationWeatherCard: View {
     let location: WeatherLocation
     let report: WeatherReport?
+    var isCurrent = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(location.name)
-                    .font(.title2.bold())
+                HStack(spacing: 6) {
+                    Text(location.name)
+                        .font(.title2.bold())
+                    if isCurrent {
+                        Label("현재 위치", systemImage: "location.fill")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.15), in: Capsule())
+                            .foregroundStyle(.blue)
+                    }
+                }
                 Text(location.address)
                     .font(.caption)
                     .foregroundStyle(.secondary)

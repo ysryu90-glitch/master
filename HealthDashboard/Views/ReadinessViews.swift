@@ -106,11 +106,11 @@ struct ReadinessDetailView: View {
                     .card()
                 }
 
-                if model.readiness.count > 1 {
+                if model.recentReadiness.count > 1 {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("최근 7일")
                             .font(.headline)
-                        Chart(model.readiness) { day in
+                        Chart(model.recentReadiness) { day in
                             BarMark(
                                 x: .value("날짜", day.date, unit: .day),
                                 y: .value("점수", day.score)

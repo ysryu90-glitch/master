@@ -8,10 +8,12 @@ struct DashboardView: View {
     @State private var showEditor = false
     @State private var showNotifications = false
     @AppStorage(SharedStore.primaryLocationKey, store: SharedStore.defaults)
-    private var primaryLocationID = WeatherLocation.all[0].id
+    private var primaryLocationID = SharedStore.autoLocationToken
+    @AppStorage(SharedStore.autoLocationKey, store: SharedStore.defaults)
+    private var autoLocationID: String?
 
     private var primaryLocation: WeatherLocation {
-        WeatherLocation.all.first { $0.id == primaryLocationID } ?? WeatherLocation.all[0]
+        SharedStore.resolveLocation(id: primaryLocationID, autoID: autoLocationID)
     }
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
@@ -68,12 +70,14 @@ struct DashboardView: View {
                 }
             }
             .task {
+                await LocationService.shared.refreshIfNeeded()
                 await model.refresh()
                 await weather.refresh()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task {
+                        await LocationService.shared.refreshIfNeeded()
                         await model.refresh()
                         await weather.refresh()
                     }
@@ -103,6 +107,14 @@ struct DashboardView: View {
 
         case .medication:
             MedicationCard { showNotifications = true }
+
+        case .earlyWarning:
+            if let warning = model.earlyWarning {
+                EarlyWarningCard(warning: warning)
+            }
+
+        case .habits:
+            HabitCard()
 
         case .recommendation:
             RecommendationCard(

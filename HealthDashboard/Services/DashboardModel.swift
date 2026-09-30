@@ -1,6 +1,7 @@
 import HealthKit
 import Observation
 import UIKit
+import UserNotifications
 import WidgetKit
 
 @MainActor
@@ -19,10 +20,13 @@ final class DashboardModel {
 
     private(set) var values: [HKQuantityTypeIdentifier: MetricValue] = [:]
     private(set) var activity: [DailyActivity] = []
-    /// 준비 점수 기준선 계산을 위해 38일치를 보관한다.
+    /// 준비 점수 기준선 · 습관 분석을 위해 45일치를 보관한다.
     private(set) var sleepNights: [SleepNight] = []
-    /// 최근 7일 준비 점수 (오래된 날 → 오늘)
+    /// 최근 30일 준비 점수 (오래된 날 → 오늘)
     private(set) var readiness: [ReadinessScore] = []
+    /// 준비 점수 계산에 쓴 원본 데이터 (조기 경보 · 습관 분석 · AI 코치용)
+    private(set) var readinessInputs: ReadinessInputs?
+    private(set) var earlyWarning: EarlyWarning?
     private(set) var mindfulMinutesToday: Double = 0
     private(set) var workouts: [WorkoutItem] = []
     private(set) var yesterdaySteps: Double?
@@ -73,6 +77,19 @@ final class DashboardModel {
         readiness.last.flatMap { Calendar.current.isDateInToday($0.date) ? $0 : nil }
     }
 
+    var recentReadiness: [ReadinessScore] { Array(readiness.suffix(7)) }
+
+    /// 최근 30일 습관 분석
+    func habitInsights(_ habits: HabitStore) -> [HabitInsight] {
+        HabitAnalyzer.insights(
+            habits: habits,
+            readiness: readiness,
+            nights: sleepNights,
+            hrv: readinessInputs?.hrv ?? [],
+            workouts: workouts
+        )
+    }
+
     func visibleMetrics(in category: MetricCategory) -> [HealthMetric] {
         HealthMetric.metrics(in: category).filter { showEmptyMetrics || values[$0.id] != nil }
     }
@@ -114,7 +131,10 @@ final class DashboardModel {
             values = DemoData.values()
             activity = DemoData.dailyActivity(days: 7)
             sleepNights = DemoData.sleepNights(days: ReadinessInputs.lookbackDays)
-            readiness = ReadinessCalculator.history(days: 7, inputs: DemoData.readinessInputs())
+            let inputs = DemoData.readinessInputs()
+            readinessInputs = inputs
+            readiness = ReadinessCalculator.history(days: 30, inputs: inputs)
+            earlyWarning = nil
             mindfulMinutesToday = 10
             workouts = DemoData.workouts()
             yesterdaySteps = 7_920
@@ -141,12 +161,34 @@ final class DashboardModel {
             self.yesterdaySteps = await steps.first { Calendar.current.isDateInYesterday($0.date) }?.value
 
             let inputs = await service.readinessInputs(sleepNights: sleepNights)
-            readiness = ReadinessCalculator.history(days: 7, inputs: inputs)
+            readinessInputs = inputs
+            readiness = ReadinessCalculator.history(days: 30, inputs: inputs)
+            earlyWarning = EarlyWarningDetector.evaluate(inputs: inputs)
+            await notifyEarlyWarningIfNeeded()
         }
 
         lastUpdated = .now
         publishSnapshot()
         await BriefingScheduler.reschedule()
+    }
+
+    /// 경고가 새로 생기면 하루 한 번만 알림을 보낸다.
+    private func notifyEarlyWarningIfNeeded() async {
+        guard let warning = earlyWarning, SharedStore.earlyWarningEnabled else { return }
+        let key = "earlyWarningNotifiedDay"
+        let today = HabitStore.dayKey(.now)
+        guard UserDefaults.standard.string(forKey: key) != today else { return }
+        // 알림 권한이 없으면 대시보드 카드로만 보여준다.
+        guard await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .authorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "⚠️ \(warning.title)"
+        content.body = (warning.signals + [warning.message]).joined(separator: "\n")
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "early-warning-\(today)", content: content, trigger: nil)
+        if (try? await UNUserNotificationCenter.current().add(request)) != nil {
+            UserDefaults.standard.set(today, forKey: key)
+        }
     }
 
     /// 위젯과 아침 브리핑이 읽을 수 있도록 오늘 요약을 공유 저장소에 저장한다.

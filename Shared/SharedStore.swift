@@ -70,12 +70,44 @@ enum SharedStore {
     static let briefingHourKey = Keys.briefingHour
     static let briefingMinuteKey = Keys.briefingMinute
 
+    /// 기본 지역 설정값이 이 값이면 '현재 위치에서 가장 가까운 지역'을 쓴다.
+    static let autoLocationToken = "auto"
+    /// 앱이 마지막으로 확인한 '현재 위치에서 가장 가까운 지역' ID
+    static let autoLocationKey = "autoLocationID"
+
+    static var isAutoLocation: Bool {
+        (defaults.string(forKey: Keys.primaryLocation) ?? autoLocationToken) == autoLocationToken
+    }
+
+    static var autoLocationID: String? {
+        get { defaults.string(forKey: autoLocationKey) }
+        set { defaults.set(newValue, forKey: autoLocationKey) }
+    }
+
+    /// 설정값(지역 ID 또는 "auto")을 실제 지역으로 바꾼다.
+    static func resolveLocation(id: String?, autoID: String?) -> WeatherLocation {
+        let resolvedID = (id ?? autoLocationToken) == autoLocationToken ? autoID : id
+        return WeatherLocation.all.first { $0.id == resolvedID } ?? WeatherLocation.all[0]
+    }
+
+    /// 추천·알림·위젯에 쓰는 지역 (자동이면 현재 위치 기준)
     static var primaryLocation: WeatherLocation {
-        let id = defaults.string(forKey: Keys.primaryLocation)
-        return WeatherLocation.all.first { $0.id == id } ?? WeatherLocation.all[0]
+        resolveLocation(id: defaults.string(forKey: Keys.primaryLocation), autoID: autoLocationID)
+    }
+
+    /// 지금 있는 곳과 가장 가까운 지역 (위치를 모르면 기본 지역)
+    static var currentLocation: WeatherLocation {
+        autoLocationID.flatMap { id in WeatherLocation.all.first { $0.id == id } } ?? primaryLocation
     }
 
     static var briefingEnabled: Bool { defaults.bool(forKey: Keys.briefingEnabled) }
+
+    static let earlyWarningEnabledKey = "earlyWarningEnabled"
+
+    /// 컨디션 이상 경보 알림 (기본: 켬)
+    static var earlyWarningEnabled: Bool {
+        defaults.object(forKey: earlyWarningEnabledKey) as? Bool ?? true
+    }
 
     static let reportIncludeWeatherKey = "reportIncludeWeather"
 

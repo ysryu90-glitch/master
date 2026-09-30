@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 struct WeatherLocation: Identifiable, Hashable {
@@ -15,6 +16,15 @@ struct WeatherLocation: Identifiable, Hashable {
         WeatherLocation(id: "pyeongtaek", name: "평택", address: "경기도 평택시",
                         latitude: 36.9921, longitude: 127.1128),
     ]
+
+    /// 현재 위치에서 가장 가까운 지역
+    static func nearest(to coordinate: CLLocationCoordinate2D) -> WeatherLocation {
+        let here = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return all.min {
+            here.distance(from: CLLocation(latitude: $0.latitude, longitude: $0.longitude))
+                < here.distance(from: CLLocation(latitude: $1.latitude, longitude: $1.longitude))
+        } ?? all[0]
+    }
 }
 
 struct WeatherReport {

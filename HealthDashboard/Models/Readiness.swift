@@ -82,8 +82,8 @@ struct ReadinessInputs {
     /// 심박수가 '수면 중 평균 심박수'인지 (아니면 안정 시 심박수)
     var heartRateIsSleeping = false
 
-    /// 오늘을 포함해 필요한 조회 기간 (기준선 30일 + 기록 7일)
-    static let lookbackDays = 38
+    /// 오늘을 포함해 필요한 조회 기간 (습관 분석용 30일 기록 + 기준선)
+    static let lookbackDays = 45
 }
 
 /// 애플의 공식 준비 점수 알고리즘은 공개되지 않았고 HealthKit으로도 제공되지 않는다.
@@ -191,7 +191,7 @@ enum ReadinessCalculator {
     // MARK: - 계산 도우미
 
     /// `day`의 값과 그 이전 30일 기준선. `todayWindow`일 전까지의 값도 '오늘'로 인정한다.
-    private static func split(_ points: [TrendPoint], on day: Date, todayWindow: Int = 0)
+    static func split(_ points: [TrendPoint], on day: Date, todayWindow: Int = 0)
         -> (today: Double, baseline: [Double])? {
         let calendar = Calendar.current
         let earliestToday = calendar.date(byAdding: .day, value: -todayWindow, to: day)!
@@ -201,11 +201,11 @@ enum ReadinessCalculator {
         return (today.value, baseline)
     }
 
-    private static func mean(_ values: [Double]) -> Double {
+    static func mean(_ values: [Double]) -> Double {
         values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
     }
 
-    private static func zScore(_ value: Double, _ baseline: [Double]) -> Double {
+    static func zScore(_ value: Double, _ baseline: [Double]) -> Double {
         let average = mean(baseline)
         let variance = baseline.reduce(0) { $0 + pow($1 - average, 2) } / Double(max(baseline.count - 1, 1))
         // 기록이 너무 일정하면 작은 변화도 크게 보이므로 최소 편차를 둔다.

@@ -13,7 +13,15 @@ struct NotificationSettingsView: View {
     @AppStorage(SharedStore.briefingMinuteKey, store: SharedStore.defaults) private var reportMinute = 0
     @AppStorage(SharedStore.reportIncludeWeatherKey, store: SharedStore.defaults) private var includeWeather = true
     @AppStorage(SharedStore.primaryLocationKey, store: SharedStore.defaults)
-    private var primaryLocationID = WeatherLocation.all[0].id
+    private var primaryLocationID = SharedStore.autoLocationToken
+    @AppStorage(SharedStore.autoLocationKey, store: SharedStore.defaults) private var autoLocationID: String?
+    @AppStorage(SharedStore.earlyWarningEnabledKey, store: SharedStore.defaults) private var earlyWarningEnabled = true
+    @Environment(HabitStore.self) private var habits
+
+    /// '자동'이면 현재 위치 기준으로 바꾼 실제 지역
+    private var resolvedLocationID: String {
+        SharedStore.resolveLocation(id: primaryLocationID, autoID: autoLocationID).id
+    }
 
     @State private var authorization: UNAuthorizationStatus = .notDetermined
     @State private var scheduled: [ScheduledNotification] = []
@@ -35,6 +43,7 @@ struct NotificationSettingsView: View {
 
             reportSection
             medicationSection
+            healthAlertSection
         }
         .navigationTitle("알림")
         .navigationBarTitleDisplayMode(.inline)
@@ -55,7 +64,12 @@ struct NotificationSettingsView: View {
         .onChange(of: reportHour) { _, _ in rescheduleReport() }
         .onChange(of: reportMinute) { _, _ in rescheduleReport() }
         .onChange(of: includeWeather) { _, _ in rescheduleReport() }
-        .onChange(of: primaryLocationID) { _, _ in rescheduleReport() }
+        .onChange(of: primaryLocationID) { _, _ in
+            Task {
+                await LocationService.shared.refreshIfNeeded()
+                rescheduleReport()
+            }
+        }
         .task { await refreshStatus() }
     }
 
@@ -97,7 +111,8 @@ struct NotificationSettingsView: View {
                 Task {
                     guard await ensurePermission() else { return }
                     await medications.reschedule()
-                    await BriefingScheduler.reschedule(report: weather.reports[primaryLocationID])
+                    await habits.rescheduleReminder()
+                    await BriefingScheduler.reschedule(report: weather.reports[resolvedLocationID])
                     await refreshStatus()
                 }
             }
@@ -159,13 +174,14 @@ struct NotificationSettingsView: View {
                 Toggle("날씨 · 운동 추천 포함", isOn: $includeWeather)
                 if includeWeather {
                     Picker("날씨 지역", selection: $primaryLocationID) {
+                        Text("📍 자동 (현재 위치)").tag(SharedStore.autoLocationToken)
                         ForEach(WeatherLocation.all) { location in
                             Text(location.name).tag(location.id)
                         }
                     }
                 }
                 Button("미리보기 보내기") {
-                    let report = weather.reports[primaryLocationID]
+                    let report = weather.reports[resolvedLocationID]
                     sendPreview { await BriefingScheduler.sendPreview(report: report) }
                 }
             }
@@ -173,6 +189,31 @@ struct NotificationSettingsView: View {
             Text("매일 컨디션 요약")
         } footer: {
             Text("정한 시각에 준비 점수, 요소별 상태(HRV·수면 중 심박·수면), 지난밤 수면, 어제 활동을 요약해서 알려드려요. 준비 점수는 그날 앱이 한 번이라도 갱신된 뒤에 정확해요. 워치 데이터가 들어오면 앱이 백그라운드에서 자동으로 갱신을 시도합니다.")
+        }
+    }
+
+    // MARK: - 컨디션 이상 경보 · 습관 기록 알림
+
+    private var healthAlertSection: some View {
+        @Bindable var habits = habits
+        return Section {
+            Toggle(isOn: $earlyWarningEnabled) {
+                Label("컨디션 이상 경보", systemImage: "exclamationmark.triangle.fill")
+            }
+            Toggle(isOn: $habits.reminderEnabled) {
+                Label("습관 기록 알림", systemImage: "list.bullet.clipboard.fill")
+            }
+            .onChange(of: habits.reminderEnabled) { _, enabled in
+                if enabled { enableNotifications() }
+            }
+            if habits.reminderEnabled {
+                DatePicker("기록 알림 시각", selection: timeBinding(hour: $habits.reminderHour, minute: $habits.reminderMinute),
+                           displayedComponents: .hourAndMinute)
+            }
+        } header: {
+            Text("건강 알림")
+        } footer: {
+            Text("컨디션 이상 경보: 수면 중 심박수↑ · HRV↓ · 손목 온도↑ · 호흡수↑ 중 여러 신호가 겹치면 하루 한 번 알려드려요. 습관 기록 알림: 매일 밤 오늘의 습관(술·카페인·야근 등)을 기록하라고 알려드려요.")
         }
     }
 
@@ -251,14 +292,15 @@ struct NotificationSettingsView: View {
         Task {
             guard await ensurePermission() else { return }
             await medications.reschedule()
-            await BriefingScheduler.reschedule(report: weather.reports[primaryLocationID])
+            await habits.rescheduleReminder()
+            await BriefingScheduler.reschedule(report: weather.reports[resolvedLocationID])
             await refreshStatus()
         }
     }
 
     private func rescheduleReport() {
         Task {
-            await BriefingScheduler.reschedule(report: weather.reports[primaryLocationID])
+            await BriefingScheduler.reschedule(report: weather.reports[resolvedLocationID])
             await refreshStatus()
         }
     }
