@@ -58,6 +58,8 @@ struct RootView: View {
                 WeatherView()
                     .tabItem { Label("날씨", systemImage: "cloud.sun.fill") }
             }
+            // 숫자와 제목이 부드러워 보이도록 둥근 글꼴 사용
+            .fontDesign(.rounded)
         } else {
             WelcomeView()
         }

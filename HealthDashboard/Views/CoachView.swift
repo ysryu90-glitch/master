@@ -180,14 +180,23 @@ private struct MessageBubble: View {
                 Text(message.text)
                     .padding(12)
                     .foregroundStyle(.white)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 16))
+                    .background(
+                        LinearGradient(colors: [.purple, .pink], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    )
             } else {
                 Image(systemName: "sparkles")
-                    .foregroundStyle(.purple)
-                    .padding(.top, 10)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        LinearGradient(colors: [.purple, .pink], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: Circle()
+                    )
+                    .padding(.top, 4)
                 Text(message.text)
                     .padding(12)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .textSelection(.enabled)
                 Spacer(minLength: 24)
             }

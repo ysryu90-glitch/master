@@ -21,7 +21,7 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 22) {
                     header
 
                     ForEach(model.layout.visibleSections) { section in
@@ -34,8 +34,20 @@ struct DashboardView: View {
                 }
                 .padding()
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("요약")
+            .background {
+                // 위쪽에 오늘 컨디션 색이 은은하게 번지는 배경
+                ZStack(alignment: .top) {
+                    Color(.systemGroupedBackground)
+                    LinearGradient(
+                        colors: [(model.todayReadiness?.level.gradient.first ?? .pink).opacity(0.22), .clear],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .frame(height: 420)
+                }
+                .ignoresSafeArea()
+            }
+            .navigationTitle("건강")
+            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: HealthMetric.self) { MetricDetailView(metric: $0) }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -176,17 +188,29 @@ struct DashboardView: View {
         }
     }
 
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<12: "좋은 아침이에요"
+        case 12..<18: "좋은 오후예요"
+        case 18..<23: "좋은 저녁이에요"
+        default: "편안한 밤 되세요"
+        }
+    }
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(Date.now.formatted(.dateTime.month().day().weekday(.wide)))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
+            Text(greeting)
+                .font(.system(size: 32, weight: .bold, design: .rounded))
             HStack(spacing: 6) {
                 if model.isLoading {
                     ProgressView().controlSize(.mini)
                     Text("불러오는 중…")
                 } else if let updated = model.lastUpdated {
-                    Text("업데이트: \(updated.formatted(date: .omitted, time: .shortened))")
+                    Image(systemName: "arrow.clockwise")
+                    Text("\(updated.formatted(date: .omitted, time: .shortened)) 업데이트")
                 }
                 if model.demoMode {
                     Text("샘플 데이터")
@@ -198,6 +222,7 @@ struct DashboardView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+        .padding(.top, 4)
     }
 }
 

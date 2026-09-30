@@ -65,6 +65,11 @@ private struct LocationWeatherCard: View {
     let report: WeatherReport?
     var isCurrent = false
 
+    private var gradient: [Color] {
+        report.map { $0.current.condition.gradient(isDay: $0.current.isDay) }
+            ?? [Color(white: 0.6), Color(white: 0.45)]
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
@@ -74,47 +79,60 @@ private struct LocationWeatherCard: View {
                     if isCurrent {
                         Label("현재 위치", systemImage: "location.fill")
                             .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.15), in: Capsule())
-                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(.white.opacity(0.25), in: Capsule())
                     }
                 }
                 Text(location.address)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .opacity(0.8)
                 if let report {
                     Text(report.current.condition.description)
-                        .font(.subheadline)
+                        .font(.subheadline.weight(.medium))
+                        .padding(.top, 4)
                     HStack(spacing: 8) {
                         if let today = report.today {
                             Text("최고 \(today.high.degreesText) 최저 \(today.low.degreesText)")
+                                .opacity(0.9)
                         }
                         if let grade = report.airQuality?.overallGrade {
-                            Text("미세먼지 \(grade.title)")
-                                .foregroundStyle(grade.color)
+                            HStack(spacing: 4) {
+                                Circle().fill(grade.color).frame(width: 7, height: 7)
+                                Text("미세먼지 \(grade.title)")
+                            }
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(.white.opacity(0.22), in: Capsule())
                         }
                     }
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
                 }
             }
 
             Spacer(minLength: 0)
 
             if let report {
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 2) {
                     Image(systemName: report.current.condition.symbol(isDay: report.current.isDay))
                         .symbolRenderingMode(.multicolor)
-                        .font(.system(size: 34))
+                        .font(.system(size: 36))
+                        .shadow(color: .black.opacity(0.15), radius: 4)
                     Text(report.current.temperature.degreesText)
-                        .font(.system(size: 44, weight: .light, design: .rounded))
+                        .font(.system(size: 50, weight: .light, design: .rounded))
                 }
             } else {
-                ProgressView()
+                ProgressView().tint(.white)
             }
         }
-        .card()
+        .foregroundStyle(.white)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 26, style: .continuous)
+        )
+        .shadow(color: (gradient.last ?? .gray).opacity(0.3), radius: 12, x: 0, y: 6)
     }
 }
 
@@ -146,7 +164,7 @@ struct WeatherDetailView: View {
         VStack(spacing: 6) {
             Text(location.address)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .opacity(0.85)
             Image(systemName: report.current.condition.symbol(isDay: report.current.isDay))
                 .symbolRenderingMode(.multicolor)
                 .font(.system(size: 56))
@@ -158,11 +176,19 @@ struct WeatherDetailView: View {
             if let today = report.today {
                 Text("최고 \(today.high.degreesText) · 최저 \(today.low.degreesText) · 체감 \(report.current.apparentTemperature.degreesText)")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .opacity(0.85)
             }
         }
+        .foregroundStyle(.white)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .card()
+        .background(
+            LinearGradient(
+                colors: report.current.condition.gradient(isDay: report.current.isDay),
+                startPoint: .top, endPoint: .bottom
+            ),
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+        )
     }
 
     private func hourly(_ report: WeatherReport) -> some View {

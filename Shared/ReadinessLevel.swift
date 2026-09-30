@@ -40,6 +40,16 @@ enum ReadinessLevel: String, Codable {
         }
     }
 
+    /// 카드 · 위젯 배경용 그라데이션 (흰 글씨가 잘 보이는 진한 톤)
+    var gradient: [Color] {
+        switch self {
+        case .recover: [Color(red: 0.94, green: 0.33, blue: 0.40), Color(red: 0.74, green: 0.17, blue: 0.45)]
+        case .paceYourself: [Color(red: 1.00, green: 0.62, blue: 0.24), Color(red: 0.93, green: 0.35, blue: 0.25)]
+        case .ready: [Color(red: 0.20, green: 0.75, blue: 0.52), Color(red: 0.05, green: 0.52, blue: 0.56)]
+        case .goForIt: [Color(red: 0.19, green: 0.78, blue: 0.86), Color(red: 0.27, green: 0.42, blue: 0.95)]
+        }
+    }
+
     var symbol: String {
         switch self {
         case .recover: "bed.double.fill"

@@ -83,8 +83,11 @@ struct WeatherWidget: Widget {
         AppIntentConfiguration(kind: "WeatherWidget", intent: SelectLocationIntent.self, provider: WeatherProvider()) { entry in
             WeatherWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(colors: [Color.blue.opacity(0.85), Color.cyan.opacity(0.7)],
-                                   startPoint: .top, endPoint: .bottom)
+                    LinearGradient(
+                        colors: entry.report.map { $0.current.condition.gradient(isDay: $0.current.isDay) }
+                            ?? [Color.blue.opacity(0.85), Color.cyan.opacity(0.7)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
                 }
         }
         .configurationDisplayName("날씨")

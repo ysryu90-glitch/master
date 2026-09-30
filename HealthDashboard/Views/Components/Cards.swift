@@ -6,19 +6,36 @@ struct SectionHeader: View {
     let tint: Color
 
     var body: some View {
-        Label(title, systemImage: symbol)
-            .font(.title3.bold())
-            .foregroundStyle(tint)
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 26, height: 26)
+                .background(tint.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.primary)
+        }
     }
 }
 
-/// 카드 공통 배경
+/// 카드 공통 배경: 둥근 모서리 + 라이트 모드에서는 부드러운 그림자, 다크 모드에서는 얇은 테두리
 struct CardBackground: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         content
-            .padding()
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .background {
+                shape
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .shadow(color: .black.opacity(colorScheme == .dark ? 0 : 0.06), radius: 14, x: 0, y: 6)
+            }
+            .overlay {
+                shape.strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.08 : 0), lineWidth: 1)
+            }
     }
 }
 
@@ -32,29 +49,40 @@ struct MetricCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(metric.title, systemImage: metric.symbol)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(metric.tint)
+            HStack {
+                Image(systemName: metric.symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(metric.tint)
+                    .frame(width: 30, height: 30)
+                    .background(metric.tint.opacity(0.15), in: Circle())
+                Spacer()
+                if let value {
+                    Text(caption(for: value))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Text(metric.title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
 
             if let value {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(metric.formatted(value.value))
-                        .font(.title2.weight(.semibold).monospacedDigit())
+                        .font(.system(size: 26, weight: .bold, design: .rounded).monospacedDigit())
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                     Text(metric.unitLabel)
-                        .font(.caption)
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
-                Text(caption(for: value))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             } else {
                 Text("데이터 없음")
-                    .font(.title3)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
                     .foregroundStyle(.tertiary)
-                Text(" ").font(.caption2)
             }
         }
         .card()

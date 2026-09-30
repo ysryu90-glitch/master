@@ -5,66 +5,90 @@ import SwiftUI
 struct ReadinessGauge: View {
     let score: ReadinessScore?
     var lineWidth: CGFloat = 12
+    /// 색 배경 위에 그릴 때 (흰색 게이지)
+    var onColor = false
 
     var body: some View {
-        let color = score?.level.color ?? .gray
+        let color = onColor ? Color.white : (score?.level.color ?? .gray)
         ZStack {
             Circle()
-                .stroke(color.opacity(0.18), lineWidth: lineWidth)
+                .stroke(color.opacity(onColor ? 0.25 : 0.18), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: (score?.score ?? 0) / 10)
                 .stroke(color.gradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                .shadow(color: .black.opacity(onColor ? 0.15 : 0), radius: 4)
                 .animation(.easeOut(duration: 0.8), value: score?.score)
             VStack(spacing: 0) {
                 Text(score?.scoreText ?? "–")
                     .font(.system(size: lineWidth * 2.6, weight: .bold, design: .rounded).monospacedDigit())
                 Text("/ 10")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(.caption2.weight(.semibold))
+                    .opacity(0.7)
             }
+            .foregroundStyle(onColor ? Color.white : Color.primary)
         }
     }
 }
 
+/// 대시보드 맨 위의 준비 점수 카드. 컨디션 단계에 따라 배경색이 바뀐다.
 struct ReadinessCard: View {
     let score: ReadinessScore?
 
+    private var gradient: [Color] { score?.level.gradient ?? [Color(white: 0.55), Color(white: 0.4)] }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                SectionHeader(title: "준비 점수", symbol: "gauge.with.needle.fill", tint: score?.level.color ?? .mint)
+                Label("준비 점수", systemImage: "gauge.with.needle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .opacity(0.9)
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .font(.footnote.weight(.bold))
+                    .opacity(0.7)
             }
 
-            HStack(spacing: 18) {
-                ReadinessGauge(score: score)
-                    .frame(width: 104, height: 104)
+            HStack(spacing: 20) {
+                ReadinessGauge(score: score, lineWidth: 13, onColor: true)
+                    .frame(width: 112, height: 112)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     if let score {
                         Label(score.level.title, systemImage: score.level.symbol)
-                            .font(.title3.bold())
-                            .foregroundStyle(score.level.color)
+                            .font(.title2.bold())
                         Text(score.level.advice)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .opacity(0.9)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text("데이터 수집 중")
-                            .font(.title3.bold())
+                            .font(.title2.bold())
                         Text("애플워치를 차고 며칠 잠들면 심박 변이·수면 기준선이 만들어져 점수가 계산됩니다.")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .opacity(0.9)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
         }
-        .card()
+        .foregroundStyle(.white)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(alignment: .topTrailing) {
+                    // 은은한 빛 번짐 효과
+                    Circle()
+                        .fill(.white.opacity(0.18))
+                        .frame(width: 180, height: 180)
+                        .blur(radius: 40)
+                        .offset(x: 40, y: -60)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .shadow(color: (gradient.first ?? .gray).opacity(0.35), radius: 16, x: 0, y: 8)
+        }
     }
 }
 

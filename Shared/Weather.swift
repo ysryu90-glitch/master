@@ -151,6 +151,24 @@ struct WeatherCondition {
         }
     }
 
+    /// 날씨에 어울리는 배경 그라데이션 (흰 글씨용)
+    func gradient(isDay: Bool = true) -> [Color] {
+        switch code {
+        case 0, 1, 2:
+            isDay
+                ? [Color(red: 0.33, green: 0.66, blue: 0.98), Color(red: 0.14, green: 0.42, blue: 0.86)]
+                : [Color(red: 0.12, green: 0.15, blue: 0.36), Color(red: 0.27, green: 0.21, blue: 0.52)]
+        case 3, 45, 48:
+            [Color(red: 0.55, green: 0.62, blue: 0.72), Color(red: 0.36, green: 0.43, blue: 0.55)]
+        case 71, 73, 75, 77, 85, 86:
+            [Color(red: 0.60, green: 0.71, blue: 0.86), Color(red: 0.40, green: 0.51, blue: 0.72)]
+        case 95, 96, 99:
+            [Color(red: 0.27, green: 0.24, blue: 0.42), Color(red: 0.12, green: 0.12, blue: 0.24)]
+        default: // 비 · 이슬비 · 소나기
+            [Color(red: 0.31, green: 0.41, blue: 0.58), Color(red: 0.18, green: 0.25, blue: 0.40)]
+        }
+    }
+
     func symbol(isDay: Bool = true) -> String {
         switch code {
         case 0: isDay ? "sun.max.fill" : "moon.stars.fill"
