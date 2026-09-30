@@ -14,6 +14,16 @@ settings:
     CURRENT_PROJECT_VERSION: "3"
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1"
+# 실행(⌘R)은 앱 스킴으로. 위젯은 앱과 함께 설치된다.
+schemes:
+  HealthDashboard:
+    build:
+      targets:
+        HealthDashboard: all
+    run:
+      config: Debug
+    archive:
+      config: Release
 targets:
   HealthDashboard:
     type: application
