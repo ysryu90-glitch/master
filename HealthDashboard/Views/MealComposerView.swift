@@ -8,6 +8,8 @@ struct ComposerRequest: Identifiable {
     var image: UIImage?
     var existing: MealEntry?
     var date: Date = .now
+    /// 말로 입력 칸에 미리 채울 내용 (예: 계획한 저녁 메뉴)
+    var prefillText: String?
 }
 
 /// 한 끼 기록 추가 · 수정. 사진/문장이면 AI가 먼저 채우고, 사용자가 확인·수정 후 저장한다.
@@ -35,6 +37,7 @@ struct MealComposerView: View {
         _type = State(initialValue: existing?.type ?? MealType.suggested(for: date))
         _date = State(initialValue: date)
         _note = State(initialValue: existing?.note ?? "")
+        _text = State(initialValue: request.prefillText ?? "")
     }
 
     /// 오늘이면 지금 시각, 다른 날이면 그날 정오

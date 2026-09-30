@@ -87,6 +87,7 @@ struct DashboardView: View {
                 await model.refresh()
                 await weather.refresh()
                 await WeeklyReportStore.shared.generateIfNeeded()
+                await KitchenStore.shared.reload()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {

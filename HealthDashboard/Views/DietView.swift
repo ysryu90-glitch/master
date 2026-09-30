@@ -13,6 +13,12 @@ struct DietView: View {
     @State private var capturedImage: UIImage?
     @State private var showPhotoPicker = false
     @State private var pickerItem: PhotosPickerItem?
+    @State private var mode: Mode = .log
+
+    private enum Mode: String, CaseIterable {
+        case log = "기록"
+        case familyTable = "가족 식탁"
+    }
 
     private var isToday: Bool { Calendar.current.isDateInToday(day) }
 
@@ -20,13 +26,25 @@ struct DietView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    dateSwitcher
-                    DietSummaryCard(day: day)
-                    addButtons
-                    ForEach(MealType.allCases) { type in
-                        mealSection(type)
+                    Picker("보기", selection: $mode) {
+                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
-                    weekChart
+                    .pickerStyle(.segmented)
+
+                    switch mode {
+                    case .log:
+                        dateSwitcher
+                        DietSummaryCard(day: day)
+                        addButtons
+                        ForEach(MealType.allCases) { type in
+                            mealSection(type)
+                        }
+                        weekChart
+                    case .familyTable:
+                        FamilyTableView { text in
+                            composer = ComposerRequest(source: .text, date: .now, prefillText: text)
+                        }
+                    }
                 }
                 .padding()
             }
@@ -303,7 +321,16 @@ struct DietSummaryCard: View {
 
         VStack(alignment: .leading, spacing: 14) {
             if showHeader {
-                SectionHeader(title: "오늘의 식단", symbol: "fork.knife", tint: .orange)
+                HStack {
+                    SectionHeader(title: "오늘의 식단", symbol: "fork.knife", tint: .orange)
+                    Spacer()
+                    if let tonight = KitchenStore.shared.plan(on: day) {
+                        Text("🍽 저녁: \(tonight.dish)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
+                            .lineLimit(1)
+                    }
+                }
             }
 
             HStack(alignment: .firstTextBaseline) {

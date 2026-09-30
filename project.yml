@@ -10,8 +10,8 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.6"
-    CURRENT_PROJECT_VERSION: "7"
+    MARKETING_VERSION: "1.7"
+    CURRENT_PROJECT_VERSION: "8"
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1"
 # 실행(⌘R)은 앱 스킴으로. 위젯은 앱과 함께 설치된다.
@@ -46,6 +46,8 @@ targets:
         NSCameraUsageDescription: 음식 사진과 영양성분표를 찍어 식단을 기록하기 위해 사용합니다. 사진은 기기 안에서만 분석하고 저장합니다.
         NSCalendarsFullAccessUsageDescription: 가족 캘린더의 일정을 보여주고, 앱에서 추가한 일정을 애플 캘린더에 저장하기 위해 사용합니다.
         NSCalendarsUsageDescription: 가족 캘린더의 일정을 보여주고, 앱에서 추가한 일정을 애플 캘린더에 저장하기 위해 사용합니다.
+        NSRemindersFullAccessUsageDescription: 배우자와 함께 쓰는 장보기 목록(미리알림)에 재료를 추가하고 체크하기 위해 사용합니다.
+        NSRemindersUsageDescription: 배우자와 함께 쓰는 장보기 목록(미리알림)에 재료를 추가하고 체크하기 위해 사용합니다.
         NSLocationWhenInUseUsageDescription: 지금 있는 곳과 가까운 지역(은평구·소공동·평택)의 날씨를 자동으로 보여주기 위해 사용합니다. 위치는 기기 밖으로 보내지 않습니다.
         UIBackgroundModes:
           - fetch

@@ -34,6 +34,7 @@ final class CoachModel {
         "지난달이랑 비교해서 수면 어때?",
         "이번 주 가족 일정 알려줘",
         "오늘 저녁 뭐 먹으면 좋을까?",
+        "이번 주 장보기 뭐 사야 해?",
         "이번 주 식단 평가해줘",
     ]
 
@@ -252,6 +253,24 @@ enum CoachContext {
         }
         let workoutToday = dashboard.workouts.contains { Calendar.current.isDateInToday($0.start) }
         lines.append("하루 단백질 목표: \(Int(mealStore.proteinTarget(weightKg: dashboard.values[.bodyMass]?.value, workoutDay: workoutToday)))g")
+
+        // 가족 식탁
+        let kitchen = KitchenStore.shared
+        if let tonight = kitchen.plan(on: .now) {
+            lines.append("오늘 저녁 계획: \(tonight.dish)")
+        }
+        let upcoming = kitchen.plannedMeals.filter { !Calendar.current.isDateInToday($0.date) }.prefix(4)
+        if !upcoming.isEmpty {
+            lines.append("다가오는 저녁 계획: " + upcoming.map {
+                "\($0.date.formatted(.dateTime.weekday(.abbreviated))) \($0.dish)"
+            }.joined(separator: ", "))
+        }
+        if !kitchen.openItemNames.isEmpty {
+            lines.append("장보기 목록: " + kitchen.openItemNames.prefix(10).joined(separator: ", "))
+        }
+        if !kitchen.profile.spouseGoal.isEmpty || !kitchen.profile.spouseDislikes.isEmpty {
+            lines.append("\(kitchen.profile.spouseName): 목표 \(kitchen.profile.spouseGoal.isEmpty ? "없음" : kitchen.profile.spouseGoal), 싫어하는 음식 \(kitchen.profile.spouseDislikes.isEmpty ? "없음" : kitchen.profile.spouseDislikes)")
+        }
 
         // 오늘 가족 일정
         let todayEvents = CalendarStore.shared.todayEventTitles()
