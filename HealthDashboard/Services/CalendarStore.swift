@@ -109,9 +109,11 @@ final class CalendarStore {
         let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: calendars)
         var grouped: [String: [EKEvent]] = [:]
         for event in eventStore.events(matching: predicate) {
+            // EventKit의 날짜는 Optional로 들어오므로 먼저 꺼낸다.
+            guard let startDate = event.startDate, let endDate = event.endDate else { continue }
             // 여러 날에 걸친 일정은 해당하는 날마다 넣는다.
-            var day = calendar.startOfDay(for: event.startDate)
-            let last = event.isAllDay ? event.endDate.addingTimeInterval(-1) : event.endDate
+            var day = calendar.startOfDay(for: startDate)
+            let last: Date = event.isAllDay ? endDate.addingTimeInterval(-1) : endDate
             while day <= last {
                 grouped[HabitStore.dayKey(day), default: []].append(event)
                 guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
@@ -119,7 +121,11 @@ final class CalendarStore {
             }
         }
         for key in grouped.keys {
-            grouped[key]?.sort { ($0.isAllDay ? 0 : 1, $0.startDate) < ($1.isAllDay ? 0 : 1, $1.startDate) }
+            // 종일 일정 먼저, 그다음 시작 시각 순
+            grouped[key]?.sort { lhs, rhs in
+                if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }
+                return Self.start(of: lhs) < Self.start(of: rhs)
+            }
         }
         eventsByDay = grouped
     }
@@ -152,7 +158,7 @@ final class CalendarStore {
         let events = eventsFor(days: days)
         guard !events.isEmpty else { return "앞으로 \(days)일간 일정 없음" }
         return events.prefix(40).map { event in
-            "\(event.startDate.formatted(.dateTime.month(.defaultDigits).day().weekday(.abbreviated))) \(Self.describe(event))"
+            "\(Self.start(of: event).formatted(.dateTime.month(.defaultDigits).day().weekday(.abbreviated))) \(Self.describe(event))"
         }.joined(separator: "\n")
     }
 
@@ -162,11 +168,15 @@ final class CalendarStore {
         guard let end = calendar.date(byAdding: .day, value: days, to: start) else { return [] }
         let calendars: [EKCalendar]? = familyOnly ? familyCalendar.map { [$0] } : nil
         let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: calendars)
-        return eventStore.events(matching: predicate).sorted { $0.startDate < $1.startDate }
+        return eventStore.events(matching: predicate).sorted { Self.start(of: $0) < Self.start(of: $1) }
     }
 
+    /// EventKit 날짜는 Optional이라 안전하게 꺼내 쓴다.
+    static func start(of event: EKEvent) -> Date { event.startDate ?? .distantPast }
+    static func end(of event: EKEvent) -> Date { event.endDate ?? start(of: event) }
+
     private static func describe(_ event: EKEvent) -> String {
-        let time = event.isAllDay ? "종일" : event.startDate.formatted(date: .omitted, time: .shortened)
+        let time = event.isAllDay ? "종일" : start(of: event).formatted(date: .omitted, time: .shortened)
         return "\(time) \(event.title ?? "일정")"
     }
 }

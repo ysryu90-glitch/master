@@ -353,8 +353,8 @@ struct EventRow: View {
 
     private var timeText: String {
         if event.isAllDay { return "종일" }
-        let start = event.startDate.formatted(date: .omitted, time: .shortened)
-        let end = event.endDate.formatted(date: .omitted, time: .shortened)
+        let start = CalendarStore.start(of: event).formatted(date: .omitted, time: .shortened)
+        let end = CalendarStore.end(of: event).formatted(date: .omitted, time: .shortened)
         return "\(start) – \(end)"
     }
 }
