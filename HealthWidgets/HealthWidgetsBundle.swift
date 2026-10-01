@@ -7,5 +7,8 @@ struct HealthWidgetsBundle: WidgetBundle {
         TodayWidget()
         ActivityWidget()
         WeatherWidget()
+        QuickActionsWidget()
+        WaterControl()
+        MedicationControl()
     }
 }

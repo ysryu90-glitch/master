@@ -10,8 +10,8 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.7"
-    CURRENT_PROJECT_VERSION: "8"
+    MARKETING_VERSION: "1.8"
+    CURRENT_PROJECT_VERSION: "9"
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1"
 # 실행(⌘R)은 앱 스킴으로. 위젯은 앱과 함께 설치된다.
@@ -74,6 +74,8 @@ targets:
   HealthWidgets:
     type: app-extension
     platform: iOS
+    # 제어 센터 버튼(ControlWidget)이 iOS 18부터라 위젯만 iOS 18 이상
+    deploymentTarget: "18.0"
     sources:
       - HealthWidgets
       - Shared

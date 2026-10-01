@@ -2,11 +2,11 @@ import HealthKit
 import SwiftUI
 
 enum DashboardSection: Hashable, Codable, Identifiable {
-    case earlyWarning, readiness, medication, schedule, diet, recommendation, habits, favorites, activityRings, sleep, workouts
+    case earlyWarning, readiness, medication, water, schedule, diet, recommendation, breathing, habits, favorites, activityRings, sleep, workouts
     case metrics(MetricCategory)
 
     static let defaultOrder: [DashboardSection] =
-        [.earlyWarning, .readiness, .medication, .schedule, .diet, .recommendation, .habits, .favorites, .activityRings, .sleep]
+        [.earlyWarning, .readiness, .medication, .water, .schedule, .diet, .recommendation, .breathing, .habits, .favorites, .activityRings, .sleep]
         + MetricCategory.allCases.map { .metrics($0) }
         + [.workouts]
 
@@ -17,6 +17,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .habits: "habits"
         case .schedule: "schedule"
         case .diet: "diet"
+        case .water: "water"
+        case .breathing: "breathing"
         case .medication: "medication"
         case .recommendation: "recommendation"
         case .favorites: "favorites"
@@ -34,6 +36,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .habits: "오늘의 습관"
         case .schedule: "오늘의 가족 일정"
         case .diet: "오늘의 식단"
+        case .water: "물 마시기"
+        case .breathing: "1분 호흡"
         case .medication: "오늘의 복약"
         case .recommendation: "오늘의 운동 추천"
         case .favorites: "즐겨찾기"
@@ -51,6 +55,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .habits: "list.bullet.clipboard.fill"
         case .schedule: "calendar"
         case .diet: "fork.knife"
+        case .water: "drop.fill"
+        case .breathing: "wind"
         case .medication: "pills.fill"
         case .recommendation: "figure.run.circle.fill"
         case .favorites: "star.fill"
@@ -68,6 +74,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .habits: .teal
         case .schedule: .pink
         case .diet: .orange
+        case .water: .cyan
+        case .breathing: .teal
         case .medication: .purple
         case .recommendation: .green
         case .favorites: .yellow

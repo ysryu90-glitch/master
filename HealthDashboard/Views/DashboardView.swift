@@ -138,6 +138,12 @@ struct DashboardView: View {
         case .schedule:
             TodayScheduleCard()
 
+        case .water:
+            WaterCard()
+
+        case .breathing:
+            BreathingCard()
+
         case .diet:
             Button {
                 router.tab = .diet

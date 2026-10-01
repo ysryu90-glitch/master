@@ -24,6 +24,12 @@ struct HealthSnapshot: Codable {
     /// 어제 식단 합계 (기록이 있을 때)
     var yesterdayCalories: Double?
     var yesterdayProtein: Double?
+    /// 오늘 물 섭취 (건강 앱 기준, ml)와 목표
+    var waterMl: Double?
+    var waterGoal: Double?
+    /// 오늘 저녁 계획 메뉴 (Siri · 위젯용)
+    var tonightDish: String?
+    var sleepSummary: String?
 
     /// `date`와 같은 날의 준비 점수가 있을 때만 반환
     func readiness(on date: Date) -> (score: Double, level: ReadinessLevel)? {
@@ -104,6 +110,9 @@ enum SharedStore {
     }
 
     static var briefingEnabled: Bool { defaults.bool(forKey: Keys.briefingEnabled) }
+
+    /// 기본 지역의 오늘 낮 최고 기온 (물 목표 계산용)
+    static let todayHighKey = "todayHighTemperature"
 
     static let earlyWarningEnabledKey = "earlyWarningEnabled"
 

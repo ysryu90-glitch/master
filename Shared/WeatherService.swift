@@ -185,6 +185,9 @@ final class WeatherModel {
         }
 
         reports.merge(results) { _, new in new }
+        if let high = reports[SharedStore.primaryLocation.id]?.today?.high {
+            SharedStore.defaults.set(high, forKey: SharedStore.todayHighKey)
+        }
         if results.count < locations.count {
             errorMessage = "일부 지역의 날씨를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요."
         }

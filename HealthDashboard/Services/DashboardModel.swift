@@ -155,6 +155,8 @@ final class DashboardModel {
                 return
             }
 
+            await flushPendingWater()
+
             let heavyDue = force
                 || readinessInputs == nil
                 || lastHeavyRefresh.map { Date.now.timeIntervalSince($0) > 15 * 60 || !Calendar.current.isDateInToday($0) } ?? true
@@ -190,6 +192,56 @@ final class DashboardModel {
         publishSnapshot()
         await BriefingScheduler.reschedule()
         await MedicationStore.shared.reschedule()
+    }
+
+    // MARK: - 물 · 호흡
+
+    /// 오늘 물 목표: 기본 2L, 운동한 날 +0.5L, 낮 최고 28° 이상이면 +0.3L
+    var waterGoal: Double {
+        var goal = 2000.0
+        if workouts.contains(where: { Calendar.current.isDateInToday($0.start) }) { goal += 500 }
+        if let high = SharedStore.defaults.object(forKey: SharedStore.todayHighKey) as? Double, high >= 28 { goal += 300 }
+        return goal
+    }
+
+    /// 오늘 마신 물 (건강 앱 + 아직 옮기지 않은 위젯 기록, ml)
+    var waterToday: Double {
+        (values[.dietaryWater]?.value ?? 0) * 1000
+            + WaterLog.pending.filter { Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.ml }
+    }
+
+    func addWater(ml: Double) async {
+        if demoMode { return }
+        do {
+            try await service.requestAuthorization()
+            try await service.saveWater(ml: ml, at: .now)
+        } catch {
+            // 저장하지 못하면 나중에 다시 시도하도록 남겨 둔다.
+            WaterLog.add(ml: ml)
+        }
+        await refresh()
+    }
+
+    /// 위젯 · Siri로 기록한 물을 건강 앱에 옮겨 저장한다.
+    private func flushPendingWater() async {
+        let entries = WaterLog.takePending()
+        guard !entries.isEmpty else { return }
+        var failed: [WaterLog.Entry] = []
+        for entry in entries {
+            do {
+                try await service.saveWater(ml: entry.ml, at: entry.date)
+            } catch {
+                failed.append(entry)
+            }
+        }
+        if !failed.isEmpty { WaterLog.pending = failed + WaterLog.pending }
+    }
+
+    func saveBreathing(start: Date, end: Date) async {
+        guard !demoMode else { return }
+        try? await service.requestAuthorization()
+        try? await service.saveMindfulSession(start: start, end: end)
+        await refresh()
     }
 
     // MARK: - 준비 점수 보정
@@ -247,7 +299,11 @@ final class DashboardModel {
             yesterdayMove: yesterday?.move,
             yesterdayMoveGoal: yesterday?.moveGoal,
             yesterdayCalories: yesterdayNutrition?.calories,
-            yesterdayProtein: yesterdayNutrition?.protein
+            yesterdayProtein: yesterdayNutrition?.protein,
+            waterMl: (values[.dietaryWater]?.value ?? 0) * 1000,
+            waterGoal: waterGoal,
+            tonightDish: KitchenStore.shared.plan(on: .now)?.dish,
+            sleepSummary: lastNight.flatMap { Calendar.current.isDateInToday($0.wakeDate) ? $0.asleep.hoursMinutesText : nil }
         )
         WidgetCenter.shared.reloadAllTimelines()
     }

@@ -13,6 +13,8 @@ final class HealthKitService: @unchecked Sendable {
         types.insert(HKCategoryType(.mindfulSession))
         types.insert(HKObjectType.workoutType())
         types.insert(HKObjectType.activitySummaryType())
+        types.insert(HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!)
+        types.insert(HKSeriesType.workoutRoute())
         for type in Self.dietaryWriteTypes { types.insert(HKQuantityType(type)) }
         return types
     }
@@ -24,7 +26,31 @@ final class HealthKitService: @unchecked Sendable {
     ]
 
     private var shareTypes: Set<HKSampleType> {
-        Set(Self.dietaryWriteTypes.map { HKQuantityType($0) as HKSampleType })
+        var types = Set(Self.dietaryWriteTypes.map { HKQuantityType($0) as HKSampleType })
+        // 물 섭취 · 1분 호흡(마음챙김)도 건강 앱에 기록한다.
+        types.insert(HKQuantityType(.dietaryWater))
+        types.insert(HKCategoryType(.mindfulSession))
+        return types
+    }
+
+    /// 물 섭취 저장 (ml)
+    func saveWater(ml: Double, at date: Date) async throws {
+        let sample = HKQuantitySample(
+            type: HKQuantityType(.dietaryWater),
+            quantity: HKQuantity(unit: .literUnit(with: .milli), doubleValue: ml),
+            start: date, end: date
+        )
+        try await store.save(sample)
+    }
+
+    /// 1분 호흡을 건강 앱 '마음챙김'으로 저장
+    func saveMindfulSession(start: Date, end: Date) async throws {
+        let sample = HKCategorySample(
+            type: HKCategoryType(.mindfulSession),
+            value: HKCategoryValue.notApplicable.rawValue,
+            start: start, end: end
+        )
+        try await store.save(sample)
     }
 
     /// 아직 허용 여부를 묻지 않은 항목이 있을 때만 시스템 권한 화면이 나타난다.
