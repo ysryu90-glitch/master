@@ -13,4 +13,4 @@ foreach ($pdo->query('SELECT member_id, payload FROM member_state') as $row) {
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
-echo json_encode(['members' => (object) $members], JSON_UNESCAPED_UNICODE);
+echo json_encode(['ok' => true, 'members' => (object) $members], JSON_UNESCAPED_UNICODE);

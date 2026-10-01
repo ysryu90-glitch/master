@@ -95,9 +95,10 @@ final class BoardPublisher {
             request.httpBody = try encoder.encode(payload)
             let (data, response) = try await URLSession.shared.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard status == 200 else {
-                let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
-                lastError = "NAS 응답 \(status): " + (message ?? String(decoding: data.prefix(200), as: UTF8.self))
+            let reply = try? JSONDecoder().decode(IngestReply.self, from: data)
+            guard status == 200, reply?.ok == true else {
+                lastError = reply?.error.map { "NAS: " + $0 }
+                    ?? "NAS 응답 \(status) — 브라우저에서 /board/api/check.php 를 열어 확인해 주세요."
                 return
             }
             lastError = nil
@@ -247,6 +248,12 @@ final class BoardPublisher {
             SecItemAdd(attributes as CFDictionary, nil)
         }
     }
+}
+
+/// ingest.php 응답: {"ok": true} 또는 {"ok": false, "error": "..."}
+private struct IngestReply: Decodable {
+    let ok: Bool
+    let error: String?
 }
 
 /// NAS로 보내는 내용 (board/api/ingest.php 와 board.js 가 읽는 형식)

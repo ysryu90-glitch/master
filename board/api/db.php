@@ -12,11 +12,14 @@ function board_config(): array
     return require $path;
 }
 
+// 시놀로지 웹 서버는 4xx/5xx 응답을 자체 오류 화면으로 바꿔 버려서 원인이 안 보인다.
+// 그래서 오류도 HTTP 200으로 보내고, 본문의 ok/error 로 구분한다.
 function board_fail(int $status, string $message): void
 {
-    http_response_code($status);
+    http_response_code(200);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
+    header('Cache-Control: no-store');
+    echo json_encode(['ok' => false, 'status' => $status, 'error' => $message], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

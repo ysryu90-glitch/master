@@ -100,6 +100,7 @@
   /// NAS의 api/state.php 가 DB에 저장된 가족별 최신 요약을 돌려준다.
   function loadMembers() {
     return fetchJSON('api/state.php').then(function (data) {
+      if (data.ok === false) throw new Error(data.error);
       var members = data.members || {};
       Object.keys(members).forEach(function (id) {
         var member = members[id];
