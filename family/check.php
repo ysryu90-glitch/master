@@ -7,7 +7,7 @@ $add = function (string $name, bool $ok, string $detail) use (&$rows) { $rows[] 
 
 $add('PHP 버전', version_compare(PHP_VERSION, '8.0', '>='), PHP_VERSION . (version_compare(PHP_VERSION, '8.0', '>=') ? '' : ' — PHP 8 이상이 필요해요'));
 foreach (['pdo_mysql' => 'DB 연결', 'curl' => 'iCloud 캘린더', 'simplexml' => 'iCloud 캘린더', 'mbstring' => '한글 처리'] as $ext => $why) {
-    $add("확장: $ext", extension_loaded($ext), extension_loaded($ext) ? '켜져 있음' : "꺼져 있음 ($why에 필요) — Web Station › 스크립트 언어 설정 › PHP 프로필 › 확장에서 체크");
+    $add("확장: $ext", extension_loaded($ext), extension_loaded($ext) ? '켜져 있음' : "꺼져 있음 ({$why}에 필요) — Web Station › 스크립트 언어 설정 › PHP 프로필 › 확장에서 체크");
 }
 $path = __DIR__ . '/config.php';
 $config = is_file($path) ? require $path : null;
