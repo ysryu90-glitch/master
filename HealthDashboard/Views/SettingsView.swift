@@ -27,6 +27,11 @@ struct SettingsView: View {
                     } label: {
                         Label("알림 (컨디션 리포트 · 복약)", systemImage: "bell.badge.fill")
                     }
+                    NavigationLink {
+                        BoardSettingsView()
+                    } label: {
+                        Label("가족 전광판 (NAS)", systemImage: "tv.fill")
+                    }
                 }
 
                 backupSection

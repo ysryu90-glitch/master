@@ -56,6 +56,10 @@ targets:
         BGTaskSchedulerPermittedIdentifiers:
           - healthdashboard.refresh
         AppGroupID: $(APP_GROUP_ID)
+        # 가족 전광판: 집 안의 NAS(IP 주소, http)로 요약을 보내기 위해
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: 집 안의 NAS(가족 전광판)로 오늘의 일정 · 저녁 계획 · 건강 요약을 보내기 위해 사용합니다.
     entitlements:
       path: HealthDashboard/Resources/HealthDashboard.entitlements
       properties:

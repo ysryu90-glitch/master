@@ -195,6 +195,11 @@ HealthMetric(id: .distanceSwimming, title: "수영 거리", symbol: "figure.pool
 
 앱 안에서도 만료 하루 전 저녁 8시에 알림이 오고, 2일 이하로 남으면 건강 탭 맨 위에 안내가 보입니다. (설정 › 정보 › 앱 사용 기한)
 
+## 가족 전광판 (시놀로지 NAS + 아이패드)
+
+두 사람의 아이폰이 오늘 일정 · 저녁 계획 · 장보기 · 건강 요약을 집 NAS(MariaDB)로 보내고,
+아이패드 사파리가 `http://NAS주소/board/` 를 전광판처럼 띄웁니다. 설치 방법은 [board/README.md](board/README.md).
+
 ## 아침 브리핑의 한계
 
 iOS는 앱을 정해진 시각에 정확히 실행해 주지 않습니다. 그래서 앱이 실행될 때마다(직접 열거나, iOS가 백그라운드로 깨울 때)

@@ -9,3 +9,6 @@ build/
 
 # 개인 서명 설정
 Configs/Local.xcconfig
+
+# 전광판 NAS 설정 (비밀번호 · 토큰)
+board/api/config.php

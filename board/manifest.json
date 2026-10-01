@@ -1,0 +1,10 @@
+{
+  "name": "가족 전광판",
+  "short_name": "전광판",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "icons": [{ "src": "icon.png", "sizes": "180x180", "type": "image/png" }]
+}

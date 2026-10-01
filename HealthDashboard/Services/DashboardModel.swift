@@ -225,6 +225,7 @@ final class DashboardModel {
         await MedicationStore.shared.reschedule()
         await LifeAlerts.reschedule()
         await AppExpiry.reschedule()
+        await BoardPublisher.shared.publishIfDue()
     }
 
     // MARK: - 물 · 호흡

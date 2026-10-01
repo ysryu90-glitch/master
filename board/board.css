@@ -1,0 +1,272 @@
+/* 가족 전광판 — 아이패드 가로 화면 기준, 오래된 사파리(iOS 12)에서도 보이도록 단순한 CSS만 사용 */
+:root {
+  --bg: #0b0f14;
+  --panel: #151b23;
+  --panel-strong: #1c2430;
+  --line: #263040;
+  --text: #f2f5f8;
+  --sub: #9aa7b6;
+  --dim: #66727f;
+  --orange: #ff9f43;
+  --pink: #ff6b8a;
+  --blue: #4da3ff;
+  --green: #3ddc97;
+  --yellow: #ffd166;
+  --red: #ff5c5c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 2.1vmin;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#board {
+  height: 100%;
+  padding: 2.2vmin 2.6vmin 1.6vmin;
+  padding-left: calc(2.6vmin + env(safe-area-inset-left));
+  padding-right: calc(2.6vmin + env(safe-area-inset-right));
+  display: -webkit-box;
+  display: flex;
+  -webkit-box-orient: vertical;
+  flex-direction: column;
+  transition: transform 2s ease;
+}
+
+.hidden { display: none !important; }
+
+/* ── 위: 날짜 · 시계 · 지금 날씨 ── */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.4vmin;
+}
+.date { flex: 1; }
+.date-main { font-size: 3.6vmin; font-weight: 700; }
+.date-sub { font-size: 2.2vmin; color: var(--sub); margin-top: 0.4vmin; }
+.clock {
+  flex: 1;
+  text-align: center;
+  font-size: 10vmin;
+  font-weight: 700;
+  letter-spacing: -0.2vmin;
+  font-variant-numeric: tabular-nums;
+}
+.now-weather { flex: 1; text-align: right; }
+.now-weather .temp { font-size: 6vmin; font-weight: 700; }
+.now-weather .icon { font-size: 5vmin; margin-right: 1vmin; vertical-align: 0.6vmin; }
+.now-weather .desc { font-size: 2.1vmin; color: var(--sub); }
+
+/* ── 오늘의 한 줄 안내 (우산 · 옷차림 · 미세먼지) ── */
+.advice {
+  background: linear-gradient(90deg, rgba(255, 159, 67, 0.22), rgba(255, 107, 138, 0.12));
+  border: 1px solid rgba(255, 159, 67, 0.35);
+  border-radius: 1.6vmin;
+  padding: 1vmin 1.8vmin;
+  font-size: 2.4vmin;
+  font-weight: 600;
+  margin-bottom: 1.4vmin;
+}
+.advice span { margin-right: 2.4vmin; }
+
+/* ── 가운데 3단 ── */
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.15fr 1.1fr 1fr;
+  grid-gap: 1.6vmin;
+  gap: 1.6vmin;
+  transition: all 0.6s ease;
+}
+body.morning .grid { grid-template-columns: 1.15fr 1fr 1.15fr; }
+body.evening .grid { grid-template-columns: 1fr 1.45fr 0.9fr; }
+body.morning #panel-weather,
+body.evening #panel-dinner { background: var(--panel-strong); border-color: #33415a; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 2.2vmin;
+  padding: 1.8vmin 2vmin;
+  overflow: hidden;
+  min-height: 0;
+}
+.panel h2 {
+  font-size: 2.3vmin;
+  color: var(--sub);
+  font-weight: 600;
+  margin-bottom: 1.2vmin;
+}
+.empty { color: var(--dim); font-size: 2vmin; padding: 1vmin 0; }
+
+/* 일정 */
+.day-group { margin-bottom: 1.3vmin; }
+.day-label {
+  font-size: 1.8vmin;
+  font-weight: 700;
+  color: var(--orange);
+  margin-bottom: 0.5vmin;
+}
+.day-label.later { color: var(--sub); }
+.event {
+  display: flex;
+  align-items: baseline;
+  padding: 0.55vmin 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.event .bar {
+  width: 0.5vmin;
+  height: 2.2vmin;
+  border-radius: 0.3vmin;
+  margin-right: 1.1vmin;
+  -webkit-align-self: center;
+  align-self: center;
+  flex-shrink: 0;
+}
+.event .time {
+  width: 7.5vmin;
+  flex-shrink: 0;
+  color: var(--sub);
+  font-size: 1.9vmin;
+  font-variant-numeric: tabular-nums;
+}
+.event .title {
+  font-size: 2.3vmin;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.event.past { opacity: 0.4; }
+.event.now .title { color: var(--yellow); font-weight: 700; }
+.day-group.today .event .title { font-size: 2.6vmin; }
+
+/* 저녁 */
+.tonight {
+  background: rgba(255, 159, 67, 0.1);
+  border-radius: 1.8vmin;
+  padding: 1.6vmin 1.8vmin;
+  margin-bottom: 1.4vmin;
+}
+.tonight .label { font-size: 1.8vmin; color: var(--orange); font-weight: 700; }
+.tonight .dish { font-size: 4.2vmin; font-weight: 800; margin: 0.5vmin 0 0.3vmin; line-height: 1.2; }
+.tonight .meta { font-size: 1.9vmin; color: var(--sub); }
+.tonight .conflict { font-size: 2vmin; color: var(--yellow); margin-top: 0.6vmin; }
+.tonight.none .dish { font-size: 3vmin; color: var(--sub); font-weight: 600; }
+
+.week-dinners { display: flex; margin-bottom: 1.4vmin; }
+.week-dinners .wd {
+  flex: 1;
+  text-align: center;
+  padding: 0.8vmin 0.3vmin;
+  border-radius: 1.2vmin;
+  margin: 0 0.35vmin;
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+.week-dinners .wd.today { background: rgba(255, 159, 67, 0.18); }
+.week-dinners .wd .d { font-size: 1.7vmin; color: var(--sub); white-space: nowrap; }
+.week-dinners .wd .m {
+  font-size: 1.75vmin;
+  margin-top: 0.3vmin;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 1.6vmin;
+}
+.week-dinners .wd .m.none { color: var(--dim); }
+
+.shopping .head { font-size: 2vmin; font-weight: 700; margin-bottom: 0.6vmin; }
+.shopping .head .count { color: var(--green); }
+.chip {
+  display: inline-block;
+  background: rgba(61, 220, 151, 0.12);
+  color: #bff3dc;
+  border-radius: 1vmin;
+  padding: 0.35vmin 1vmin;
+  margin: 0 0.6vmin 0.6vmin 0;
+  font-size: 1.9vmin;
+}
+
+/* 날씨 */
+.place {
+  display: flex;
+  align-items: center;
+  padding: 1vmin 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.place:last-child { border-bottom: none; }
+.place .icon { font-size: 4.6vmin; width: 6.5vmin; text-align: center; margin-right: 1.2vmin; }
+.place .info { flex: 1; min-width: 0; }
+.place .name { font-size: 2.3vmin; font-weight: 700; }
+.place .role { font-size: 1.6vmin; color: var(--sub); margin-left: 0.6vmin; font-weight: 500; }
+.place .line { font-size: 1.8vmin; color: var(--sub); margin-top: 0.2vmin; }
+.place .temps { text-align: right; }
+.place .now { font-size: 3.6vmin; font-weight: 700; }
+.place .range { font-size: 1.8vmin; color: var(--sub); }
+.rain { color: var(--blue); font-weight: 700; }
+.seg { white-space: nowrap; }
+.air-good { color: var(--green); }
+.air-normal { color: var(--yellow); }
+.air-bad { color: var(--orange); }
+.air-worst { color: var(--red); }
+
+.hourly { display: flex; margin-top: 1.2vmin; }
+.hourly .h { flex: 1; text-align: center; font-size: 1.6vmin; color: var(--sub); }
+.hourly .h .e { font-size: 2.6vmin; display: block; margin: 0.2vmin 0; }
+.hourly .h .t { color: var(--text); font-weight: 600; font-size: 1.8vmin; }
+
+/* ── 아래: 건강 · 갱신 상태 ── */
+.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.4vmin;
+  min-height: 4vmin;
+}
+.health { display: flex; flex-wrap: wrap; }
+.health .person {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 1.4vmin;
+  padding: 0.7vmin 1.4vmin;
+  margin-right: 1vmin;
+  font-size: 1.9vmin;
+}
+.health .person b { margin-right: 0.8vmin; }
+.health .person .stat { margin-right: 1.2vmin; color: var(--sub); }
+.health .person .stat em { font-style: normal; color: var(--text); font-weight: 700; }
+.status { font-size: 1.6vmin; color: var(--dim); text-align: right; }
+.status .stale { color: var(--orange); }
+
+/* ── 밤: 시계만 어둡게 ── */
+.night {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #5b4a3a;
+  z-index: 10;
+  transition: transform 2s ease;
+}
+.night-clock { font-size: 18vmin; font-weight: 300; font-variant-numeric: tabular-nums; }
+.night-sub { font-size: 2.6vmin; margin-top: 1vmin; color: #3e3328; }
+
+/* 세로 화면이면 위아래로 쌓기 */
+@media (orientation: portrait) {
+  html, body { font-size: 2.4vmin; overflow: auto; }
+  .grid, body.morning .grid, body.evening .grid { grid-template-columns: 1fr; }
+  #board { height: auto; min-height: 100%; }
+}

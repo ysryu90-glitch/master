@@ -162,7 +162,8 @@ final class CalendarStore {
         }.joined(separator: "\n")
     }
 
-    private func eventsFor(days: Int) -> [EKEvent] {
+    /// 오늘부터 `days`일간의 일정 (시작 시각순)
+    func eventsFor(days: Int) -> [EKEvent] {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: .now)
         guard let end = calendar.date(byAdding: .day, value: days, to: start) else { return [] }
