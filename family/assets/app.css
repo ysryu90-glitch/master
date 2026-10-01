@@ -1,0 +1,269 @@
+/* 우리집 건강 — 아이폰 화면 기준, 라이트/다크 자동 */
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --card-2: #f0f2f5;
+  --line: #e6e8ec;
+  --text: #15181d;
+  --sub: #6b7280;
+  --dim: #9aa1ab;
+  --accent: #16a34a;
+  --accent-soft: rgba(22, 163, 74, 0.12);
+  --orange: #f97316;
+  --orange-soft: rgba(249, 115, 22, 0.12);
+  --blue: #2563eb;
+  --blue-soft: rgba(37, 99, 235, 0.1);
+  --red: #dc2626;
+  --purple: #7c3aed;
+  --pink: #db2777;
+  --radius: 18px;
+  --shadow: 0 1px 2px rgba(15, 18, 22, 0.04), 0 4px 16px rgba(15, 18, 22, 0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --card: #181c22;
+    --card-2: #20252d;
+    --line: #2a303a;
+    --text: #f1f3f6;
+    --sub: #9aa3af;
+    --dim: #6b7380;
+    --accent: #34d399;
+    --accent-soft: rgba(52, 211, 153, 0.14);
+    --orange: #fb923c;
+    --orange-soft: rgba(251, 146, 60, 0.14);
+    --blue: #60a5fa;
+    --blue-soft: rgba(96, 165, 250, 0.14);
+    --red: #f87171;
+    --shadow: none;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+body.with-tabs { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+a { color: var(--blue); text-decoration: none; }
+h2 { font-size: 18px; margin: 0 0 10px; }
+h3 { font-size: 15px; margin: 0 0 8px; color: var(--sub); font-weight: 600; }
+p { margin: 0 0 8px; }
+.muted { color: var(--sub); }
+.small { font-size: 13px; }
+.error { color: var(--red); font-weight: 600; }
+.hidden { display: none !important; }
+
+/* 상단 · 하단 */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+.topbar-title { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+.topbar-me { font-size: 14px; color: var(--sub); background: var(--card); padding: 6px 10px; border-radius: 999px; box-shadow: var(--shadow); }
+.page { max-width: 760px; margin: 0 auto; padding: 4px 16px 24px; }
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; justify-content: space-around;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  border-top: 1px solid var(--line);
+}
+.tabbar a { flex: 1; text-align: center; font-size: 11px; color: var(--dim); padding: 4px 0; font-weight: 600; }
+.tabbar a .i { display: block; font-size: 22px; line-height: 1.2; filter: grayscale(1); opacity: 0.6; }
+.tabbar a.on { color: var(--text); }
+.tabbar a.on .i { filter: none; opacity: 1; }
+.flash { background: var(--accent-soft); color: var(--accent); padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; font-weight: 600; }
+
+/* 카드 */
+.card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.card-head h2 { margin: 0; }
+.card-head .more { font-size: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat { background: var(--card-2); border-radius: 14px; padding: 12px; }
+.stat .k { font-size: 12px; color: var(--sub); }
+.stat .v { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+.stat .v small { font-size: 13px; font-weight: 600; color: var(--sub); margin-left: 2px; }
+.stat .d { font-size: 12px; color: var(--sub); }
+
+/* 준비 점수 */
+.readiness { color: #fff; border-radius: 22px; padding: 20px; margin-bottom: 14px; position: relative; overflow: hidden; }
+.readiness.recover { background: linear-gradient(135deg, #ef4444, #f97316); }
+.readiness.pace { background: linear-gradient(135deg, #f59e0b, #eab308); }
+.readiness.ready { background: linear-gradient(135deg, #10b981, #0ea5e9); }
+.readiness.go { background: linear-gradient(135deg, #22c55e, #14b8a6); }
+.readiness.none { background: linear-gradient(135deg, #64748b, #475569); }
+.readiness .label { font-size: 14px; opacity: 0.9; font-weight: 600; }
+.readiness .score { font-size: 56px; font-weight: 800; line-height: 1.05; letter-spacing: -1px; }
+.readiness .score small { font-size: 20px; opacity: 0.8; }
+.readiness .level { font-size: 18px; font-weight: 700; }
+.readiness .msg { font-size: 14px; opacity: 0.92; margin-top: 6px; }
+.components { margin-top: 14px; display: grid; gap: 8px; }
+.comp { background: rgba(255, 255, 255, 0.16); border-radius: 12px; padding: 8px 10px; font-size: 13px; }
+.comp .row { display: flex; justify-content: space-between; font-weight: 700; }
+.comp .bar { height: 5px; background: rgba(255, 255, 255, 0.25); border-radius: 3px; margin: 5px 0 3px; }
+.comp .bar i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+.comp .detail { opacity: 0.88; }
+
+/* 목록 */
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.list li:last-child { border-bottom: none; }
+.list .grow { flex: 1; min-width: 0; }
+.list .title { font-weight: 600; }
+.list .sub { font-size: 13px; color: var(--sub); }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.time { font-variant-numeric: tabular-nums; color: var(--sub); font-size: 14px; width: 48px; flex-shrink: 0; }
+.empty { color: var(--dim); padding: 10px 0; font-size: 14px; }
+
+/* 버튼 · 폼 */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: none; border-radius: 12px; padding: 10px 14px;
+  font: inherit; font-weight: 700; font-size: 15px;
+  background: var(--card-2); color: var(--text); cursor: pointer;
+}
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.orange { background: var(--orange); color: #fff; }
+.btn.danger { background: transparent; color: var(--red); }
+.btn.small { padding: 6px 10px; font-size: 13px; border-radius: 10px; }
+.btn.wide { width: 100%; padding: 14px; font-size: 16px; }
+.btn:disabled { opacity: 0.5; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.form label { display: block; font-size: 13px; color: var(--sub); font-weight: 600; margin-bottom: 12px; }
+.form input, .form select, .form textarea {
+  display: block; width: 100%; margin-top: 4px;
+  font: inherit; font-size: 16px; color: var(--text);
+  background: var(--card-2); border: 1px solid transparent; border-radius: 12px; padding: 11px 12px;
+}
+.form input:focus, .form select:focus, .form textarea:focus { outline: none; border-color: var(--accent); background: var(--card); }
+.form fieldset { border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin: 0 0 12px; }
+.form legend { font-weight: 700; padding: 0 6px; }
+.inline { display: flex; gap: 8px; align-items: flex-end; }
+.inline > * { flex: 1; }
+.inline .btn { flex: 0 0 auto; margin-bottom: 12px; }
+
+.segmented { display: flex; background: var(--card-2); border-radius: 12px; padding: 3px; margin-bottom: 12px; }
+.segmented label { flex: 1; margin: 0 !important; text-align: center; }
+.segmented input { display: none; }
+.segmented span { display: block; padding: 8px 4px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--sub); }
+.segmented input:checked + span { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: none; font: inherit; font-size: 14px; font-weight: 600;
+  background: var(--card-2); color: var(--text); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+}
+.chip.on { background: var(--accent); color: #fff; }
+.chip.orange { background: var(--orange-soft); color: var(--orange); }
+.chip.blue { background: var(--blue-soft); color: var(--blue); }
+
+/* 날짜 이동 */
+.daynav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.daynav a { font-size: 22px; padding: 4px 12px; }
+.daynav a.disabled { visibility: hidden; }
+.daynav .label { font-weight: 800; font-size: 17px; }
+
+/* 진행 막대 */
+.meter { height: 10px; background: var(--card-2); border-radius: 5px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+.meter.orange i { background: var(--orange); }
+.meter.blue i { background: var(--blue); }
+.macro { display: grid; grid-template-columns: 52px 1fr 86px; gap: 8px; align-items: center; font-size: 13px; margin-top: 8px; }
+.macro .n { text-align: right; color: var(--sub); font-variant-numeric: tabular-nums; }
+
+/* 식단 */
+.meal-section { margin-bottom: 14px; }
+.meal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.meal-head .t { font-weight: 800; font-size: 16px; }
+.meal-head .kcal { color: var(--orange); font-weight: 700; font-size: 14px; }
+.meal-entry { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.meal-entry:first-of-type { border-top: none; }
+.meal-entry img { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex-shrink: 0; }
+.meal-entry .grow { flex: 1; min-width: 0; }
+.meal-entry .names { font-weight: 700; }
+.meal-entry .nut { font-size: 13px; color: var(--sub); }
+.add-meal { width: 100%; border: 1.5px dashed var(--line); background: transparent; color: var(--sub); border-radius: 12px; padding: 10px; font: inherit; font-weight: 700; }
+
+.item-row { background: var(--card-2); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+.item-row .top { display: flex; gap: 8px; align-items: center; }
+.item-row .top input { margin-top: 0; background: var(--card); }
+.item-row .remove { background: none; border: none; color: var(--red); font-size: 22px; padding: 0 4px; }
+.stepper { display: flex; align-items: center; gap: 6px; margin: 10px 0 6px; }
+.stepper button { width: 36px; height: 36px; border-radius: 10px; border: none; background: var(--card); color: var(--text); font-size: 20px; font-weight: 700; }
+.stepper input { width: 64px !important; text-align: center; margin: 0 !important; background: var(--card) !important; }
+.stepper .amount { flex: 1; margin: 0 !important; background: var(--card) !important; }
+.nut-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.nut-grid label { margin: 0 !important; font-size: 11px !important; text-align: center; }
+.nut-grid input { padding: 8px 4px !important; text-align: center; font-size: 15px !important; background: var(--card) !important; }
+.item-total { font-size: 12px; color: var(--sub); text-align: right; margin-top: 6px; }
+.suggest { position: relative; flex: 1; }
+.suggest-list {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 40; margin-top: 4px;
+  background: var(--card); border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  max-height: 260px; overflow-y: auto;
+}
+.suggest-list button {
+  display: block; width: 100%; text-align: left; border: none; background: none; color: var(--text);
+  font: inherit; padding: 10px 12px; border-bottom: 1px solid var(--line);
+}
+.suggest-list button small { color: var(--sub); display: block; font-size: 12px; }
+.photo-preview { width: 100%; max-height: 260px; object-fit: cover; border-radius: 14px; margin-bottom: 10px; }
+.sticky-save {
+  position: sticky; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 10;
+  background: var(--card); border-radius: 16px; padding: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  display: flex; align-items: center; gap: 10px;
+}
+body.with-tabs .sticky-save { bottom: calc(80px + env(safe-area-inset-bottom)); }
+.sticky-save .sum { flex: 1; font-size: 13px; color: var(--sub); }
+.sticky-save .sum b { color: var(--text); font-size: 16px; }
+
+/* 식탁 */
+.tonight { background: linear-gradient(135deg, var(--orange-soft), transparent); }
+.dish { font-size: 26px; font-weight: 800; letter-spacing: -0.4px; margin: 2px 0 6px; }
+.person { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.person .who { width: 80px; font-weight: 700; }
+.person .state { flex: 1; color: var(--sub); font-size: 14px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.week a { background: var(--card-2); border-radius: 12px; padding: 8px 2px; text-align: center; color: var(--text); min-width: 0; }
+.week a.today { background: var(--orange-soft); }
+.week a.sel { outline: 2px solid var(--orange); }
+.week .d { font-size: 12px; color: var(--sub); }
+.week .m { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+.week .m.none { color: var(--dim); }
+.check { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.check form { margin: 0; }
+.check .box { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); background: none; font-size: 15px; color: #fff; }
+.check.done .box { background: var(--accent); border-color: var(--accent); }
+.check.done .name { text-decoration: line-through; color: var(--dim); }
+.check .name { flex: 1; }
+
+/* 차트 */
+.chart { width: 100%; height: 150px; display: block; }
+.chart text { font-size: 10px; fill: var(--sub); }
+.legend { font-size: 12px; color: var(--sub); margin-top: 4px; }
+
+/* 로그인 */
+.login { max-width: 420px; margin: 30px auto; text-align: center; }
+.login .form { text-align: left; }
+.login-logo { font-size: 48px; }
+
+/* 날씨 */
+.wx { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.wx:first-child { border-top: none; }
+.wx .ic { font-size: 30px; width: 40px; text-align: center; }
+.wx .grow { flex: 1; }
+.wx .t { font-size: 22px; font-weight: 800; }
+.wx .r { font-size: 12px; color: var(--sub); text-align: right; }
+.advice { background: var(--blue-soft); color: var(--blue); border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 600; margin-top: 10px; }

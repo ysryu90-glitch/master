@@ -270,3 +270,7 @@ body.evening #panel-dinner { background: var(--panel-strong); border-color: #334
   .grid, body.morning .grid, body.evening .grid { grid-template-columns: 1fr; }
   #board { height: auto; min-height: 100%; }
 }
+
+.tonight .attend { margin-top: 0.9vmin; }
+.tonight .attend .who { display: inline-block; margin: 0.4vmin 1.6vmin 0 0; font-size: 2vmin; color: var(--sub); }
+.tonight .attend .who b { color: var(--text); }

@@ -1,6 +1,6 @@
 /*
  * 가족 전광판
- * - api/state.php : 각자 아이폰의 '건강 대시보드' 앱이 NAS(MariaDB)에 올린 최신 요약
+ * - ../api/board.php : 우리집 건강 사이트(DB)의 일정 · 저녁 · 장보기 · 건강 요약 (로그인 필요)
  * - 날씨는 Open-Meteo에서 직접 받아온다 (키 필요 없음)
  * 오래된 아이패드 사파리(iOS 12)에서도 돌도록 옵셔널 체이닝(?.)이나 ?? 는 쓰지 않는다.
  */
@@ -97,9 +97,13 @@
 
   // ───────── 데이터 (아이폰 → NAS) ─────────
 
-  /// NAS의 api/state.php 가 DB에 저장된 가족별 최신 요약을 돌려준다.
+  /// 사이트의 api/board.php 가 DB에서 가족 요약을 만들어 돌려준다.
   function loadMembers() {
-    return fetchJSON('api/state.php').then(function (data) {
+    return fetchJSON('../api/board.php').then(function (data) {
+      if (data.ok === false && data.error === 'login') {
+        window.location.href = '../login.php?next=' + encodeURIComponent('board/');
+        return;
+      }
       if (data.ok === false) throw new Error(data.error);
       var members = data.members || {};
       Object.keys(members).forEach(function (id) {
@@ -319,7 +323,7 @@
     var events = mergedEvents();
     var container = $('schedule');
     if (!memberList().length) {
-      container.innerHTML = '<div class="empty">아직 아이폰에서 올라온 정보가 없어요.<br>앱 › 설정 › 가족 전광판에서 연결해 주세요.</div>';
+      container.innerHTML = '<div class="empty">아직 정보가 없어요.</div>';
       return;
     }
     var today = startOfDay(now);
@@ -376,6 +380,14 @@
         '<div class="dish">아직 메뉴를 안 정했어요</div>';
     }
     if (conflicts.length) html += '<div class="conflict">⚠️ ' + escapeHTML(conflicts.join(', ')) + '</div>';
+    // 누가 함께 먹는지 · 아이 반응
+    var family = latest && latest.attendance;
+    if (family && family.length) {
+      html += '<div class="attend">' + family.map(function (p) {
+        return '<span class="who">' + escapeHTML(p.emoji + ' ' + p.name) + ' <b>' + escapeHTML(p.status) + '</b></span>';
+      }).join('') + '</div>';
+    }
+    if (latest && latest.kidNote) html += '<div class="meta">' + escapeHTML(latest.kidNote) + '</div>';
     html += '</div>';
     $('tonight').innerHTML = html;
 
@@ -467,12 +479,12 @@
   }
 
   function renderStatus() {
-    var parts = memberList().map(function (member) {
+    var parts = memberList().filter(function (member) { return member.updatedAt; }).map(function (member) {
       var hours = (Date.now() - member.updatedAtDate.getTime()) / 3600000;
-      var text = escapeHTML(member.name) + ' 폰 ' + timeAgo(member.updatedAtDate);
+      var text = escapeHTML(member.name) + ' 건강 기록 ' + timeAgo(member.updatedAtDate);
       return hours > STALE_HOURS ? '<span class="stale">' + text + '</span>' : text;
     });
-    var text = parts.length ? '갱신: ' + parts.join(' · ') : '아이폰 연결 대기 중';
+    var text = parts.length ? parts.join(' · ') : '건강 기록 대기 중';
     if (state.apiError) text = '<span class="stale">NAS 연결 오류 (' + escapeHTML(state.apiError) + ')</span> · ' + text;
     $('status').innerHTML = text;
   }
