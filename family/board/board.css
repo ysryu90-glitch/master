@@ -1,276 +1,177 @@
-/* 가족 전광판 — 아이패드 가로 화면 기준, 오래된 사파리(iOS 12)에서도 보이도록 단순한 CSS만 사용 */
+/* 가족 전광판 — 아이패드 가로 화면 기준. 오래된 사파리에서도 보이도록 flex gap 대신 margin을 쓴다. */
 :root {
-  --bg: #0b0f14;
-  --panel: #151b23;
-  --panel-strong: #1c2430;
-  --line: #263040;
-  --text: #f2f5f8;
-  --sub: #9aa7b6;
-  --dim: #66727f;
-  --orange: #ff9f43;
-  --pink: #ff6b8a;
-  --blue: #4da3ff;
-  --green: #3ddc97;
-  --yellow: #ffd166;
-  --red: #ff5c5c;
+  --bg: #0a0f1c;
+  --bg2: #101a2e;
+  --card: rgba(255, 255, 255, 0.045);
+  --card-strong: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.07);
+  --text: #f3f6fb;
+  --sub: #9aa8bd;
+  --dim: #5d6a7e;
+  --green: #34d399;
+  --amber: #fbbf24;
+  --orange: #fb923c;
+  --red: #f87171;
+  --blue: #60a5fa;
+  --violet: #a78bfa;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 html, body {
   height: 100%;
-  background: var(--bg);
+  background: radial-gradient(120% 90% at 0% 0%, var(--bg2) 0%, var(--bg) 60%);
   color: var(--text);
   font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  font-size: 2.1vmin;
+  font-size: 2vmin;
   overflow: hidden;
-  -webkit-user-select: none;
-  user-select: none;
+  -webkit-user-select: none; user-select: none;
   -webkit-tap-highlight-color: transparent;
+  word-break: keep-all;
 }
+.hidden { display: none !important; }
 
 #board {
   height: 100%;
-  padding: 2.2vmin 2.6vmin 1.6vmin;
-  padding-left: calc(2.6vmin + env(safe-area-inset-left));
-  padding-right: calc(2.6vmin + env(safe-area-inset-right));
-  display: -webkit-box;
-  display: flex;
-  -webkit-box-orient: vertical;
-  flex-direction: column;
+  display: flex; flex-direction: column;
+  padding: 2.6vmin 3vmin 1.6vmin;
+  padding-left: calc(3vmin + env(safe-area-inset-left));
+  padding-right: calc(3vmin + env(safe-area-inset-right));
   transition: transform 2s ease;
 }
 
-.hidden { display: none !important; }
+/* ── 위: 시계 · 지금 날씨 ── */
+.top { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 1.6vmin; }
+.clock { font-size: 12vmin; font-weight: 700; line-height: 0.95; letter-spacing: -0.4vmin; font-variant-numeric: tabular-nums; }
+.date { font-size: 2.8vmin; color: var(--sub); margin-top: 1vmin; font-weight: 600; }
+.now-weather { text-align: right; }
+.now-weather .row { display: flex; align-items: center; justify-content: flex-end; }
+.now-weather .icon { font-size: 7vmin; margin-right: 1.4vmin; }
+.now-weather .temp { font-size: 8vmin; font-weight: 700; letter-spacing: -0.3vmin; }
+.now-weather .desc { font-size: 2.2vmin; color: var(--sub); margin-top: 0.4vmin; }
+.now-weather .desc b { color: var(--text); font-weight: 600; }
 
-/* ── 위: 날짜 · 시계 · 지금 날씨 ── */
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.4vmin;
+.notice {
+  margin-bottom: 1.6vmin; padding: 1.1vmin 1.8vmin;
+  border-radius: 1.6vmin; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.25);
+  font-size: 2.3vmin; font-weight: 600; color: #fde68a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.date { flex: 1; }
-.date-main { font-size: 3.6vmin; font-weight: 700; }
-.date-sub { font-size: 2.2vmin; color: var(--sub); margin-top: 0.4vmin; }
-.clock {
-  flex: 1;
-  text-align: center;
-  font-size: 10vmin;
-  font-weight: 700;
-  letter-spacing: -0.2vmin;
-  font-variant-numeric: tabular-nums;
-}
-.now-weather { flex: 1; text-align: right; }
-.now-weather .temp { font-size: 6vmin; font-weight: 700; }
-.now-weather .icon { font-size: 5vmin; margin-right: 1vmin; vertical-align: 0.6vmin; }
-.now-weather .desc { font-size: 2.1vmin; color: var(--sub); }
-
-/* ── 오늘의 한 줄 안내 (우산 · 옷차림 · 미세먼지) ── */
-.advice {
-  background: linear-gradient(90deg, rgba(255, 159, 67, 0.22), rgba(255, 107, 138, 0.12));
-  border: 1px solid rgba(255, 159, 67, 0.35);
-  border-radius: 1.6vmin;
-  padding: 1vmin 1.8vmin;
-  font-size: 2.4vmin;
-  font-weight: 600;
-  margin-bottom: 1.4vmin;
-}
-.advice span { margin-right: 2.4vmin; }
+.notice span { margin-right: 2.6vmin; }
 
 /* ── 가운데 3단 ── */
-.grid {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1.15fr 1.1fr 1fr;
-  grid-gap: 1.6vmin;
-  gap: 1.6vmin;
-  transition: all 0.6s ease;
+.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.15fr 1.15fr 0.95fr; grid-gap: 1.6vmin; gap: 1.6vmin; }
+.side { display: flex; flex-direction: column; min-height: 0; }
+.side .card { margin-bottom: 1.6vmin; }
+.side .card:last-child { margin-bottom: 0; flex: 1; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 2.4vmin;
+  padding: 2vmin 2.2vmin; min-height: 0; overflow: hidden;
 }
-body.morning .grid { grid-template-columns: 1.15fr 1fr 1.15fr; }
-body.evening .grid { grid-template-columns: 1fr 1.45fr 0.9fr; }
-body.morning #panel-weather,
-body.evening #panel-dinner { background: var(--panel-strong); border-color: #33415a; }
+.card-title { font-size: 2vmin; font-weight: 700; color: var(--sub); margin-bottom: 1.3vmin; letter-spacing: 0.02em; }
+.card-title.sub { margin-top: 2vmin; padding-top: 1.6vmin; border-top: 1px solid var(--line); }
+.card-title .ic { margin-right: 0.8vmin; }
+.title-meta { color: var(--dim); font-weight: 600; margin-left: 0.6vmin; }
+.empty { color: var(--dim); font-size: 2.1vmin; padding: 0.6vmin 0; }
 
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 2.2vmin;
-  padding: 1.8vmin 2vmin;
-  overflow: hidden;
-  min-height: 0;
-}
-.panel h2 {
-  font-size: 2.3vmin;
-  color: var(--sub);
-  font-weight: 600;
-  margin-bottom: 1.2vmin;
-}
-.empty { color: var(--dim); font-size: 2vmin; padding: 1vmin 0; }
+/* 오늘 일정 */
+.event { display: flex; align-items: center; padding: 0.9vmin 1vmin; margin: 0 -1vmin; border-radius: 1.2vmin; }
+.event .time { width: 8.4vmin; flex-shrink: 0; font-size: 2.2vmin; color: var(--sub); font-variant-numeric: tabular-nums; font-weight: 600; }
+.event .bar { width: 0.55vmin; height: 3.6vmin; border-radius: 0.3vmin; margin-right: 1.4vmin; flex-shrink: 0; }
+.event .body { min-width: 0; }
+.event .title { font-size: 2.7vmin; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.event .loc { font-size: 1.8vmin; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.event.past { opacity: 0.35; }
+.event.now { background: rgba(96, 165, 250, 0.14); }
+.event.now .time { color: var(--blue); }
 
-/* 일정 */
-.day-group { margin-bottom: 1.3vmin; }
-.day-label {
-  font-size: 1.8vmin;
-  font-weight: 700;
-  color: var(--orange);
-  margin-bottom: 0.5vmin;
-}
-.day-label.later { color: var(--sub); }
-.event {
-  display: flex;
-  align-items: baseline;
-  padding: 0.55vmin 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-.event .bar {
-  width: 0.5vmin;
-  height: 2.2vmin;
-  border-radius: 0.3vmin;
-  margin-right: 1.1vmin;
-  -webkit-align-self: center;
-  align-self: center;
-  flex-shrink: 0;
-}
-.event .time {
-  width: 7.5vmin;
-  flex-shrink: 0;
-  color: var(--sub);
-  font-size: 1.9vmin;
-  font-variant-numeric: tabular-nums;
-}
-.event .title {
-  font-size: 2.3vmin;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.event.past { opacity: 0.4; }
-.event.now .title { color: var(--yellow); font-weight: 700; }
-.day-group.today .event .title { font-size: 2.6vmin; }
+.upcoming .item { display: flex; align-items: baseline; padding: 0.55vmin 0; font-size: 2.1vmin; }
+.upcoming .day { width: 8.4vmin; flex-shrink: 0; color: var(--orange); font-weight: 700; font-size: 1.9vmin; }
+.upcoming .t { color: var(--sub); width: 6.6vmin; flex-shrink: 0; font-variant-numeric: tabular-nums; font-size: 1.9vmin; }
+.upcoming .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* 저녁 */
-.tonight {
-  background: rgba(255, 159, 67, 0.1);
-  border-radius: 1.8vmin;
-  padding: 1.6vmin 1.8vmin;
-  margin-bottom: 1.4vmin;
+.dinner-card { background: linear-gradient(160deg, rgba(251, 146, 60, 0.13), rgba(255, 255, 255, 0.035) 55%); }
+.dish { font-size: 4.2vmin; font-weight: 800; line-height: 1.15; letter-spacing: -0.15vmin; margin-bottom: 0.8vmin;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dish.none { font-size: 3vmin; color: var(--sub); font-weight: 600; }
+.ingredients { font-size: 1.9vmin; color: var(--sub); margin-bottom: 1.4vmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.alert { font-size: 2vmin; color: var(--amber); font-weight: 600; margin-bottom: 1vmin; }
+.attend { display: flex; flex-wrap: wrap; margin: 0.4vmin 0 0.6vmin; }
+.pill {
+  display: inline-flex; align-items: center; margin: 0 1vmin 1vmin 0;
+  background: var(--card-strong); border-radius: 99px; padding: 0.7vmin 1.4vmin 0.7vmin 1vmin; font-size: 2.1vmin; font-weight: 600;
 }
-.tonight .label { font-size: 1.8vmin; color: var(--orange); font-weight: 700; }
-.tonight .dish { font-size: 4.2vmin; font-weight: 800; margin: 0.5vmin 0 0.3vmin; line-height: 1.2; }
-.tonight .meta { font-size: 1.9vmin; color: var(--sub); }
-.tonight .conflict { font-size: 2vmin; color: var(--yellow); margin-top: 0.6vmin; }
-.tonight.none .dish { font-size: 3vmin; color: var(--sub); font-weight: 600; }
+.pill .e { margin-right: 0.6vmin; }
+.pill .s { margin-left: 0.8vmin; font-size: 1.8vmin; padding: 0.2vmin 0.9vmin; border-radius: 99px; font-weight: 700; }
+.s.home { background: rgba(52, 211, 153, 0.18); color: var(--green); }
+.s.late { background: rgba(251, 191, 36, 0.18); color: var(--amber); }
+.s.out { background: rgba(148, 163, 184, 0.16); color: var(--sub); }
+.s.unknown { background: transparent; color: var(--dim); }
+.badge { display: inline-block; font-size: 1.9vmin; font-weight: 700; padding: 0.5vmin 1.2vmin; border-radius: 1vmin; margin-right: 0.8vmin; }
+.badge.green { background: rgba(52, 211, 153, 0.16); color: var(--green); }
+.badge.violet { background: rgba(167, 139, 250, 0.16); color: var(--violet); }
 
-.week-dinners { display: flex; margin-bottom: 1.4vmin; }
-.week-dinners .wd {
-  flex: 1;
-  text-align: center;
-  padding: 0.8vmin 0.3vmin;
-  border-radius: 1.2vmin;
-  margin: 0 0.35vmin;
-  background: rgba(255, 255, 255, 0.03);
-  min-width: 0;
-}
-.week-dinners .wd.today { background: rgba(255, 159, 67, 0.18); }
-.week-dinners .wd .d { font-size: 1.7vmin; color: var(--sub); white-space: nowrap; }
-.week-dinners .wd .m {
-  font-size: 1.75vmin;
-  margin-top: 0.3vmin;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 1.6vmin;
-}
-.week-dinners .wd .m.none { color: var(--dim); }
-
-.shopping .head { font-size: 2vmin; font-weight: 700; margin-bottom: 0.6vmin; }
-.shopping .head .count { color: var(--green); }
-.chip {
-  display: inline-block;
-  background: rgba(61, 220, 151, 0.12);
-  color: #bff3dc;
-  border-radius: 1vmin;
-  padding: 0.35vmin 1vmin;
-  margin: 0 0.6vmin 0.6vmin 0;
-  font-size: 1.9vmin;
-}
+.week .row { display: flex; align-items: baseline; padding: 0.55vmin 0; font-size: 2.1vmin; border-bottom: 1px solid var(--line); }
+.week .row:last-child { border-bottom: none; }
+.week .d { width: 8.4vmin; color: var(--sub); font-weight: 700; font-size: 1.9vmin; flex-shrink: 0; }
+.week .m { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.week .m.none { color: var(--dim); }
 
 /* 날씨 */
-.place {
-  display: flex;
-  align-items: center;
-  padding: 1vmin 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-.place:last-child { border-bottom: none; }
-.place .icon { font-size: 4.6vmin; width: 6.5vmin; text-align: center; margin-right: 1.2vmin; }
-.place .info { flex: 1; min-width: 0; }
-.place .name { font-size: 2.3vmin; font-weight: 700; }
-.place .role { font-size: 1.6vmin; color: var(--sub); margin-left: 0.6vmin; font-weight: 500; }
-.place .line { font-size: 1.8vmin; color: var(--sub); margin-top: 0.2vmin; }
-.place .temps { text-align: right; }
-.place .now { font-size: 3.6vmin; font-weight: 700; }
-.place .range { font-size: 1.8vmin; color: var(--sub); }
+.wx { display: flex; align-items: center; padding: 0.8vmin 0; border-bottom: 1px solid var(--line); }
+.wx:last-of-type { border-bottom: none; }
+.wx .ic { font-size: 4vmin; width: 5.4vmin; text-align: center; margin-right: 1.2vmin; }
+.wx .info { flex: 1; min-width: 0; }
+.wx .name { font-size: 2.2vmin; font-weight: 700; }
+.wx .role { font-size: 1.6vmin; color: var(--dim); margin-left: 0.6vmin; font-weight: 600; }
+.wx .line { font-size: 1.7vmin; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wx .t { text-align: right; }
+.wx .now { font-size: 3.4vmin; font-weight: 700; }
+.wx .range { font-size: 1.6vmin; color: var(--sub); }
 .rain { color: var(--blue); font-weight: 700; }
-.seg { white-space: nowrap; }
-.air-good { color: var(--green); }
-.air-normal { color: var(--yellow); }
-.air-bad { color: var(--orange); }
-.air-worst { color: var(--red); }
-
-.hourly { display: flex; margin-top: 1.2vmin; }
+.air-0 { color: var(--green); } .air-1 { color: var(--amber); } .air-2 { color: var(--orange); } .air-3 { color: var(--red); }
+.hourly { display: flex; margin-top: 1vmin; }
 .hourly .h { flex: 1; text-align: center; font-size: 1.6vmin; color: var(--sub); }
-.hourly .h .e { font-size: 2.6vmin; display: block; margin: 0.2vmin 0; }
-.hourly .h .t { color: var(--text); font-weight: 600; font-size: 1.8vmin; }
+.hourly .h .e { display: block; font-size: 2.6vmin; margin: 0.2vmin 0; }
+.hourly .h b { color: var(--text); font-size: 1.8vmin; }
 
-/* ── 아래: 건강 · 갱신 상태 ── */
-.bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 1.4vmin;
-  min-height: 4vmin;
+/* 장보기 */
+.chips { display: flex; flex-wrap: wrap; }
+.chip { background: rgba(52, 211, 153, 0.12); color: #c5f5df; border-radius: 1vmin; padding: 0.5vmin 1.2vmin; margin: 0 0.8vmin 0.8vmin 0; font-size: 2vmin; font-weight: 600; }
+.chip.more { background: transparent; color: var(--sub); }
+
+/* ── 아래: 가족 건강 ── */
+.people { display: flex; margin-top: 1.6vmin; }
+.person {
+  flex: 1; display: flex; align-items: center; margin-right: 1.6vmin;
+  background: var(--card); border: 1px solid var(--line); border-radius: 2vmin; padding: 1.2vmin 1.8vmin;
 }
-.health { display: flex; flex-wrap: wrap; }
-.health .person {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 1.4vmin;
-  padding: 0.7vmin 1.4vmin;
-  margin-right: 1vmin;
-  font-size: 1.9vmin;
-}
-.health .person b { margin-right: 0.8vmin; }
-.health .person .stat { margin-right: 1.2vmin; color: var(--sub); }
-.health .person .stat em { font-style: normal; color: var(--text); font-weight: 700; }
-.status { font-size: 1.6vmin; color: var(--dim); text-align: right; }
-.status .stale { color: var(--orange); }
+.person:last-child { margin-right: 0; }
+.ring { width: 7.4vmin; height: 7.4vmin; flex-shrink: 0; margin-right: 1.6vmin; }
+.ring text { font-weight: 800; fill: var(--text); }
+.person .who { font-size: 2.4vmin; font-weight: 700; }
+.person .lv { font-size: 1.9vmin; font-weight: 700; margin-left: 0.8vmin; }
+.person .stats { font-size: 1.9vmin; color: var(--sub); margin-top: 0.3vmin; }
+.person .stats b { color: var(--text); margin-right: 0.3vmin; }
+.person .stats span { margin-right: 1.8vmin; }
+.lv-recover { color: var(--red); } .lv-pace { color: var(--amber); } .lv-ready { color: var(--green); } .lv-go { color: #2dd4bf; }
+.status { font-size: 1.5vmin; color: var(--dim); text-align: right; margin-top: 0.6vmin; min-height: 2vmin; }
+.status .warn { color: var(--orange); }
 
 /* ── 밤: 시계만 어둡게 ── */
 .night {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #5b4a3a;
-  z-index: 10;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: #000; color: #5b4a3a;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   transition: transform 2s ease;
 }
-.night-clock { font-size: 18vmin; font-weight: 300; font-variant-numeric: tabular-nums; }
+.night-clock { font-size: 20vmin; font-weight: 300; font-variant-numeric: tabular-nums; }
 .night-sub { font-size: 2.6vmin; margin-top: 1vmin; color: #3e3328; }
 
-/* 세로 화면이면 위아래로 쌓기 */
+/* 세로로 두면 위아래로 */
 @media (orientation: portrait) {
-  html, body { font-size: 2.4vmin; overflow: auto; }
-  .grid, body.morning .grid, body.evening .grid { grid-template-columns: 1fr; }
+  html, body { font-size: 2.3vmin; overflow: auto; }
   #board { height: auto; min-height: 100%; }
+  .grid { grid-template-columns: 1fr; }
+  .people { flex-wrap: wrap; }
 }
-
-.tonight .attend { margin-top: 0.9vmin; }
-.tonight .attend .who { display: inline-block; margin: 0.4vmin 1.6vmin 0 0; font-size: 2vmin; color: var(--sub); }
-.tonight .attend .who b { color: var(--text); }

@@ -7,48 +7,53 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="가족 전광판">
-<meta name="theme-color" content="#0b0f14">
+<meta name="theme-color" content="#0a0f1c">
 <link rel="apple-touch-icon" href="../assets/icon.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="board.css?v=2">
 <title>가족 전광판</title>
 </head>
-<body class="day">
+<body>
 <div id="board">
   <header class="top">
-    <div class="date">
-      <div id="date" class="date-main">&nbsp;</div>
-      <div id="greeting" class="date-sub">&nbsp;</div>
+    <div class="clock-block">
+      <div id="clock" class="clock">--:--</div>
+      <div id="date" class="date">&nbsp;</div>
     </div>
-    <div id="clock" class="clock">--:--</div>
     <div id="now-weather" class="now-weather"></div>
   </header>
 
-  <div id="advice" class="advice hidden"></div>
+  <div id="notice" class="notice hidden"></div>
 
   <main class="grid">
-    <section class="panel" id="panel-schedule">
-      <h2>📅 가족 일정</h2>
-      <div id="schedule" class="list"><div class="empty">일정을 불러오는 중…</div></div>
+    <section class="card">
+      <div class="card-title"><span class="ic">📅</span>오늘 일정</div>
+      <div id="today-events" class="events"></div>
+      <div class="card-title sub"><span class="ic">🗓</span>다가오는 일정</div>
+      <div id="upcoming" class="upcoming"></div>
     </section>
 
-    <section class="panel" id="panel-dinner">
-      <h2>🍽 저녁</h2>
-      <div id="tonight" class="tonight"></div>
-      <div id="week-dinners" class="week-dinners"></div>
-      <div id="shopping" class="shopping"></div>
+    <section class="card dinner-card">
+      <div class="card-title"><span class="ic">🍽</span>오늘 저녁 <span id="dinner-time" class="title-meta"></span></div>
+      <div id="dinner"></div>
+      <div class="card-title sub"><span class="ic">🍲</span>이번 주 저녁</div>
+      <div id="week" class="week"></div>
     </section>
 
-    <section class="panel" id="panel-weather">
-      <h2>🌤 날씨</h2>
-      <div id="weather" class="weather"><div class="empty">날씨를 불러오는 중…</div></div>
-    </section>
+    <div class="side">
+      <section class="card">
+        <div class="card-title"><span class="ic">🌤</span>날씨</div>
+        <div id="weather"></div>
+      </section>
+      <section class="card shop-card">
+        <div class="card-title"><span class="ic">🛒</span>장보기 <span id="shop-count" class="title-meta"></span></div>
+        <div id="shopping" class="chips"></div>
+      </section>
+    </div>
   </main>
 
-  <footer class="bottom">
-    <div id="health" class="health"></div>
-    <div id="status" class="status"></div>
-  </footer>
+  <footer id="people" class="people"></footer>
+  <div id="status" class="status"></div>
 </div>
 
 <div id="night" class="night hidden">
@@ -56,6 +61,6 @@
   <div id="night-sub" class="night-sub"></div>
 </div>
 
-<script src="board.js"></script>
+<script src="board.js?v=2"></script>
 </body>
 </html>
