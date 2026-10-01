@@ -25,6 +25,10 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
 
+                    if AppExpiry.isExpiringSoon {
+                        ExpiryBanner()
+                    }
+
                     ForEach(sections) { section in
                         sectionView(section)
                     }
@@ -280,5 +284,26 @@ private struct EmptyStateView: View {
         } description: {
             Text("설정 앱 › 건강 › 데이터 접근 및 기기에서 이 앱의 읽기 권한을 확인하세요.")
         }
+    }
+}
+
+/// 무료 계정 설치본의 사용 기한이 2일 이하로 남았을 때 보이는 안내
+private struct ExpiryBanner: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "clock.badge.exclamationmark.fill")
+                .font(.title2)
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("앱 사용 기한: \(AppExpiry.summary)")
+                    .font(.subheadline.weight(.semibold))
+                Text("Mac에서 다시 설치하면 7일 연장돼요. 기록은 그대로 남으니 앱을 지우지만 마세요.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

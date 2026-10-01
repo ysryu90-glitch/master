@@ -224,6 +224,7 @@ final class DashboardModel {
         await BriefingScheduler.reschedule()
         await MedicationStore.shared.reschedule()
         await LifeAlerts.reschedule()
+        await AppExpiry.reschedule()
     }
 
     // MARK: - 물 · 호흡

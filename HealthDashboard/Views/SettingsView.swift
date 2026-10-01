@@ -60,6 +60,9 @@ struct SettingsView: View {
                     LabeledContent("표시 가능한 지표", value: "\(HealthMetric.all.count)개 + 활동 링 · 수면 · 운동")
                     LabeledContent("데이터 저장", value: "기기 안 · 식단만 건강 앱에 저장")
                     LabeledContent("식단 기록", value: "\(MealStore.shared.meals.count)끼")
+                    if AppExpiry.expirationDate != nil {
+                        LabeledContent("앱 사용 기한", value: AppExpiry.summary)
+                    }
                     if let updated = SharedStore.healthSnapshot?.updatedAt {
                         LabeledContent("마지막 갱신", value: updated.formatted(date: .abbreviated, time: .shortened))
                     }
