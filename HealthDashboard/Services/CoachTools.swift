@@ -22,7 +22,7 @@ struct HealthHistoryTool: Tool {
         조회할 항목 하나: sleep(수면), readiness(준비 점수), steps(걸음 수), activeEnergy(활동 에너지), \
         exercise(운동 시간), restingHeartRate(안정 시 심박수), hrv(심박 변이), weight(체중), \
         workouts(운동 기록), medication(복약 기록), habits(습관 기록), diet(식단 · 섭취 칼로리 · 탄단지), \
-        mealplan(앞으로의 저녁 메뉴 계획과 장보기 목록), calendar(앞으로의 가족 일정)
+        mealplan(앞으로의 저녁 메뉴 계획과 장보기 목록), checkup(건강검진 결과), calendar(앞으로의 가족 일정)
         """)
         var item: String
 
@@ -113,6 +113,15 @@ enum HealthHistoryProvider {
             let shopping = kitchen.openItemNames
             return (plans.isEmpty ? "저녁 계획 없음" : "[저녁 계획]\n" + plans.joined(separator: "\n"))
                 + "\n" + (shopping.isEmpty ? "장보기 목록 비어 있음" : "[장보기 목록] " + shopping.joined(separator: ", "))
+
+        case "checkup", "검진", "건강검진":
+            let store = CheckupStore.shared
+            guard !store.records.isEmpty else { return "건강검진 기록 없음" }
+            return store.records.prefix(5).map { record in
+                "\(record.date.formatted(.dateTime.year().month().day())) \(record.title): "
+                    + record.items.map { "\($0.name) \(CheckupItem.format($0.value))\($0.unit)\($0.isOutOfRange ? "(주의)" : "")" }
+                        .joined(separator: ", ")
+            }.joined(separator: "\n")
 
         case "calendar", "일정", "캘린더":
             return CalendarStore.shared.upcomingSummary(days: days)

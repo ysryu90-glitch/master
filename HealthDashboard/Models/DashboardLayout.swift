@@ -2,11 +2,11 @@ import HealthKit
 import SwiftUI
 
 enum DashboardSection: Hashable, Codable, Identifiable {
-    case earlyWarning, readiness, medication, water, schedule, diet, recommendation, breathing, habits, favorites, activityRings, sleep, workouts
+    case earlyWarning, readiness, medication, water, schedule, diet, recommendation, breathing, habits, weight, checkups, favorites, activityRings, sleep, workouts
     case metrics(MetricCategory)
 
     static let defaultOrder: [DashboardSection] =
-        [.earlyWarning, .readiness, .medication, .water, .schedule, .diet, .recommendation, .breathing, .habits, .favorites, .activityRings, .sleep]
+        [.earlyWarning, .readiness, .medication, .water, .schedule, .diet, .recommendation, .breathing, .habits, .weight, .checkups, .favorites, .activityRings, .sleep]
         + MetricCategory.allCases.map { .metrics($0) }
         + [.workouts]
 
@@ -18,6 +18,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .schedule: "schedule"
         case .diet: "diet"
         case .water: "water"
+        case .weight: "weight"
+        case .checkups: "checkups"
         case .breathing: "breathing"
         case .medication: "medication"
         case .recommendation: "recommendation"
@@ -37,6 +39,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .schedule: "오늘의 가족 일정"
         case .diet: "오늘의 식단"
         case .water: "물 마시기"
+        case .weight: "체중 목표"
+        case .checkups: "건강검진 · 접종"
         case .breathing: "1분 호흡"
         case .medication: "오늘의 복약"
         case .recommendation: "오늘의 운동 추천"
@@ -56,6 +60,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .schedule: "calendar"
         case .diet: "fork.knife"
         case .water: "drop.fill"
+        case .weight: "scalemass.fill"
+        case .checkups: "stethoscope"
         case .breathing: "wind"
         case .medication: "pills.fill"
         case .recommendation: "figure.run.circle.fill"
@@ -75,6 +81,8 @@ enum DashboardSection: Hashable, Codable, Identifiable {
         case .schedule: .pink
         case .diet: .orange
         case .water: .cyan
+        case .weight: .purple
+        case .checkups: .blue
         case .breathing: .teal
         case .medication: .purple
         case .recommendation: .green

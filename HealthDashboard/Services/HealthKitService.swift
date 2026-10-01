@@ -1,3 +1,4 @@
+import CoreLocation
 import HealthKit
 
 /// HealthKit 조회를 담당. 앱은 데이터를 읽기만 하고 쓰지 않는다.
@@ -388,6 +389,68 @@ final class HealthKitService: @unchecked Sendable {
         )
         let samples = try await descriptor.result(for: store)
         return samples.reduce(0) { $0 + $1.endDate.timeIntervalSince($1.startDate) } / 60
+    }
+
+    // MARK: - 운동 상세
+
+    /// 운동 중 심박수 (시각, BPM)
+    func heartRates(from start: Date, to end: Date) async -> [(date: Date, bpm: Double)] {
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(
+                type: HKQuantityType(.heartRate),
+                predicate: HKQuery.predicateForSamples(withStart: start, end: end)
+            )],
+            sortDescriptors: [SortDescriptor(\.startDate)]
+        )
+        let samples = (try? await descriptor.result(for: store)) ?? []
+        return samples.map { ($0.startDate, $0.quantity.doubleValue(for: .beatsPerMinute)) }
+    }
+
+    /// 나이 (최대 심박수 계산용, 모르면 nil)
+    func age() -> Int? {
+        guard let birth = try? store.dateOfBirthComponents(),
+              let date = Calendar.current.date(from: birth) else { return nil }
+        return Calendar.current.dateComponents([.year], from: date, to: .now).year
+    }
+
+    /// 야외 운동 경로 (GPS 기록이 있을 때)
+    func route(forWorkout id: UUID) async -> [CLLocation] {
+        let workoutDescriptor = HKSampleQueryDescriptor(
+            predicates: [.workout(HKQuery.predicateForObject(with: id))],
+            sortDescriptors: [],
+            limit: 1
+        )
+        guard let workout = try? await workoutDescriptor.result(for: store).first else { return [] }
+
+        let routeDescriptor = HKSampleQueryDescriptor(
+            predicates: [.sample(type: HKSeriesType.workoutRoute(), predicate: HKQuery.predicateForObjects(from: workout))],
+            sortDescriptors: []
+        )
+        guard let route = (try? await routeDescriptor.result(for: store))?.first as? HKWorkoutRoute else { return [] }
+
+        let store = self.store
+        return await withCheckedContinuation { continuation in
+            var locations: [CLLocation] = []
+            var finished = false
+            let query = HKWorkoutRouteQuery(route: route) { _, batch, done, error in
+                guard !finished else { return }
+                if let batch { locations.append(contentsOf: batch) }
+                if done || error != nil {
+                    finished = true
+                    continuation.resume(returning: locations)
+                }
+            }
+            store.execute(query)
+        }
+    }
+
+    /// 1년치 운동 (개인 기록 계산용)
+    func workouts(since date: Date) async -> [WorkoutItem] {
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.workout(HKQuery.predicateForSamples(withStart: date, end: .now))],
+            sortDescriptors: [SortDescriptor(\.endDate, order: .reverse)]
+        )
+        return ((try? await descriptor.result(for: store)) ?? []).map(WorkoutItem.init)
     }
 
     func recentWorkouts(limit: Int) async throws -> [WorkoutItem] {

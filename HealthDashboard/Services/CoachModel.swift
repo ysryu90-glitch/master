@@ -254,6 +254,17 @@ enum CoachContext {
         let workoutToday = dashboard.workouts.contains { Calendar.current.isDateInToday($0.start) }
         lines.append("하루 단백질 목표: \(Int(mealStore.proteinTarget(weightKg: dashboard.values[.bodyMass]?.value, workoutDay: workoutToday)))g")
 
+        // 건강검진 · 체중 목표
+        if let latest = CheckupStore.shared.records.first {
+            let flagged = latest.items.filter(\.isOutOfRange)
+            lines.append("최근 건강검진(\(latest.date.formatted(.dateTime.year().month()))): "
+                         + (flagged.isEmpty ? "모든 항목 참고 범위 안" : "주의 " + flagged.map { "\($0.name) \(CheckupItem.format($0.value))\($0.unit)" }.joined(separator: ", ")))
+        }
+        let weightGoal = UserDefaults.standard.double(forKey: "weightGoalKg")
+        if weightGoal > 0 {
+            lines.append("체중 목표: \(weightGoal.formatted(.number.precision(.fractionLength(1))))kg")
+        }
+
         // 가족 식탁
         let kitchen = KitchenStore.shared
         if let tonight = kitchen.plan(on: .now) {

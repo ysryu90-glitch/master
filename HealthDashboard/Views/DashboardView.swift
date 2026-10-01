@@ -141,6 +141,12 @@ struct DashboardView: View {
         case .water:
             WaterCard()
 
+        case .weight:
+            WeightGoalCard()
+
+        case .checkups:
+            CheckupSummaryCard()
+
         case .breathing:
             BreathingCard()
 

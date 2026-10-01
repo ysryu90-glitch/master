@@ -11,6 +11,7 @@ struct HealthDashboardApp: App {
     @State private var weeklyReports = WeeklyReportStore.shared
     @State private var meals = MealStore.shared
     @State private var kitchen = KitchenStore.shared
+    @State private var checkups = CheckupStore.shared
     @State private var router = AppRouter()
 
     init() {
@@ -32,6 +33,7 @@ struct HealthDashboardApp: App {
                 .environment(weeklyReports)
                 .environment(meals)
                 .environment(kitchen)
+                .environment(checkups)
                 .environment(router)
         }
         // 아침 브리핑 전에 iOS가 앱을 깨우면 날씨·건강 요약과 알림을 갱신한다.

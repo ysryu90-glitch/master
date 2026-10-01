@@ -117,8 +117,14 @@ struct WorkoutsSection: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(workouts.prefix(3)) { workout in
-                        WorkoutRow(workout: workout)
-                            .padding(.vertical, 10)
+                        NavigationLink {
+                            WorkoutDetailView(workout: workout)
+                        } label: {
+                            WorkoutRow(workout: workout)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 10)
                         if workout.id != workouts.prefix(3).last?.id {
                             Divider()
                         }
@@ -175,8 +181,21 @@ struct WorkoutListView: View {
     let workouts: [WorkoutItem]
 
     var body: some View {
-        List(workouts) { workout in
-            WorkoutRow(workout: workout)
+        List {
+            Section {
+                PersonalRecordsCard()
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            Section("최근 운동") {
+                ForEach(workouts) { workout in
+                    NavigationLink {
+                        WorkoutDetailView(workout: workout)
+                    } label: {
+                        WorkoutRow(workout: workout)
+                    }
+                }
+            }
         }
         .navigationTitle("운동 기록")
     }
