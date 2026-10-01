@@ -83,7 +83,7 @@ struct HabitCard: View {
                 .buttonStyle(.plain)
             }
 
-            if let top = model.habitInsights(habits).first, let headline = top.headline {
+            if let top = model.habitInsights(habits).first(where: { $0.confidence != .weak }), let headline = top.headline {
                 Label(headline, systemImage: "lightbulb.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -132,7 +132,13 @@ struct HabitInsightsView: View {
                             Text("\(insight.emoji) \(insight.title)")
                                 .font(.headline)
                             Spacer()
-                            Text("\(insight.count)일")
+                            Text(insight.confidence.rawValue)
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(confidenceColor(insight.confidence).opacity(0.18), in: Capsule())
+                                .foregroundStyle(confidenceColor(insight.confidence))
+                            Text("\(insight.count)일 vs \(insight.comparisonCount)일")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -164,5 +170,13 @@ struct HabitInsightsView: View {
         }
         .navigationTitle("습관 분석")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func confidenceColor(_ confidence: HabitInsight.Confidence) -> Color {
+        switch confidence {
+        case .weak: .gray
+        case .moderate: .orange
+        case .strong: .green
+        }
     }
 }

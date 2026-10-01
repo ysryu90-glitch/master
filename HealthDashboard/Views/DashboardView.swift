@@ -69,7 +69,7 @@ struct DashboardView: View {
                     }
                 }
             }
-            .refreshable { await model.refresh() }
+            .refreshable { await model.refresh(force: true) }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showEditor) { DashboardEditorView() }
             .sheet(isPresented: $showNotifications) {
@@ -88,13 +88,17 @@ struct DashboardView: View {
                 await weather.refresh()
                 await WeeklyReportStore.shared.generateIfNeeded()
                 await KitchenStore.shared.reload()
+                await BackupManager.shared.backupIfNeeded()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
+                    // 위젯 · Siri로 기록한 복용 · 물 기록을 다시 읽는다.
+                    MedicationStore.shared.reloadLog()
                     Task {
                         await LocationService.shared.refreshIfNeeded()
                         await model.refresh()
                         await weather.refresh()
+                        await BackupManager.shared.backupIfNeeded()
                     }
                 }
             }

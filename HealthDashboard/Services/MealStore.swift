@@ -132,6 +132,12 @@ final class MealStore {
 
     // MARK: - 파일
 
+    /// 백업에서 복원한 뒤 다시 읽기
+    func reloadFromDisk() {
+        meals = []
+        load()
+    }
+
     private func load() {
         guard let data = try? Data(contentsOf: Self.fileURL),
               let saved = try? JSONDecoder().decode([MealEntry].self, from: data) else { return }

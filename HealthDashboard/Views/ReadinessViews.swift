@@ -119,6 +119,8 @@ struct ReadinessDetailView: View {
                 .frame(maxWidth: .infinity)
                 .card()
 
+                CalibrationCard()
+
                 if let today {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("점수 구성")
@@ -206,5 +208,62 @@ private struct ComponentRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+
+/// 애플워치 공식 준비 점수를 입력해 앱 점수를 보정한다.
+private struct CalibrationCard: View {
+    @Environment(DashboardModel.self) private var model
+    @State private var officialScore: Double = ReadinessCalibration.official(on: .now) ?? 7
+    @State private var hasEntry = ReadinessCalibration.official(on: .now) != nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("애플워치 공식 점수로 보정", systemImage: "scope")
+                .font(.headline)
+            Text("오늘 피트니스·건강 앱의 공식 준비 점수를 입력하면, 앱 점수가 점점 공식 점수에 가까워져요. (3번 입력부터 적용)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Stepper(value: $officialScore, in: 0...10, step: 0.1) {
+                HStack {
+                    Text("오늘 공식 점수")
+                    Spacer()
+                    Text(officialScore.formatted(.number.precision(.fractionLength(1))))
+                        .font(.headline.monospacedDigit())
+                }
+            }
+
+            HStack {
+                Button(hasEntry ? "수정하기" : "입력하기") {
+                    model.setOfficialReadiness(officialScore)
+                    hasEntry = true
+                }
+                .buttonStyle(.borderedProminent)
+                if hasEntry {
+                    Button("오늘 입력 지우기", role: .destructive) {
+                        model.setOfficialReadiness(nil)
+                        hasEntry = false
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 6) {
+                Image(systemName: model.calibrationCount >= 3 ? "checkmark.seal.fill" : "hourglass")
+                    .foregroundStyle(model.calibrationCount >= 3 ? .green : .secondary)
+                Text(model.calibrationCount >= 3
+                     ? "보정 적용 중 · 공식 점수 \(model.calibrationCount)개"
+                     : "공식 점수 \(model.calibrationCount)/3개 입력됨")
+                if let raw = model.todayReadiness?.rawScore {
+                    Text("· 보정 전 \(raw.formatted(.number.precision(.fractionLength(1))))")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .card()
     }
 }

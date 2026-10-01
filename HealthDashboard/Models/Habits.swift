@@ -81,6 +81,15 @@ final class HabitStore {
         reminderMinute = defaults.object(forKey: Keys.reminderMinute) as? Int ?? 30
     }
 
+    /// 백업에서 복원한 뒤 다시 읽기
+    func reloadFromDefaults() {
+        let defaults = UserDefaults.standard
+        log = (defaults.dictionary(forKey: Keys.log) as? [String: [String]]) ?? [:]
+        reminderEnabled = defaults.bool(forKey: Keys.reminderEnabled)
+        reminderHour = defaults.object(forKey: Keys.reminderHour) as? Int ?? 22
+        reminderMinute = defaults.object(forKey: Keys.reminderMinute) as? Int ?? 30
+    }
+
     /// 새벽 5시 전에는 '어제' 기록으로 본다. (자기 전에 기록하는 경우)
     static var loggingDate: Date {
         let now = Date.now
@@ -190,7 +199,24 @@ struct HabitInsight: Identifiable {
     let phrase: String
     /// 해당 습관이 있었던 날 수
     let count: Int
+    /// 비교한 '없었던 날' 수
+    var comparisonCount = 0
     let effects: [Effect]
+
+    enum Confidence: String {
+        case weak = "근거 약함"
+        case moderate = "근거 보통"
+        case strong = "근거 강함"
+    }
+
+    /// 표본 수와 차이 크기로 정하는 믿을 만한 정도
+    var confidence: Confidence {
+        let samples = min(count, comparisonCount)
+        let effect = strength
+        if samples >= 10 && effect >= 0.7 { return .strong }
+        if samples >= 5 && effect >= 0.4 { return .moderate }
+        return .weak
+    }
 
     /// 가장 큰 영향(준비 점수 기준)
     var headline: String? {
@@ -327,7 +353,8 @@ enum HabitAnalyzer {
         }
 
         guard !effects.isEmpty else { return nil }
-        return HabitInsight(id: id, emoji: emoji, title: title, phrase: phrase, count: with.count, effects: effects)
+        return HabitInsight(id: id, emoji: emoji, title: title, phrase: phrase,
+                            count: with.count, comparisonCount: without.count, effects: effects)
     }
 
     private static func difference(_ with: [Double], _ without: [Double]) -> Double? {

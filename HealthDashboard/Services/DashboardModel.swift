@@ -117,13 +117,21 @@ final class DashboardModel {
     }
 
     /// 여러 종류의 데이터가 한꺼번에 들어와도 5분에 한 번만 새로고침한다.
+    /// (새 수면 · HRV 데이터일 수 있으므로 무거운 계산까지 다시 한다)
     private func backgroundUpdate() async {
         if let lastUpdated, Date.now.timeIntervalSince(lastUpdated) < 5 * 60 { return }
-        await refresh()
+        await refresh(force: true)
         await WeeklyReportStore.shared.generateIfNeeded()
     }
 
-    func refresh() async {
+    /// 무거운 계산(45일 수면 · 준비 점수 · 운동 기록)을 마지막으로 한 시각
+    @ObservationIgnored private var lastHeavyRefresh: Date?
+    /// 공식 점수 보정 전 준비 점수
+    @ObservationIgnored private var rawReadiness: [ReadinessScore] = []
+
+    /// 오늘 값(걸음 · 칼로리 · 활동 링)은 매번, 무거운 계산은 15분에 한 번만 다시 한다.
+    /// 당겨서 새로고침하거나 워치 데이터가 새로 들어오면 `force`로 전부 다시 계산한다.
+    func refresh(force: Bool = false) async {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
@@ -134,7 +142,8 @@ final class DashboardModel {
             sleepNights = DemoData.sleepNights(days: ReadinessInputs.lookbackDays)
             let inputs = DemoData.readinessInputs()
             readinessInputs = inputs
-            readiness = ReadinessCalculator.history(days: 30, inputs: inputs)
+            rawReadiness = ReadinessCalculator.history(days: 30, inputs: inputs)
+            readiness = ReadinessCalibration.apply(rawReadiness)
             earlyWarning = nil
             mindfulMinutesToday = 10
             workouts = DemoData.workouts()
@@ -146,31 +155,53 @@ final class DashboardModel {
                 return
             }
 
+            let heavyDue = force
+                || readinessInputs == nil
+                || lastHeavyRefresh.map { Date.now.timeIntervalSince($0) > 15 * 60 || !Calendar.current.isDateInToday($0) } ?? true
+
             let service = self.service
             async let values = Self.fetchValues(service)
             async let activity = try? service.dailyActivity(days: 7)
-            async let sleep = try? service.sleepNights(days: ReadinessInputs.lookbackDays)
             async let mindful = try? service.mindfulMinutesToday()
-            async let workouts = try? service.recentWorkouts(limit: 30)
             async let steps = Self.stepsByDay(service)
 
             self.values = await values
             self.activity = await activity ?? []
-            self.sleepNights = await sleep ?? []
             self.mindfulMinutesToday = await mindful ?? 0
-            self.workouts = await workouts ?? []
             self.yesterdaySteps = await steps.first { Calendar.current.isDateInYesterday($0.date) }?.value
 
-            let inputs = await service.readinessInputs(sleepNights: sleepNights)
-            readinessInputs = inputs
-            readiness = ReadinessCalculator.history(days: 30, inputs: inputs)
-            earlyWarning = EarlyWarningDetector.evaluate(inputs: inputs)
-            await notifyEarlyWarningIfNeeded()
+            if heavyDue {
+                async let sleep = try? service.sleepNights(days: ReadinessInputs.lookbackDays)
+                async let workouts = try? service.recentWorkouts(limit: 60)
+                self.sleepNights = await sleep ?? []
+                self.workouts = await workouts ?? []
+
+                let inputs = await service.readinessInputs(sleepNights: sleepNights)
+                readinessInputs = inputs
+                rawReadiness = ReadinessCalculator.history(days: 30, inputs: inputs)
+                readiness = ReadinessCalibration.apply(rawReadiness)
+                earlyWarning = EarlyWarningDetector.evaluate(inputs: inputs)
+                lastHeavyRefresh = .now
+                await notifyEarlyWarningIfNeeded()
+            }
         }
 
         lastUpdated = .now
         publishSnapshot()
         await BriefingScheduler.reschedule()
+        await MedicationStore.shared.reschedule()
+    }
+
+    // MARK: - 준비 점수 보정
+
+    /// 보정에 쓰인 공식 점수 개수
+    var calibrationCount: Int { ReadinessCalibration.pairCount(raw: rawReadiness) }
+
+    /// 애플워치 공식 준비 점수를 입력(또는 삭제)하고 바로 다시 보정한다.
+    func setOfficialReadiness(_ score: Double?, on date: Date = .now) {
+        ReadinessCalibration.setOfficial(score, on: date)
+        readiness = ReadinessCalibration.apply(rawReadiness)
+        publishSnapshot()
     }
 
     /// 경고가 새로 생기면 하루 한 번만 알림을 보낸다.

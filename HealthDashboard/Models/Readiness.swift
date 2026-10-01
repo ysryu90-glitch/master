@@ -55,9 +55,11 @@ struct ReadinessComponent: Identifiable {
 
 struct ReadinessScore: Identifiable {
     let date: Date
-    /// 0...10
+    /// 0...10 (보정이 있으면 보정된 값)
     let score: Double
     let components: [ReadinessComponent]
+    /// 공식 점수로 보정하기 전 앱 계산 값
+    var rawScore: Double?
 
     var id: Date { date }
     var level: ReadinessLevel { ReadinessLevel(score: score) }
@@ -217,5 +219,60 @@ enum ReadinessCalculator {
 
     private static func format(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(0)))
+    }
+}
+
+
+/// 애플워치 공식 준비 점수를 가끔 입력하면, 앱 점수를 공식 점수에 맞게 보정한다.
+/// 3개 이상: 평균 차이만큼 이동, 5개 이상: 직선 회귀(기울기 0.6~1.4로 제한)
+enum ReadinessCalibration {
+    private static let key = "officialReadinessScores"
+
+    /// "yyyy-MM-dd" → 공식 점수
+    static var officialScores: [String: Double] {
+        get { (UserDefaults.standard.dictionary(forKey: key) as? [String: Double]) ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: key) }
+    }
+
+    static func official(on date: Date) -> Double? {
+        officialScores[MedicationLog.dayKey(date)]
+    }
+
+    static func setOfficial(_ score: Double?, on date: Date) {
+        var scores = officialScores
+        scores[MedicationLog.dayKey(date)] = score
+        officialScores = scores
+    }
+
+    /// 보정에 쓰인 (앱 점수, 공식 점수) 쌍의 개수
+    static func pairCount(raw: [ReadinessScore]) -> Int {
+        pairs(raw: raw).count
+    }
+
+    private static func pairs(raw: [ReadinessScore]) -> [(app: Double, official: Double)] {
+        let official = officialScores
+        return raw.compactMap { score in
+            official[MedicationLog.dayKey(score.date)].map { (score.score, $0) }
+        }
+    }
+
+    static func apply(_ raw: [ReadinessScore]) -> [ReadinessScore] {
+        let pairs = pairs(raw: raw)
+        guard pairs.count >= 3 else { return raw }
+
+        let appMean = pairs.map(\.app).reduce(0, +) / Double(pairs.count)
+        let officialMean = pairs.map(\.official).reduce(0, +) / Double(pairs.count)
+        var slope = 1.0
+        if pairs.count >= 5 {
+            let covariance = pairs.reduce(0) { $0 + ($1.app - appMean) * ($1.official - officialMean) }
+            let variance = pairs.reduce(0) { $0 + pow($1.app - appMean, 2) }
+            if variance > 0.01 { slope = min(1.4, max(0.6, covariance / variance)) }
+        }
+        let intercept = officialMean - slope * appMean
+
+        return raw.map { score in
+            let adjusted = min(10, max(0, (slope * score.score + intercept) * 10).rounded() / 10)
+            return ReadinessScore(date: score.date, score: adjusted, components: score.components, rawScore: score.score)
+        }
     }
 }

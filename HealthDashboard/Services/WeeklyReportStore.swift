@@ -42,6 +42,16 @@ final class WeeklyReportStore {
         }
     }
 
+    /// 백업에서 복원한 뒤 다시 읽기
+    func reloadFromDefaults() {
+        if let data = UserDefaults.standard.data(forKey: Self.reportsKey),
+           let saved = try? JSONDecoder().decode([WeeklyReport].self, from: data) {
+            reports = saved
+        } else {
+            reports = []
+        }
+    }
+
     private static var mondayCalendar: Calendar {
         var calendar = Calendar.current
         calendar.firstWeekday = 2

@@ -2,21 +2,9 @@ import Foundation
 import Observation
 import UserNotifications
 
-struct MedicationReminder: Codable, Identifiable, Equatable {
-    var id = UUID()
-    var name: String
-    var hour: Int
-    var minute: Int
-    var isEnabled = true
-
-    var timeText: String {
-        let date = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: .now) ?? .now
-        return date.formatted(date: .omitted, time: .shortened)
-    }
-}
-
 /// 복약 알림과 복용 기록.
-/// 알림은 '매일 반복'으로 등록하므로 앱을 열지 않아도 계속 울린다.
+/// 알림은 앞으로 7일치를 날짜별로 예약하고, 이미 먹은 날은 건너뛴다.
+/// (앱이 열리거나 워치 데이터로 백그라운드에서 깨어날 때마다 다시 채워진다)
 @MainActor
 @Observable
 final class MedicationStore {
@@ -26,16 +14,11 @@ final class MedicationStore {
     static let takenActionID = "MED_TAKEN"
     static let snoozeActionID = "MED_SNOOZE"
     static let userInfoKey = "medicationID"
-    private static let idPrefix = "medication-"
-
-    private enum Keys {
-        static let reminders = "medicationReminders"
-        static let log = "medicationTakenLog"
-    }
+    private static let daysAhead = 7
 
     var reminders: [MedicationReminder] {
         didSet {
-            save()
+            MedicationLog.saveReminders(reminders)
             Task { await reschedule() }
         }
     }
@@ -44,36 +27,43 @@ final class MedicationStore {
     private(set) var takenLog: [String: [String]]
 
     init() {
-        let defaults = UserDefaults.standard
-        if let data = defaults.data(forKey: Keys.reminders),
-           let saved = try? JSONDecoder().decode([MedicationReminder].self, from: data) {
-            reminders = saved
-        } else {
-            // 처음 실행: 탈모약 오후 9시 (알림 권한을 받은 뒤 켜도록 꺼 둔 상태로 시작)
-            reminders = [MedicationReminder(name: "탈모약", hour: 21, minute: 0, isEnabled: false)]
-        }
-        takenLog = (defaults.dictionary(forKey: Keys.log) as? [String: [String]]) ?? [:]
+        // 처음 실행: 탈모약 오후 9시 (알림 권한을 받은 뒤 켜도록 꺼 둔 상태로 시작)
+        reminders = MedicationLog.loadReminders()
+            ?? [MedicationReminder(name: "탈모약", hour: 21, minute: 0, isEnabled: false)]
+        takenLog = MedicationLog.loadLog()
+    }
+
+    /// 백업 복원 · 위젯/Siri에서 기록한 뒤 다시 읽기
+    func reloadFromDefaults() {
+        if let saved = MedicationLog.loadReminders() { reminders = saved }
+        takenLog = MedicationLog.loadLog()
+    }
+
+    /// 위젯 · Siri가 기록했을 수 있으니 앱이 앞으로 올 때 복용 기록만 다시 읽는다.
+    func reloadLog() {
+        takenLog = MedicationLog.loadLog()
     }
 
     // MARK: - 복용 기록
 
     func isTaken(_ reminder: MedicationReminder, on date: Date = .now) -> Bool {
-        takenLog[reminder.id.uuidString, default: []].contains(Self.dayKey(date))
+        MedicationLog.isTaken(reminder.id, on: date, log: takenLog)
     }
 
     func setTaken(_ taken: Bool, id: UUID, on date: Date = .now) {
-        var days = takenLog[id.uuidString, default: []]
-        let key = Self.dayKey(date)
-        if taken {
-            if !days.contains(key) { days.append(key) }
-            // 오늘 이미 먹었으면 '30분 뒤 다시 알림'은 취소
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.snoozeID(id)])
-        } else {
-            days.removeAll { $0 == key }
-        }
-        // 최근 90일만 보관
-        takenLog[id.uuidString] = Array(days.sorted().suffix(90))
-        UserDefaults.standard.set(takenLog, forKey: Keys.log)
+        MedicationLog.setTaken(taken, id: id, on: date)
+        takenLog = MedicationLog.loadLog()
+        // 체크를 취소했으면 오늘 알림을 다시 살린다.
+        if !taken { Task { await reschedule() } }
+    }
+
+    /// 최근 `days`일 복용률 (0~1)
+    func adherence(_ reminder: MedicationReminder, days: Int) -> Double {
+        let calendar = Calendar.current
+        let taken = (0..<days).filter { offset in
+            calendar.date(byAdding: .day, value: -offset, to: .now).map { isTaken(reminder, on: $0) } ?? false
+        }.count
+        return Double(taken) / Double(max(days, 1))
     }
 
     struct DayRecord: Identifiable {
@@ -98,26 +88,36 @@ final class MedicationStore {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
         center.removePendingNotificationRequests(
-            withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(Self.idPrefix) && !$0.contains("snooze") }
+            withIdentifiers: pending.map(\.identifier).filter {
+                $0.hasPrefix(MedicationLog.notificationPrefix) && !$0.contains("snooze")
+            }
         )
 
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
         for reminder in reminders where reminder.isEnabled {
-            let request = UNNotificationRequest(
-                identifier: Self.idPrefix + reminder.id.uuidString,
-                content: content(for: reminder),
-                trigger: UNCalendarNotificationTrigger(
-                    dateMatching: DateComponents(hour: reminder.hour, minute: reminder.minute),
-                    repeats: true
+            for offset in 0..<Self.daysAhead {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: today),
+                      let fire = calendar.date(bySettingHour: reminder.hour, minute: reminder.minute, second: 0, of: day),
+                      fire > .now,
+                      !isTaken(reminder, on: day) else { continue }
+                let request = UNNotificationRequest(
+                    identifier: MedicationLog.notificationID(reminder.id, day: day),
+                    content: content(for: reminder),
+                    trigger: UNCalendarNotificationTrigger(
+                        dateMatching: calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fire),
+                        repeats: false
+                    )
                 )
-            )
-            try? await center.add(request)
+                try? await center.add(request)
+            }
         }
     }
 
     func snooze(id: UUID, minutes: Double = 30) async {
         guard let reminder = reminders.first(where: { $0.id == id }) else { return }
         let request = UNNotificationRequest(
-            identifier: Self.snoozeID(id),
+            identifier: MedicationLog.snoozeID(id),
             content: content(for: reminder),
             trigger: UNTimeIntervalNotificationTrigger(timeInterval: minutes * 60, repeats: false)
         )
@@ -142,20 +142,5 @@ final class MedicationStore {
         content.categoryIdentifier = Self.categoryID
         content.userInfo = [Self.userInfoKey: reminder.id.uuidString]
         return content
-    }
-
-    // MARK: - 저장
-
-    private func save() {
-        if let data = try? JSONEncoder().encode(reminders) {
-            UserDefaults.standard.set(data, forKey: Keys.reminders)
-        }
-    }
-
-    private static func snoozeID(_ id: UUID) -> String { idPrefix + "snooze-" + id.uuidString }
-
-    private static func dayKey(_ date: Date) -> String {
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
     }
 }
