@@ -111,6 +111,54 @@ enum SharedStore {
 
     static var briefingEnabled: Bool { defaults.bool(forKey: Keys.briefingEnabled) }
 
+    // MARK: - 지역 역할 (집 · 회사 · 부모님 댁)
+
+    enum LocationRole: String, CaseIterable, Identifiable {
+        case home, work, parents
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .home: "집"
+            case .work: "회사"
+            case .parents: "부모님 댁"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .home: "house.fill"
+            case .work: "building.2.fill"
+            case .parents: "figure.2.and.child.holdinghands"
+            }
+        }
+
+        fileprivate var defaultLocationID: String {
+            switch self {
+            case .home: "eunpyeong"
+            case .work: "sogong"
+            case .parents: "pyeongtaek"
+            }
+        }
+    }
+
+    static func locationKey(for role: LocationRole) -> String { "locationRole." + role.rawValue }
+
+    static func location(for role: LocationRole) -> WeatherLocation {
+        let id = defaults.string(forKey: locationKey(for: role)) ?? role.defaultLocationID
+        return WeatherLocation.all.first { $0.id == id } ?? WeatherLocation.all[0]
+    }
+
+    static func setLocation(_ id: String, for role: LocationRole) {
+        defaults.set(id, forKey: locationKey(for: role))
+    }
+
+    /// 지역에 붙일 역할 이름 (예: "부모님 댁")
+    static func roles(of locationID: String) -> [LocationRole] {
+        LocationRole.allCases.filter { location(for: $0).id == locationID }
+    }
+
     /// 기본 지역의 오늘 낮 최고 기온 (물 목표 계산용)
     static let todayHighKey = "todayHighTemperature"
 

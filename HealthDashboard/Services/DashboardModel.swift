@@ -192,6 +192,7 @@ final class DashboardModel {
         publishSnapshot()
         await BriefingScheduler.reschedule()
         await MedicationStore.shared.reschedule()
+        await LifeAlerts.reschedule()
     }
 
     // MARK: - 물 · 호흡

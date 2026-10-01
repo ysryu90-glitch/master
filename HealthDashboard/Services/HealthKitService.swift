@@ -368,6 +368,7 @@ final class HealthKitService: @unchecked Sendable {
 
             if let stage {
                 result.durations[stage, default: 0] += duration
+                result.segments.append(SleepSegment(start: sample.startDate, end: sample.endDate, stage: stage))
                 if stage != .awake {
                     result.bedtime = min(result.bedtime ?? sample.startDate, sample.startDate)
                     result.wakeTime = max(result.wakeTime ?? sample.endDate, sample.endDate)

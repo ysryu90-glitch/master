@@ -67,6 +67,13 @@ enum SleepStage: String, CaseIterable, Identifiable {
     }
 }
 
+struct SleepSegment: Identifiable {
+    let start: Date
+    let end: Date
+    let stage: SleepStage
+    let id = UUID()
+}
+
 /// 하룻밤의 수면 요약
 struct SleepNight: Identifiable {
     /// 잠든 날(저녁 기준) 00:00
@@ -75,6 +82,8 @@ struct SleepNight: Identifiable {
     var durations: [SleepStage: TimeInterval] = [:]
     var bedtime: Date?
     var wakeTime: Date?
+    /// 밤새 단계 흐름 (수면 흐름 그래프용)
+    var segments: [SleepSegment] = []
 
     var id: Date { night }
 

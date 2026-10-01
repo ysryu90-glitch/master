@@ -34,6 +34,17 @@ struct SleepSummaryCard: View {
                     .foregroundStyle(.secondary)
             }
 
+            if LifeAlertSettings.load().sleepCoachEnabled, let plan = LifeAlerts.sleepPlan(for: .now) {
+                Label {
+                    Text("오늘 권장 취침 \(plan.bedtime.formatted(date: .omitted, time: .shortened))"
+                         + (plan.reason.map { " · \($0)" } ?? ""))
+                } icon: {
+                    Image(systemName: "moon.zzz.fill")
+                        .foregroundStyle(.indigo)
+                }
+                .font(.subheadline)
+            }
+
             Divider()
 
             Label {

@@ -42,6 +42,14 @@ struct NotificationSettingsView: View {
                 }
             }
 
+            Section {
+                NavigationLink {
+                    LifeSettingsView()
+                } label: {
+                    Label("생활 알림 (출퇴근 · 부모님 · 수면 코치)", systemImage: "sparkles.rectangle.stack")
+                }
+            }
+
             reportSection
             medicationSection
             healthAlertSection

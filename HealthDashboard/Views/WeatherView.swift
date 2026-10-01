@@ -21,7 +21,8 @@ struct WeatherView: View {
                             LocationWeatherCard(
                                 location: location,
                                 report: model.reports[location.id],
-                                isCurrent: location.id == currentLocationID
+                                isCurrent: location.id == currentLocationID,
+                                roles: SharedStore.roles(of: location.id)
                             )
                         }
                         .buttonStyle(.plain)
@@ -64,6 +65,7 @@ private struct LocationWeatherCard: View {
     let location: WeatherLocation
     let report: WeatherReport?
     var isCurrent = false
+    var roles: [SharedStore.LocationRole] = []
 
     private var gradient: [Color] {
         report.map { $0.current.condition.gradient(isDay: $0.current.isDay) }
@@ -76,6 +78,13 @@ private struct LocationWeatherCard: View {
                 HStack(spacing: 6) {
                     Text(location.name)
                         .font(.title2.bold())
+                    ForEach(roles) { role in
+                        Label(role.title, systemImage: role.symbol)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(.white.opacity(0.25), in: Capsule())
+                    }
                     if isCurrent {
                         Label("현재 위치", systemImage: "location.fill")
                             .font(.caption2.weight(.semibold))
