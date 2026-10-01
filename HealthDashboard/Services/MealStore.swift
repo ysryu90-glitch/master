@@ -65,6 +65,36 @@ final class MealStore {
             .map { var item = $0.item; item.id = UUID(); item.servings = 1; return item }
     }
 
+    // MARK: - 즐겨찾기 고정
+
+    private static let pinnedKey = "pinnedFoods"
+
+    /// 고정한 음식 (자주 먹는 메뉴를 한 번에 기록)
+    private(set) var pinnedFoods: [FoodItem] = {
+        guard let data = UserDefaults.standard.data(forKey: "pinnedFoods") else { return [] }
+        return (try? JSONDecoder().decode([FoodItem].self, from: data)) ?? []
+    }()
+
+    func isPinned(_ item: FoodItem) -> Bool {
+        pinnedFoods.contains { $0.name == item.name }
+    }
+
+    func togglePin(_ item: FoodItem) {
+        if isPinned(item) {
+            pinnedFoods.removeAll { $0.name == item.name }
+        } else {
+            var copy = item
+            copy.servings = 1
+            pinnedFoods.insert(copy, at: 0)
+        }
+        UserDefaults.standard.set(try? JSONEncoder().encode(pinnedFoods), forKey: Self.pinnedKey)
+    }
+
+    /// 기록 화면의 빠른 추가: 고정한 음식 먼저, 그다음 자주 먹는 음식
+    var quickFoods: [FoodItem] {
+        pinnedFoods + frequentItems.filter { item in !pinnedFoods.contains { $0.name == item.name } }
+    }
+
     /// 하루 단백질 목표: 체중 1kg당 1.2g, 운동한 날은 1.6g (체중 기록이 없으면 60g)
     func proteinTarget(weightKg: Double?, workoutDay: Bool) -> Double {
         guard let weightKg, weightKg > 0 else { return 60 }

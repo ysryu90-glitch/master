@@ -10,14 +10,33 @@ import FoundationModels
 @MainActor
 @Observable
 final class CoachModel {
-    struct Message: Identifiable {
-        enum Role { case user, coach }
-        let id = UUID()
+    struct Message: Identifiable, Codable {
+        enum Role: String, Codable { case user, coach }
+        var id = UUID()
         let role: Role
-        let text: String
+        var text: String
+        var date = Date.now
     }
 
-    private(set) var messages: [Message] = []
+    /// 대화는 기기에 저장해 두고(최근 60개), 앱을 다시 열어도 이어서 본다.
+    private(set) var messages: [Message] = [] {
+        didSet { saveHistory() }
+    }
+
+    private static let historyKey = "coachHistory"
+
+    init() {
+        if let data = UserDefaults.standard.data(forKey: Self.historyKey),
+           let saved = try? JSONDecoder().decode([Message].self, from: data) {
+            messages = saved
+        }
+    }
+
+    private func saveHistory() {
+        // 답변이 써지는 중에는 매번 저장하지 않는다.
+        guard !isResponding else { return }
+        UserDefaults.standard.set(try? JSONEncoder().encode(Array(messages.suffix(60))), forKey: Self.historyKey)
+    }
     private(set) var isResponding = false
     /// nil이면 사용 가능. 값이 있으면 사용할 수 없는 이유
     private(set) var unavailableReason: String?
@@ -100,26 +119,41 @@ final class CoachModel {
         guard !question.isEmpty, !isResponding else { return }
         messages.append(Message(role: .user, text: question))
         isResponding = true
-        defer { isResponding = false }
+        defer {
+            isResponding = false
+            saveHistory()
+        }
 
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
+            // 빈 답변 말풍선을 먼저 만들고, 글자가 생성되는 대로 채운다.
+            messages.append(Message(role: .coach, text: ""))
+            let index = messages.count - 1
             do {
                 let session = currentSession(context: context)
-                let response = try await session.respond(to: question)
-                messages.append(Message(role: .coach, text: response.content))
+                let stream = session.streamResponse(to: question)
+                for try await partial in stream {
+                    messages[index].text = partial.content
+                }
+                if messages[index].text.isEmpty { throw CancellationError() }
             } catch {
                 // 대화가 길어져 한도를 넘었거나 안전 필터에 걸린 경우: 새 세션으로 다시 시작
                 self.session = nil
-                messages.append(Message(
-                    role: .coach,
-                    text: "죄송해요, 답변을 만들지 못했어요. 질문을 조금 바꿔서 다시 물어봐 주세요. (대화가 길어지면 '새 대화'를 눌러 주세요)"
-                ))
+                messages[index].text = "죄송해요, 답변을 만들지 못했어요. 질문을 조금 바꿔서 다시 물어봐 주세요. (대화가 길어지면 '새 대화'를 눌러 주세요)"
             }
             return
         }
         #endif
         messages.append(Message(role: .coach, text: unavailableReason ?? "지금은 AI 코치를 사용할 수 없어요."))
+    }
+
+    /// 새 세션에 이어 붙일 최근 대화 (앱을 다시 열었을 때 맥락 유지)
+    private var recentExchange: String {
+        // 지금 막 보낸 질문과 빈 답변은 빼고
+        let recent = messages.dropLast(2).suffix(6).filter { !$0.text.isEmpty }
+        guard !recent.isEmpty else { return "" }
+        return "\n\n[최근 대화]\n" + recent.map { ($0.role == .user ? "사용자: " : "코치: ") + String($0.text.prefix(200)) }
+            .joined(separator: "\n")
     }
 
     #if canImport(FoundationModels)
@@ -128,7 +162,7 @@ final class CoachModel {
         if let existing = session as? LanguageModelSession { return existing }
         let created = LanguageModelSession(
             tools: [HealthHistoryTool()],
-            instructions: Self.instructions + "\n\n[내 건강 데이터]\n" + context
+            instructions: Self.instructions + "\n\n[내 건강 데이터]\n" + context + recentExchange
         )
         session = created
         return created

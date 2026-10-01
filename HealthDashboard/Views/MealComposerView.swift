@@ -186,28 +186,38 @@ struct MealComposerView: View {
 
     @ViewBuilder
     private var frequentSection: some View {
-        let frequent = store.frequentItems
-        if !frequent.isEmpty {
-            Section("자주 먹는 음식") {
+        let quick = store.quickFoods
+        if !quick.isEmpty {
+            Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(frequent) { item in
+                        ForEach(quick) { item in
+                            let pinned = store.isPinned(item)
                             Button {
                                 var copy = item
                                 copy.id = UUID()
                                 items.append(copy)
                             } label: {
-                                Text("+ \(item.name)")
+                                Text((pinned ? "★ " : "+ ") + item.name)
                                     .font(.subheadline)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
-                                    .background(Color(.tertiarySystemFill), in: Capsule())
+                                    .background(pinned ? Color.yellow.opacity(0.25) : Color(.tertiarySystemFill), in: Capsule())
                             }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                Button(pinned ? "고정 해제" : "즐겨찾기로 고정", systemImage: pinned ? "star.slash" : "star") {
+                                    store.togglePin(item)
+                                }
+                            }
                         }
                     }
                     .padding(.vertical, 4)
                 }
+            } header: {
+                Text("즐겨찾기 · 자주 먹는 음식")
+            } footer: {
+                Text("음식을 길게 누르면 즐겨찾기로 고정할 수 있어요.")
             }
         }
     }

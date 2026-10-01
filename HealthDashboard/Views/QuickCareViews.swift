@@ -233,3 +233,86 @@ struct BreathingView: View {
         }
     }
 }
+
+/// 아이폰 모드(애플워치 없음)의 대표 카드: 오늘 걸음 · 거리 · 층수 · 7일 추이
+struct StepsHeroCard: View {
+    @Environment(DashboardModel.self) private var model
+    @State private var week: [TrendPoint] = []
+
+    var body: some View {
+        let steps = model.values[.stepCount]?.value ?? 0
+        let goal = 8000.0
+
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("오늘 걸음", systemImage: "shoeprints.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .opacity(0.9)
+                Spacer()
+                Text("목표 \(Int(goal).formatted())")
+                    .font(.caption)
+                    .opacity(0.8)
+            }
+
+            Text("\(Int(steps).formatted())")
+                .font(.system(size: 48, weight: .bold, design: .rounded).monospacedDigit())
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.25))
+                    Capsule().fill(.white)
+                        .frame(width: max(proxy.size.width * min(steps / goal, 1), 6))
+                }
+            }
+            .frame(height: 8)
+
+            HStack(spacing: 18) {
+                if let distance = model.values[.distanceWalkingRunning]?.value {
+                    Label("\(distance.formatted(.number.precision(.fractionLength(1))))km", systemImage: "figure.walk")
+                }
+                if let flights = model.values[.flightsClimbed]?.value {
+                    Label("\(Int(flights))층", systemImage: "stairs")
+                }
+                if let steadiness = model.values[.appleWalkingSteadiness]?.value {
+                    Label("보행 안정성 \(Int(steadiness))%", systemImage: "figure.walk.motion")
+                }
+            }
+            .font(.caption.weight(.medium))
+
+            if week.count >= 2 {
+                HStack(alignment: .bottom, spacing: 6) {
+                    let maxValue = max(week.map(\.value).max() ?? 1, goal)
+                    ForEach(week) { day in
+                        VStack(spacing: 3) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(.white.opacity(day.value >= goal ? 1 : 0.5))
+                                .frame(height: max(36 * day.value / maxValue, 3))
+                            Text(day.date.formatted(.dateTime.weekday(.narrow)))
+                                .font(.system(size: 9))
+                                .opacity(0.8)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: 52)
+            }
+
+            Text("애플워치를 연결하면 준비 점수 · 수면 단계 · 심박 분석이 자동으로 켜져요.")
+                .font(.caption2)
+                .opacity(0.8)
+        }
+        .foregroundStyle(.white)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: [Color(red: 1, green: 0.6, blue: 0.25), Color(red: 0.95, green: 0.35, blue: 0.35)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+        )
+        .task {
+            if let metric = HealthMetric.metric(.stepCount) {
+                week = await model.trend(for: metric, days: 7)
+            }
+        }
+    }
+}

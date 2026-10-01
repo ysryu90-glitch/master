@@ -32,11 +32,14 @@ struct SettingsView: View {
                 backupSection
 
                 Section {
+                    Picker("기기 모드", selection: $model.deviceMode) {
+                        ForEach(DashboardModel.DeviceMode.allCases) { Text($0.title).tag($0) }
+                    }
                     Toggle("기록 없는 항목도 표시", isOn: $model.showEmptyMetrics)
                     Toggle("샘플 데이터 사용", isOn: $model.demoMode)
                         .disabled(!model.isHealthDataAvailable)
                 } footer: {
-                    Text("샘플 데이터는 시뮬레이터처럼 건강 기록이 없는 환경에서 화면을 확인할 때 사용합니다.")
+                    Text("기기 모드 '자동'은 애플워치 기록이 없으면 걸음 수 중심의 아이폰 모드로 보여줘요. 샘플 데이터는 시뮬레이터처럼 건강 기록이 없는 환경에서 화면을 확인할 때 사용합니다.")
                 }
 
                 Section {

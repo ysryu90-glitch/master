@@ -51,6 +51,37 @@ final class DashboardModel {
         didSet { UserDefaults.standard.set(showEmptyMetrics, forKey: Keys.showEmpty) }
     }
 
+    enum DeviceMode: String, CaseIterable, Identifiable {
+        case automatic, watch, phoneOnly
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .automatic: "자동"
+            case .watch: "애플워치 사용"
+            case .phoneOnly: "아이폰만"
+            }
+        }
+    }
+
+    /// 애플워치가 없는 사람(예: 배우자 폰)은 걸음 수 중심 화면으로
+    var deviceMode: DeviceMode = DeviceMode(rawValue: UserDefaults.standard.string(forKey: "deviceMode") ?? "") ?? .automatic {
+        didSet { UserDefaults.standard.set(deviceMode.rawValue, forKey: "deviceMode") }
+    }
+
+    /// 워치에서만 나오는 기록(안정 시 심박 · HRV · 활동 링 목표)이 있는지
+    var hasWatchData: Bool {
+        values[.restingHeartRate] != nil || values[.heartRateVariabilitySDNN] != nil
+            || activity.contains { $0.moveGoal > 0 }
+    }
+
+    var isPhoneOnly: Bool {
+        switch deviceMode {
+        case .phoneOnly: true
+        case .watch: false
+        case .automatic: !demoMode && lastUpdated != nil && !hasWatchData
+        }
+    }
+
     /// 대시보드 순서 / 숨김 / 즐겨찾기
     var layout = DashboardLayout.load() {
         didSet { layout.save() }

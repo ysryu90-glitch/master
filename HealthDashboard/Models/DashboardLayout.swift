@@ -2,16 +2,17 @@ import HealthKit
 import SwiftUI
 
 enum DashboardSection: Hashable, Codable, Identifiable {
-    case earlyWarning, readiness, medication, water, schedule, diet, recommendation, breathing, habits, weight, checkups, favorites, activityRings, sleep, workouts
+    case steps, earlyWarning, readiness, medication, water, schedule, diet, recommendation, breathing, habits, weight, checkups, favorites, activityRings, sleep, workouts
     case metrics(MetricCategory)
 
     static let defaultOrder: [DashboardSection] =
-        [.earlyWarning, .readiness, .medication, .water, .schedule, .diet, .recommendation, .breathing, .habits, .weight, .checkups, .favorites, .activityRings, .sleep]
+        [.steps, .earlyWarning, .readiness, .medication, .water, .schedule, .diet, .recommendation, .breathing, .habits, .weight, .checkups, .favorites, .activityRings, .sleep]
         + MetricCategory.allCases.map { .metrics($0) }
         + [.workouts]
 
     var id: String {
         switch self {
+        case .steps: "steps"
         case .earlyWarning: "earlyWarning"
         case .readiness: "readiness"
         case .habits: "habits"
@@ -33,6 +34,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
 
     var title: String {
         switch self {
+        case .steps: "오늘 걸음 (아이폰 모드)"
         case .earlyWarning: "컨디션 이상 경보 (있을 때만)"
         case .readiness: "준비 점수"
         case .habits: "오늘의 습관"
@@ -54,6 +56,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .steps: "shoeprints.fill"
         case .earlyWarning: "exclamationmark.triangle.fill"
         case .readiness: "gauge.with.needle.fill"
         case .habits: "list.bullet.clipboard.fill"
@@ -75,6 +78,7 @@ enum DashboardSection: Hashable, Codable, Identifiable {
 
     var tint: Color {
         switch self {
+        case .steps: .orange
         case .earlyWarning: .red
         case .readiness: .mint
         case .habits: .teal

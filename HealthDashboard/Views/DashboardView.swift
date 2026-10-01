@@ -25,7 +25,7 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
 
-                    ForEach(model.layout.visibleSections) { section in
+                    ForEach(sections) { section in
                         sectionView(section)
                     }
 
@@ -141,6 +141,9 @@ struct DashboardView: View {
         case .water:
             WaterCard()
 
+        case .steps:
+            StepsHeroCard()
+
         case .weight:
             WeightGoalCard()
 
@@ -218,6 +221,14 @@ struct DashboardView: View {
         }
     }
 
+    /// 아이폰 모드면 워치 전용 섹션을 빼고 걸음 카드를 보여준다.
+    private var sections: [DashboardSection] {
+        let watchOnly: Set<DashboardSection> = [.readiness, .earlyWarning, .activityRings]
+        return model.layout.visibleSections.filter { section in
+            model.isPhoneOnly ? !watchOnly.contains(section) : section != .steps
+        }
+    }
+
     private var greeting: String {
         switch Calendar.current.component(.hour, from: .now) {
         case 5..<12: "좋은 아침이에요"
@@ -241,6 +252,12 @@ struct DashboardView: View {
                 } else if let updated = model.lastUpdated {
                     Image(systemName: "arrow.clockwise")
                     Text("\(updated.formatted(date: .omitted, time: .shortened)) 업데이트")
+                }
+                if model.isPhoneOnly {
+                    Text("아이폰 모드")
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.orange.opacity(0.2), in: Capsule())
                 }
                 if model.demoMode {
                     Text("샘플 데이터")

@@ -6,6 +6,7 @@ struct CoachView: View {
     @Environment(MedicationStore.self) private var medications
     @Environment(WeatherModel.self) private var weather
     @State private var coach = CoachModel()
+    @State private var speech = SpeechInput()
     @State private var input = ""
     @FocusState private var inputFocused: Bool
 
@@ -140,6 +141,17 @@ struct CoachView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
+            Button {
+                Task { await speech.toggle() }
+            } label: {
+                Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(speech.isRecording ? Color.red : Color.purple)
+                    .symbolEffect(.pulse, isActive: speech.isRecording)
+            }
+            .disabled(coach.isResponding)
+            .accessibilityLabel(speech.isRecording ? "말하기 끝내기" : "말로 질문하기")
+
             TextField("건강에 대해 물어보세요", text: $input, axis: .vertical)
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
@@ -160,6 +172,23 @@ struct CoachView: View {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(.bar)
+        .onChange(of: speech.transcript) { _, text in
+            if !text.isEmpty { input = text }
+        }
+        .onChange(of: speech.isRecording) { _, recording in
+            // 말하기를 끝내면 바로 질문한다.
+            if !recording, !speech.transcript.isEmpty, !input.isEmpty { ask(input) }
+        }
+        .overlay(alignment: .top) {
+            if let error = speech.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .padding(8)
+                    .background(.regularMaterial, in: Capsule())
+                    .offset(y: -40)
+                    .onTapGesture { speech.errorMessage = nil }
+            }
+        }
     }
 
     private func ask(_ text: String) {
@@ -201,9 +230,16 @@ private struct MessageBubble: View {
                         in: Circle()
                     )
                     .padding(.top, 4)
-                Text(message.text)
-                    .padding(12)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                Group {
+                    if message.text.isEmpty {
+                        ProgressView()
+                            .padding(.horizontal, 8)
+                    } else {
+                        Text(message.text)
+                    }
+                }
+                .padding(12)
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .textSelection(.enabled)
                 Spacer(minLength: 24)
             }
