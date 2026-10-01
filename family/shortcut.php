@@ -2,70 +2,110 @@
 require __DIR__ . '/lib/bootstrap.php';
 $me = require_login();
 $base = (is_https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/');
+$url = $base . '/api/health.php?token=' . $me['shortcut_token'];
+
+/** 건강 샘플 찾기 한 묶음 안내 */
+function step_card(string $no, string $title, array $lines): void
+{
+    echo '<section class="card"><h2>' . h($no) . '. ' . h($title) . '</h2><ol class="small steps">';
+    foreach ($lines as $line) echo '<li>' . $line . '</li>';
+    echo '</ol></section>';
+}
+
 page_start('단축어 만들기');
 ?>
+<style>
+  .steps { padding-left: 20px; line-height: 1.85; margin: 0; }
+  .steps b { color: var(--text); }
+  .tag { display: inline-block; background: var(--card-2); border-radius: 6px; padding: 0 6px; font-weight: 700; }
+  .var { display: inline-block; background: var(--blue-soft); color: var(--blue); border-radius: 6px; padding: 0 6px; font-weight: 700; }
+</style>
+
 <section class="card">
-  <h2>준비물</h2>
-  <div class="form">
-    <label>보낼 주소 (복사해 두세요)<input readonly value="<?= h($base) ?>/api/health.php" onclick="this.select()"></label>
-    <label><?= h($me['name']) ?>의 토큰<input readonly value="<?= h($me['shortcut_token']) ?>" onclick="this.select()"></label>
-  </div>
-  <p class="small muted">아내분은 아내분 계정으로 로그인한 뒤 이 화면을 열면 아내분 토큰이 보여요. 토큰이 다르면 기록이 섞이지 않아요.</p>
+  <h2><?= h($me['emoji'] . ' ' . $me['name']) ?> 전용 주소</h2>
+  <div class="form"><label>단축어에 붙여 넣을 주소<input id="url" readonly value="<?= h($url) ?>" onclick="this.select()"></label></div>
+  <button class="btn primary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('url').value).then(function(){ this.textContent='복사됐어요 ✓'; }.bind(this))">주소 복사</button>
+  <p class="small muted" style="margin-top:10px">이 주소에 <?= h($me['name']) ?>님 열쇠(토큰)가 들어 있어요. 다른 사람에게 보내지 마세요.</p>
 </section>
 
 <section class="card">
-  <h2>1. 단축어 만들기</h2>
-  <ol class="small" style="padding-left:18px;line-height:1.8">
-    <li>아이폰 <b>단축어</b> 앱 › 오른쪽 위 <b>+</b> › 이름을 <b>건강 기록 보내기</b>로 바꿔요.</li>
-    <li>아래 표의 항목마다 <b>건강 샘플 찾기</b> 동작을 추가하고 조건을 맞춰요. 각 동작 바로 아래에 표에 적힌 동작을 붙여요.</li>
+  <h2>전체 모습</h2>
+  <p class="small">단축어 하나에 <b>건강 기록 4가지를 찾아서 → 주소로 보내는</b> 동작을 차례로 넣어요. 처음 한 번 15분 정도 걸리고, 아내분 폰은 <b>공유 링크로 복사</b>하면 1분이면 돼요(맨 아래 참고).</p>
+  <p class="small muted">아래에서 <span class="tag">회색</span>은 누를 곳, <span class="var">파란색</span>은 변수 이름이에요.</p>
+</section>
+
+<?php
+step_card('1', '새 단축어 만들기', [
+    '<b>단축어</b> 앱을 열고 아래 <span class="tag">단축어</span> 탭 › 오른쪽 위 <span class="tag">+</span>',
+    '맨 위 이름(새로운 단축어)을 눌러 <span class="tag">이름 변경</span> › <b>건강 기록 보내기</b>',
+]);
+
+step_card('2', '심박 변이 (HRV)', [
+    '아래 <span class="tag">동작 검색</span>에 <b>건강 샘플</b> 입력 › <span class="tag">건강 샘플 찾기</span>',
+    '추가된 동작에서 <b>유형</b> 옆 파란 글씨를 눌러 <span class="tag">심박 변이</span> 선택 (시작일은 <b>오늘</b> 그대로)',
+    '동작 검색에 <b>통계</b> 입력 › <span class="tag">통계 계산</span> 추가 › 파란 글씨가 <b>평균</b>인지 확인',
+    '동작 검색에 <b>변수 설정</b> 입력 › <span class="tag">변수 설정</span> 추가 › 변수 이름에 <span class="var">hrv</span> 입력',
+]);
+
+step_card('3', '안정 시 심박수', [
+    '<span class="tag">건강 샘플 찾기</span> 하나 더 추가 › 유형 <span class="tag">안정 시 심박수</span>',
+    '<span class="tag">변수 설정</span> 추가 › 이름 <span class="var">rhr</span>',
+]);
+
+step_card('4', '걸음 수', [
+    '<span class="tag">건강 샘플 찾기</span> 추가 › 유형 <span class="tag">걸음</span>',
+    '동작을 펼쳐(<b>›</b> 또는 <b>자세히 보기</b>) <b>그룹화 기준</b>을 <span class="tag">일</span>로 바꿔요. 아이폰과 워치가 센 걸음이 두 번 더해지지 않아요.',
+    '<span class="tag">변수 설정</span> 추가 › 이름 <span class="var">steps</span>',
+]);
+
+step_card('5', '활동 에너지', [
+    '<span class="tag">건강 샘플 찾기</span> 추가 › 유형 <span class="tag">활동 에너지</span> › 그룹화 기준 <span class="tag">일</span>',
+    '<span class="tag">변수 설정</span> 추가 › 이름 <span class="var">active_kcal</span>',
+]);
+
+step_card('6', '지난밤 수면', [
+    '<span class="tag">건강 샘플 찾기</span> 추가 › 유형 <span class="tag">수면 분석</span>',
+    '시작일 <b>오늘</b>을 눌러 <span class="tag">지난</span> › <b>1 일</b>로 바꿔요 (어젯밤에 잠든 것도 포함되게)',
+    '<span class="tag">필터 추가</span> › <b>값</b> › <b>이(가) 아님</b> › <span class="tag">깨어 있음</span>',
+    '한 번 더 <span class="tag">필터 추가</span> › <b>값</b> › <b>이(가) 아님</b> › <span class="tag">침대에 있음</span> (조건이 <b>모두</b> 일치로 되어 있는지 확인)',
+    '동작 검색에 <b>세부 사항</b> 입력 › <span class="tag">건강 샘플의 세부 사항 가져오기</span> › 파란 글씨를 <span class="tag">지속 시간</span>으로',
+    '<span class="tag">통계 계산</span> 추가 › <b>합계</b>로 바꿔요',
+    '<span class="tag">변수 설정</span> 추가 › 이름 <span class="var">sleep_total</span>',
+]);
+
+step_card('7', '사이트로 보내기', [
+    '동작 검색에 <b>URL</b> 입력 › <span class="tag">URL 콘텐츠 가져오기</span>',
+    '파란 <b>URL</b> 글씨를 눌러 위에서 복사한 <b>주소를 붙여 넣기</b>',
+    '동작의 <b>›</b> 를 눌러 펼치고 › 방법 <span class="tag">POST</span> › 요청 본문 <span class="tag">JSON</span>',
+    '<span class="tag">새로운 필드 추가</span> › <span class="tag">텍스트</span> › 키에 <b>hrv</b>, 값 칸을 눌러 키보드 위 <span class="tag">변수 선택</span> › <span class="var">hrv</span>',
+    '같은 방법으로 <b>rhr</b> ← <span class="var">rhr</span>, <b>steps</b> ← <span class="var">steps</span>, <b>active_kcal</b> ← <span class="var">active_kcal</span>, <b>sleep_total</b> ← <span class="var">sleep_total</span> 추가',
+    '(선택) <span class="tag">사전 값 가져오기</span> 추가 › 키 <b>message</b> › 이어서 <span class="tag">알림 표시</span>를 넣으면 "오늘 준비 점수 7.6" 알림이 떠요',
+]);
+
+step_card('8', '한 번 실행해 보기', [
+    '오른쪽 아래 <span class="tag">▶</span> 를 눌러요',
+    '건강 데이터 접근을 물어보면 <span class="tag">모두 허용</span> › 사이트로 보낼지 물어보면 <span class="tag">항상 허용</span>',
+    '사이트 <b>설정</b> › 단축어 연결의 <b>마지막으로 받은 기록</b>에 방금 시각이 나오면 성공이에요. <b>받은 내용 보기</b>를 눌러 값이 들어왔는지도 볼 수 있어요.',
+]);
+
+step_card('9', '자동으로 실행', [
+    '단축어 앱 아래 <span class="tag">자동화</span> 탭 › 오른쪽 위 <span class="tag">+</span> › <span class="tag">앱</span>',
+    '<span class="tag">선택</span> › 매일 여는 앱(예: <b>카카오톡</b>) › <b>열릴 때</b> 체크',
+    '<span class="tag">즉시 실행</span> 선택 (실행 시 알림은 꺼도 돼요) › <span class="tag">다음</span> › <b>건강 기록 보내기</b>',
+    '아이폰이 잠겨 있으면 건강 데이터를 읽지 못해서, <b>앱을 열 때</b>로 하는 게 가장 확실해요. 하루에 여러 번 실행돼도 그날 기록이 최신 값으로 바뀔 뿐이에요.',
+]);
+?>
+
+<section class="card">
+  <h2>💑 아내분 폰은 공유로 1분 만에</h2>
+  <ol class="small steps">
+    <li>남편분 폰 단축어 앱에서 <b>건강 기록 보내기</b>를 길게 눌러 <span class="tag">공유</span> › <span class="tag">iCloud 링크 복사</span></li>
+    <li>카카오톡으로 아내분께 링크를 보내요 › 아내분이 열어서 <span class="tag">단축어 추가</span></li>
+    <li>아내분이 이 사이트에 <b>엄마 계정</b>으로 로그인 › 설정 › 단축어 연결에서 <b>엄마 전용 주소</b>를 복사</li>
+    <li>아내분 폰의 단축어를 열어 <b>URL 콘텐츠 가져오기</b>의 주소만 <b>엄마 전용 주소로 바꿔 붙여 넣기</b> (중요! 안 바꾸면 아빠 기록으로 들어가요)</li>
+    <li>8번(실행해 보기)과 9번(자동화)을 아내분 폰에서도 해요. 자동화는 공유로 복사되지 않아요.</li>
   </ol>
-  <table class="small" style="width:100%;border-collapse:collapse">
-    <tr style="text-align:left;color:var(--sub)"><th>보낼 이름</th><th>건강 샘플 찾기 조건</th><th>이어서</th></tr>
-    <tr><td><b>hrv</b></td><td>심박 변이 · 시작일 <i>지난 1일</i></td><td>통계 계산: 평균</td></tr>
-    <tr><td><b>rhr</b></td><td>안정 시 심박수 · 정렬 <i>시작일 최신순</i> · 제한 1</td><td>-</td></tr>
-    <tr><td><b>resp</b></td><td>호흡수 · 시작일 <i>지난 1일</i></td><td>통계 계산: 평균</td></tr>
-    <tr><td><b>steps</b></td><td>걸음 · 시작일 <i>오늘</i> · 그룹화 <i>일</i></td><td>-</td></tr>
-    <tr><td><b>active_kcal</b></td><td>활동 에너지 · 시작일 <i>오늘</i> · 그룹화 <i>일</i></td><td>-</td></tr>
-    <tr><td><b>exercise_min</b></td><td>운동하기 시간 · 시작일 <i>오늘</i> · 그룹화 <i>일</i></td><td>-</td></tr>
-    <tr><td><b>sleep_core</b></td><td>수면 분석 · 값 <i>코어</i> · 시작일 <i>지난 1일</i></td><td>세부 사항 가져오기: 지속 시간 → 통계 계산: 합계</td></tr>
-    <tr><td><b>sleep_deep</b></td><td>수면 분석 · 값 <i>깊은 수면</i> · 시작일 <i>지난 1일</i></td><td>(위와 같음)</td></tr>
-    <tr><td><b>sleep_rem</b></td><td>수면 분석 · 값 <i>렘</i> · 시작일 <i>지난 1일</i></td><td>(위와 같음)</td></tr>
-    <tr><td><b>weight</b> (선택)</td><td>체중 · 정렬 <i>최신순</i> · 제한 1</td><td>-</td></tr>
-  </table>
-  <p class="small muted" style="margin-top:8px">'그룹화: 일'을 쓰면 아이폰과 애플워치가 같이 센 걸음이 두 번 더해지지 않아요. 각 결과를 길게 눌러 <b>이름 변경</b>으로 hrv, rhr… 처럼 이름을 붙여 두면 3단계가 쉬워요.</p>
-</section>
-
-<section class="card">
-  <h2>2. 날짜</h2>
-  <p class="small"><b>날짜 형식 지정</b> 동작 추가 › 날짜: <i>현재 날짜</i> › 날짜 형식 <i>사용자 지정</i> › <code>yyyy-MM-dd</code></p>
-</section>
-
-<section class="card">
-  <h2>3. 보내기</h2>
-  <ol class="small" style="padding-left:18px;line-height:1.8">
-    <li><b>URL 콘텐츠 가져오기</b> 동작 추가 › URL에 위의 <b>보낼 주소</b> 붙여 넣기</li>
-    <li>펼치기(›) › 방법 <b>POST</b> › 요청 본문 <b>JSON</b></li>
-    <li><b>새로운 필드 추가</b>로 아래 항목을 하나씩 넣어요.
-      <ul>
-        <li><code>token</code> (텍스트): 위의 토큰</li>
-        <li><code>date</code> (텍스트): 2단계의 <i>형식 지정된 날짜</i></li>
-        <li><code>hrv</code>, <code>rhr</code>, <code>resp</code>, <code>steps</code>, <code>active_kcal</code>, <code>exercise_min</code>, <code>sleep_core</code>, <code>sleep_deep</code>, <code>sleep_rem</code>, <code>weight</code> (숫자): 1단계의 각 결과</li>
-      </ul>
-    </li>
-    <li>(선택) <b>사전 값 가져오기</b> › 키 <code>message</code> › <b>알림 표시</b>를 붙이면 "오늘 준비 점수 7.6" 같은 알림이 떠요.</li>
-  </ol>
-  <p class="small muted">아래쪽 ▶ 버튼으로 한 번 실행해 보세요. 처음엔 건강 데이터 접근을 물어보면 <b>모두 허용</b>을 눌러요. 설정 화면의 '받은 내용 보기'에서 들어온 값을 확인할 수 있어요.</p>
-</section>
-
-<section class="card">
-  <h2>4. 자동으로 실행</h2>
-  <p class="small">아이폰이 잠겨 있으면 단축어가 건강 데이터를 읽지 못해요. 그래서 <b>자주 여는 앱을 열 때</b> 실행되게 하는 게 가장 확실해요.</p>
-  <ol class="small" style="padding-left:18px;line-height:1.8">
-    <li>단축어 앱 › 아래 <b>자동화</b> 탭 › <b>+</b> › <b>앱</b></li>
-    <li>앱 선택: 카카오톡처럼 매일 여는 앱 › <b>열릴 때</b> 체크</li>
-    <li><b>즉시 실행</b> 선택 › 다음 › <b>건강 기록 보내기</b></li>
-  </ol>
-  <p class="small muted">하루에 여러 번 실행돼도 같은 날 기록은 최신 값으로 덮어써서 괜찮아요. 아침에 한 번, 저녁에 한 번 이상 실행되면 충분해요.</p>
+  <p class="small muted">아내분이 애플워치가 없으면 HRV · 안정 시 심박 · 수면은 비어 있고 걸음 · 활동 에너지만 들어와요. 워치를 사면 그대로 다 들어와요.</p>
 </section>
 <a class="btn" href="settings.php#shortcut">← 설정으로</a>
 <?php page_end();

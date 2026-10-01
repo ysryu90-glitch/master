@@ -8,7 +8,8 @@ $raw = file_get_contents('php://input') ?: '';
 $data = json_decode($raw, true);
 if (!is_array($data)) $data = $_POST;
 
-$token = (string) ($data['token'] ?? $_SERVER['HTTP_X_TOKEN'] ?? '');
+// 토큰은 주소(?token=...)나 본문, 헤더 어디에 있어도 된다. 단축어에서는 주소에 넣는 게 가장 간단하다.
+$token = (string) ($_GET['token'] ?? $data['token'] ?? $_SERVER['HTTP_X_TOKEN'] ?? '');
 if (!preg_match('/^[0-9a-f]{32}$/', $token)) json_out(['ok' => false, 'error' => '토큰이 없어요.']);
 $stmt = db()->prepare("SELECT * FROM members WHERE shortcut_token = ? AND role = 'adult'");
 $stmt->execute([$token]);

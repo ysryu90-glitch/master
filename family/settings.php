@@ -97,8 +97,7 @@ page_start('설정');
   <h2>📲 단축어 연결 (건강 기록)</h2>
   <p class="small muted">아이폰 '단축어'가 애플워치·아이폰 건강 기록을 이 사이트로 보내요. 처음 한 번만 만들면 돼요.</p>
   <div class="form">
-    <label>보낼 주소<input readonly value="<?= h($base) ?>/api/health.php" onclick="this.select()"></label>
-    <label><?= h($me['name']) ?>의 토큰<input readonly value="<?= h($me['shortcut_token']) ?>" onclick="this.select()"></label>
+    <label><?= h($me['name']) ?> 전용 보낼 주소 (단축어에 붙여 넣기)<input readonly value="<?= h($base) ?>/api/health.php?token=<?= h($me['shortcut_token']) ?>" onclick="this.select()"></label>
   </div>
   <div class="btn-row">
     <a class="btn primary" href="shortcut.php">단축어 만드는 방법 보기</a>
