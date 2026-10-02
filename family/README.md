@@ -44,3 +44,20 @@
 5. **확인**: 아이폰 와이파이를 끄고(LTE/5G) `https://mjys0307.synology.me/family/check.php`를 엽니다. '접속 방식'이 HTTPS로 나오면 성공입니다.
 
 로그인은 기기마다 한 번 하면 180일 유지됩니다. 비밀번호를 8번 틀리면 15분 동안 막힙니다.
+
+## 3. 자동 배포 (NAS가 GitHub에서 새 버전을 가져옴)
+
+한 번 설정하면, 새 버전이 GitHub에 올라올 때마다 NAS가 10분 안에 `web/family`에 반영합니다. `config.php`는 그대로 둡니다.
+
+1. **GitHub 토큰 만들기** (읽기 전용)
+   - github.com › 프로필 › Settings › Developer settings › Personal access tokens › **Fine-grained tokens** › Generate new token
+   - Repository access: **Only select repositories › ysryu90-glitch/master**
+   - Permissions › Repository permissions › **Contents: Read-only**
+   - 만든 토큰(github_pat_로 시작)을 복사합니다.
+2. **NAS에 폴더 만들기**: File Station에서 `web`이 아닌 공유 폴더(예: `homes/내계정` 또는 `docker`)에 `family-deploy` 폴더를 만듭니다.
+3. 그 폴더에 저장소의 `scripts/nas-autodeploy.sh`를 올리고, 토큰 한 줄만 적은 `token.txt`도 올립니다.
+4. **작업 스케줄러**: 제어판 › 작업 스케줄러 › 생성 › 예약된 작업 › 사용자 정의 스크립트
+   - 일반: 작업 이름 `우리집건강 자동배포`, 사용자 **root**
+   - 스케줄: 매일, 첫 실행 00:00, 빈도 **10분마다**, 마지막 실행 23:50
+   - 작업 설정 › 실행 명령: `bash /volume1/(폴더 경로)/family-deploy/nas-autodeploy.sh`
+5. 만든 작업을 선택하고 **실행**을 한 번 눌러 봅니다. `family-deploy/deploy.log`에 `배포 완료`가 적히면 성공입니다.
