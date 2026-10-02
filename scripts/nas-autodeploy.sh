@@ -14,7 +14,8 @@ REPO="ysryu90-glitch/master"
 BRANCH="claude/gallant-darwin-vgnz1c"
 TARGET="${TARGET:-/volume1/web/family}"
 API="${API:-https://api.github.com}"
-SITE_LOCAL="${SITE_LOCAL:-http://127.0.0.1:8080/family}"
+SITE_LOCAL="${SITE_LOCAL:-}"
+PUBLIC_HOST="${PUBLIC_HOST:-mjys0307.synology.me}"
 KEEP_BACKUPS=30
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -82,17 +83,44 @@ deploy() {
   log "배포 완료: ${latest:0:7}"
 }
 
+# NAS가 자기 사이트에 접속할 주소 후보 (처음 성공한 주소를 cron-url.txt 에 기억)
+site_candidates() {
+  [ -s "$DIR/cron-url.txt" ] && cat "$DIR/cron-url.txt"
+  [ -n "$SITE_LOCAL" ] && echo "$SITE_LOCAL"
+  local ip
+  ip="$( { ip -4 addr 2>/dev/null | sed -n 's/.*inet \([0-9.]*\).*/\1/p'; ifconfig 2>/dev/null | sed -n 's/.*inet addr:\([0-9.]*\).*/\1/p'; } \
+    | grep -E '^(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)' | grep -Ev '^172\.17\.' | head -1)"
+  [ -n "$ip" ] && echo "http://$ip:8080/family"
+  echo "http://127.0.0.1:8080/family"
+  echo "https://$PUBLIC_HOST/family#local"
+  echo "https://$PUBLIC_HOST/family"
+}
+
 run_cron() {
-  local key out
+  local key out url base tried=""
   key="$(config_value secret)"
   if [ -z "$key" ]; then log "알림 작업 건너뜀: $TARGET/config.php 에서 secret 을 읽지 못했어요"; return 1; fi
-  out="$(curl -sS --max-time 90 -w '\nHTTP %{http_code}' "$SITE_LOCAL/cron.php?key=$key" 2>&1)"
-  if ! echo "$out" | grep -q '^ok '; then
-    log "알림 작업 실패 ($SITE_LOCAL/cron.php): $(echo "$out" | tr '\n' ' ' | cut -c1-300)"
-    return 1
-  fi
-  # 실제로 보낸 알림만 기록
-  echo "$out" | grep '→' | while read -r line; do log "알림: $line"; done
+  for url in $(site_candidates | awk '!seen[$0]++'); do
+    base="${url%#local}"
+    if [ "$url" != "$base" ]; then
+      # 공유기를 거치지 않고 NAS 안에서 바로 (이름 기반 포털 · 인증서 그대로)
+      out="$(curl -sS --max-time 90 --resolve "$PUBLIC_HOST:443:127.0.0.1" "$base/cron.php?key=$key" 2>&1)"
+    else
+      out="$(curl -sS --max-time 90 "$base/cron.php?key=$key" 2>&1)"
+    fi
+    if echo "$out" | grep -q '^ok '; then
+      if [ "$(cat "$DIR/cron-url.txt" 2>/dev/null)" != "$url" ]; then
+        echo "$url" > "$DIR/cron-url.txt"
+        log "알림 작업 연결 주소: $url"
+      fi
+      echo "$out" | grep '→' | while read -r line; do log "알림: $line"; done
+      return 0
+    fi
+    tried="$tried $url"
+  done
+  rm -f "$DIR/cron-url.txt"
+  log "알림 작업 실패 (시도한 주소:$tried) 마지막 응답: $(echo "$out" | tr '\n' ' ' | cut -c1-200)"
+  return 1
 }
 
 backup() {
