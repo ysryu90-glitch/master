@@ -115,28 +115,6 @@ if ($calLast && $calLast > $parentsLast) { $parentsLast = $calLast; set_setting(
 $parentsGap = $parentsLast ? (int) round((strtotime(today()) - strtotime($parentsLast)) / 86400) : null;
 $ptDay = valid_day($_GET['pt'] ?? '') === ($_GET['pt'] ?? '') ? $_GET['pt'] : '';
 
-function day_context(string $d, array $homeWx, array $ptWx, string $ptDay, bool $tired, array $recent, array $liked): array
-{
-    $events = calendar_events($d, $d);
-    $parentsDay = $d === $ptDay;
-    foreach ($events as $e) if (preg_match('/평택|부모님|시댁|친정/u', $e['title'])) $parentsDay = true;
-    $busy = count(array_filter($events, fn($e) => !$e['all_day'] && !str_contains($e['title'], '나들이')));
-    $wx = $parentsDay ? ($ptWx[$d] ?? $homeWx[$d] ?? null) : ($homeWx[$d] ?? null);
-    return ['events' => $events, 'parentsDay' => $parentsDay, 'busy' => $busy, 'wx' => $wx,
-        'month' => (int) date('n', strtotime($d)), 'tired' => $tired, 'recent' => $recent, 'liked' => $liked];
-}
-
-function ranked(array $ctx): array
-{
-    $list = [];
-    foreach (PLACES as $p) {
-        $s = score_place($p, $ctx);
-        if ($s['score'] > -50) $list[] = $p + $s;
-    }
-    usort($list, fn($a, $b) => $b['score'] <=> $a['score']);
-    return $list;
-}
-
 $typeLabel = ['in' => '실내', 'out' => '야외', 'mix' => '실내외'];
 $blockLabel = function (array $ds) use ($weekdays): string {
     if (!$ds) return '';

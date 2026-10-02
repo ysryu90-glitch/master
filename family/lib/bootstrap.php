@@ -552,7 +552,7 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="assets/icon.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="assets/app.css?v=1">
+<link rel="stylesheet" href="assets/app.css?v=<?= asset_version('assets/app.css') ?>">
 <title><?= h($title) ?> · 우리집 건강</title>
 </head>
 <body class="<?= $tab ? 'with-tabs' : '' ?>">
@@ -578,7 +578,14 @@ function page_end(string $tab = ''): void
     } else {
         echo '</main>';
     }
-    echo '<script src="assets/app.js?v=1"></script></body></html>';
+    echo '<script src="assets/app.js?v=' . asset_version('assets/app.js') . '"></script></body></html>';
+}
+
+/** 파일이 바뀌면 주소도 바뀌게 해서 아이폰이 예전 파일을 쓰지 않게 */
+function asset_version(string $path): string
+{
+    $file = dirname(__DIR__) . '/' . $path;
+    return is_file($file) ? (string) filemtime($file) : '1';
 }
 
 function flash(string $message): void

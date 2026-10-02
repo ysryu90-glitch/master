@@ -4,6 +4,8 @@ require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/table.php';
 require __DIR__ . '/lib/care.php';
+require __DIR__ . '/lib/weather.php';
+require __DIR__ . '/lib/places.php';
 
 $me = require_login();
 check_csrf();
@@ -60,6 +62,29 @@ $sickKids = [];
 foreach (members('child') as $k) {
     $logs = sick_logs((int) $k['id'], 24);
     if ($logs) $sickKids[] = [$k, last_temp($logs), fever_next($logs)];
+}
+
+// 이번 주말 나들이 미리보기 (목~일, 다가오는 첫 쉬는 날 기준)
+$outing = null;
+if ((int) date('N') >= 4) {
+    for ($i = (int) date('G') >= 18 ? 1 : 0; $i <= 3; $i++) {
+        $d = date('Y-m-d', strtotime("+$i day"));
+        if (!is_day_off($d)) continue;
+        $locs = [];
+        foreach (locations() as $l) $locs[$l['role']] = $l;
+        $home = $locs['home'] ?? default_locations()[0];
+        $par = $locs['parents'] ?? default_locations()[2];
+        $readyScores = array_filter(array_map(fn($a) => (readiness_history((int) $a['id'], 1)[today()]['score'] ?? null), members('adult')), fn($v) => $v !== null);
+        $tiredNow = $readyScores && array_sum($readyScores) / count($readyScores) < 6;
+        $recentVisits = [];
+        foreach (db()->query("SELECT place_id, MAX(day) d FROM outing_logs WHERE kind = 'visit' AND day > DATE_SUB(CURDATE(), INTERVAL 30 DAY) GROUP BY place_id") as $r) {
+            $recentVisits[$r['place_id']] = (int) round((strtotime(today()) - strtotime($r['d'])) / 86400);
+        }
+        $likedIds = db()->query("SELECT place_id FROM outing_logs WHERE kind = 'like'")->fetchAll(PDO::FETCH_COLUMN);
+        $ctx = day_context($d, daily_forecast((float) $home['lat'], (float) $home['lon']), daily_forecast((float) $par['lat'], (float) $par['lon']), '', $tiredNow, $recentVisits, $likedIds);
+        $outing = ['day' => $d, 'wx' => $ctx['wx'], 'picks' => array_slice(ranked($ctx), 0, 2)];
+        break;
+    }
 }
 
 page_start('오늘', 'today');
@@ -180,6 +205,18 @@ page_start('오늘', 'today');
   <div class="macro"><span>단백질</span><div class="meter blue"><i style="width:<?= min(100, $food['protein'] / max(1, $me['protein_target']) * 100) ?>%"></i></div><span class="n"><?= num($food['protein']) ?> / <?= num($me['protein_target']) ?>g</span></div>
   <p class="small muted" style="margin-top:8px"><?= (int) $food['meals'] ?>끼 기록</p>
 </section>
+
+<?php if ($outing && $outing['picks']): $wd = ['일', '월', '화', '수', '목', '금', '토']; ?>
+<section class="card">
+  <div class="card-head"><h2>🧺 <?= date('n/j', strtotime($outing['day'])) ?> (<?= $wd[(int) date('w', strtotime($outing['day']))] ?>) 어디 갈까?</h2><a class="more" href="outing.php">더 보기 ›</a></div>
+  <?php if ($outing['wx']): ?><p class="small muted"><?= $outing['wx']['icon'] ?> <?= round($outing['wx']['min']) ?>° / <?= round($outing['wx']['max']) ?>° · 비 <?= (int) $outing['wx']['rain'] ?>%</p><?php endif; ?>
+  <?php foreach ($outing['picks'] as $i => $p): ?>
+    <div class="person"><span class="who" style="width:auto;flex:1"><?= $i + 1 ?>. <?= h($p['name']) ?>
+      <div class="small muted" style="font-weight:500"><?= h(implode(' · ', array_slice($p['why'], 0, 2))) ?></div></span>
+      <span class="small muted">약 <?= (int) $p['minutes'] ?>분</span></div>
+  <?php endforeach; ?>
+</section>
+<?php endif; ?>
 
 <section class="card">
   <div class="card-head"><h2>날씨</h2></div>
