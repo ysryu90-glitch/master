@@ -85,6 +85,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('UPDATE medications SET active = 0 WHERE id = ? AND member_id = ?')->execute([(int) post('id'), $me['id']]);
                 $message = '약을 목록에서 뺐어요.';
                 break;
+            case 'discover_keys':
+                foreach (['tourapi_key', 'seoul_key'] as $k) {
+                    if (post($k . '_clear')) set_setting($k, '');
+                    elseif (post($k) !== '') set_setting($k, preg_replace('/\s+/', '', post($k)));
+                }
+                require_once __DIR__ . '/lib/weather.php';
+                require_once __DIR__ . '/lib/discover.php';
+                $r = discover_fetch();
+                $message = "저장하고 받아 왔어요: 축제·행사 {$r['festival']}개 · 서울 문화행사 {$r['seoul']}개 · 새 장소 {$r['new']}곳";
+                if ($r['errors']) throw new RuntimeException($message . ' · 오류: ' . implode(' / ', $r['errors']));
+                break;
             case 'home':
                 $locations = [];
                 foreach ($roles as $role => $title) {
@@ -243,6 +254,22 @@ page_start('설정');
     <label>저녁 시간<input type="time" name="dinner_time" value="<?= h(dinner_time_setting()) ?>"></label>
     <button class="btn primary">저장</button>
   </form>
+</section>
+
+<section class="card" id="discover">
+  <h2>🧺 나들이 데이터</h2>
+  <p class="small muted">축제 · 행사와 새로 생긴 곳을 매일 새벽에 받아와 주말 나들이 추천에 넣어요. 둘 다 무료 인증키예요.</p>
+  <form method="post" class="form">
+    <?= csrf_field() ?><input type="hidden" name="action" value="discover_keys">
+    <label>한국관광공사 TourAPI 인증키 (공공데이터포털 · Decoding 키) <?= setting('tourapi_key') ? '✓ 저장됨' : '' ?>
+      <input name="tourapi_key" type="password" autocomplete="off" placeholder="<?= setting('tourapi_key') ? '바꿀 때만 입력' : '' ?>"></label>
+    <label>서울 열린데이터광장 인증키 (문화행사) <?= setting('seoul_key') ? '✓ 저장됨' : '' ?>
+      <input name="seoul_key" type="password" autocomplete="off" placeholder="<?= setting('seoul_key') ? '바꿀 때만 입력' : '' ?>"></label>
+    <button class="btn primary">저장하고 지금 받기</button>
+  </form>
+  <?php $ds = setting('discover_status'); if (is_array($ds)): ?>
+    <p class="small muted" style="margin-top:8px">마지막: <?= h($ds['at']) ?> · 축제·행사 <?= (int) $ds['festival'] ?> · 서울 <?= (int) $ds['seoul'] ?> · 새 장소 <?= (int) $ds['new'] ?><?= !empty($ds['errors']) ? '<br>⚠️ ' . h(implode(' / ', $ds['errors'])) : '' ?></p>
+  <?php endif; ?>
 </section>
 
 <section class="card">

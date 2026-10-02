@@ -6,6 +6,7 @@ require __DIR__ . '/lib/table.php';
 require __DIR__ . '/lib/care.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
+require __DIR__ . '/lib/discover.php';
 
 $me = require_login();
 check_csrf();
@@ -82,7 +83,7 @@ if ((int) date('N') >= 4) {
         }
         $likedIds = db()->query("SELECT place_id FROM outing_logs WHERE kind = 'like'")->fetchAll(PDO::FETCH_COLUMN);
         $ctx = day_context($d, daily_forecast((float) $home['lat'], (float) $home['lon']), daily_forecast((float) $par['lat'], (float) $par['lon']), '', $tiredNow, $recentVisits, $likedIds);
-        $outing = ['day' => $d, 'wx' => $ctx['wx'], 'picks' => array_slice(ranked($ctx), 0, 2)];
+        $outing = ['day' => $d, 'wx' => $ctx['wx'], 'picks' => array_slice(ranked($ctx, discover_candidates($d, $home, $par)), 0, 2)];
         break;
     }
 }

@@ -7,6 +7,7 @@ require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/table.php';
 require __DIR__ . '/lib/care.php';
 require __DIR__ . '/lib/calendar.php';
+require __DIR__ . '/lib/discover.php';
 
 header('Content-Type: text/plain; charset=utf-8');
 if (!hash_equals((string) (cfg()['secret'] ?? ''), (string) ($_GET['key'] ?? ''))) {
@@ -94,6 +95,13 @@ foreach (members('adult') as $m) {
             }
         }
     }
+}
+
+// 🧺 나들이 데이터 (하루 한 번, 새벽 5시 이후)
+try {
+    if ($r = discover_daily()) $log[] = "나들이 데이터 → 축제·행사 {$r['festival']} · 서울 {$r['seoul']} · 새 장소 {$r['new']}" . ($r['errors'] ? ' (오류 ' . count($r['errors']) . ')' : '');
+} catch (Throwable $e) {
+    $log[] = '나들이 데이터 → 실패: ' . $e->getMessage();
 }
 
 db()->exec('DELETE FROM notify_log WHERE sent_at < DATE_SUB(NOW(), INTERVAL 30 DAY)');

@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -285,6 +285,41 @@ function migrate(PDO $pdo): void
             created_by INT NULL,
             created_at DATETIME NOT NULL,
             KEY place (place_id)
+        )",
+        // 나들이: 매일 받아오는 축제 · 행사 · 새 장소 (TourAPI · 서울 문화행사)
+        "CREATE TABLE IF NOT EXISTS outing_events (
+            id VARCHAR(60) PRIMARY KEY,
+            source VARCHAR(10) NOT NULL,
+            kind VARCHAR(10) NOT NULL,
+            title VARCHAR(200) NOT NULL,
+            start_date DATE NULL,
+            end_date DATE NULL,
+            place VARCHAR(200) NOT NULL DEFAULT '',
+            addr VARCHAR(200) NOT NULL DEFAULT '',
+            lat DECIMAL(9,6) NULL,
+            lon DECIMAL(9,6) NULL,
+            target VARCHAR(200) NOT NULL DEFAULT '',
+            fee VARCHAR(100) NOT NULL DEFAULT '',
+            category VARCHAR(60) NOT NULL DEFAULT '',
+            image VARCHAR(300) NOT NULL DEFAULT '',
+            url VARCHAR(300) NOT NULL DEFAULT '',
+            created DATE NULL,
+            fetched_at DATETIME NOT NULL,
+            KEY dates (end_date, start_date)
+        )",
+        // 가족이 직접 넣은 장소
+        "CREATE TABLE IF NOT EXISTS custom_places (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            type VARCHAR(4) NOT NULL DEFAULT 'out',
+            minutes INT NOT NULL DEFAULT 30,
+            area VARCHAR(12) NOT NULL DEFAULT 'home',
+            best VARCHAR(40) NOT NULL DEFAULT '',
+            note VARCHAR(200) NOT NULL DEFAULT '',
+            tip VARCHAR(200) NOT NULL DEFAULT '',
+            active TINYINT NOT NULL DEFAULT 1,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL
         )",
     ];
     foreach ($tables as $sql) {

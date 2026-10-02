@@ -5,6 +5,7 @@ require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
+require __DIR__ . '/lib/discover.php';
 
 $me = require_login();
 check_csrf();
@@ -51,6 +52,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ->execute([$placeId, $day, max(1, min(5, (int) post('rating'))) ?: null, mb_substr(post('memo'), 0, 300), $me['id']]);
                 if (($p['area'] ?? '') === 'pyeongtaek') set_setting('parents_last_visit', $day);
                 flash('다녀온 곳을 기록했어요. 한 달 동안은 추천에서 조금 뒤로 보낼게요.');
+            }
+            break;
+        case 'custom_add':
+            if (post('name') !== '') {
+                $months = array_values(array_filter(array_map('intval', (array) ($_POST['best'] ?? [])), fn($m) => $m >= 1 && $m <= 12));
+                db()->prepare('INSERT INTO custom_places (name, type, minutes, area, best, note, tip, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())')
+                    ->execute([mb_substr(post('name'), 0, 100), in_array(post('type'), ['in', 'out', 'mix'], true) ? post('type') : 'out',
+                        max(5, min(180, (int) post('minutes'))), post('area') === 'pyeongtaek' ? 'pyeongtaek' : 'home', implode(',', $months),
+                        mb_substr(post('note'), 0, 200), mb_substr(post('tip'), 0, 200), $me['id']]);
+                flash('우리 장소에 추가했어요. 이제 추천 후보에 들어가요.');
+            }
+            break;
+        case 'custom_delete':
+            db()->prepare('UPDATE custom_places SET active = 0 WHERE id = ?')->execute([(int) post('id')]);
+            break;
+        case 'discover':
+            try {
+                $r = discover_fetch();
+                flash("새로 받았어요: 축제·행사 {$r['festival']}개 · 서울 문화행사 {$r['seoul']}개 · 새 장소 {$r['new']}곳" . ($r['errors'] ? ' (오류: ' . implode(' / ', $r['errors']) . ')' : ''));
+            } catch (Throwable $e) {
+                flash('받기 실패: ' . $e->getMessage());
             }
             break;
         case 'parents':
@@ -169,7 +191,7 @@ page_start('주말 나들이', 'family');
 
 <?php foreach (array_merge($days, $nextWeekend) as $idx => $d):
     $ctx = day_context($d, $homeWx, $ptWx, $ptDay, $tired, $recent, $liked);
-    $list = ranked($ctx);
+    $list = ranked($ctx, discover_candidates($d, $home, $parents));
     $top = array_slice($list, 0, 3);
     $wx = $ctx['wx'];
     $planB = null;
@@ -199,6 +221,7 @@ page_start('주말 나들이', 'family');
       <?php if ($p['tip']): ?><div class="small muted">💡 <?= h($p['tip']) ?></div><?php endif; ?>
       <div class="acts">
         <a class="btn small" href="https://map.naver.com/p/search/<?= rawurlencode($p['name']) ?>" target="_blank" rel="noopener">🗺 지도</a>
+        <?php if (!empty($p['url'])): ?><a class="btn small" href="<?= h($p['url']) ?>" target="_blank" rel="noopener">ℹ️ 안내</a><?php endif; ?>
         <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="like"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small"><?= in_array($p['id'], $liked, true) ? '❤️ 찜됨' : '🤍 찜' ?></button></form>
         <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small primary">📌 이 날 가요</button></form>
       </div>
@@ -217,11 +240,62 @@ page_start('주말 나들이', 'family');
 </section>
 <?php endforeach; ?>
 
+<?php $events = upcoming_events($home); $dstatus = setting('discover_status'); ?>
+<section class="card">
+  <div class="card-head"><h2>🎉 3주 안 축제 · 행사</h2>
+    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="discover"><button class="btn small">↻ 새로 받기</button></form></div>
+  <?php if (!setting('tourapi_key') && !setting('seoul_key')): ?>
+    <p class="small muted">설정 › 🧺 나들이 데이터에 관광공사 · 서울시 인증키를 넣으면 축제 · 행사와 새로 생긴 곳을 매일 받아와 추천에 넣어요.</p>
+  <?php elseif (!$events): ?>
+    <div class="empty">가까운 축제 · 행사가 아직 없어요.</div>
+  <?php endif; ?>
+  <ul class="list">
+    <?php foreach ($events as $e): ?>
+      <li><span class="grow"><span class="title"><?= h($e['title']) ?></span>
+        <div class="sub"><?= date('n/j', strtotime($e['start_date'])) ?>~<?= date('n/j', strtotime($e['end_date'])) ?>
+          <?= $e['km'] !== null ? ' · 약 ' . est_minutes($e['km']) . '분' : '' ?><?= $e['place'] ? ' · ' . h($e['place']) : ($e['addr'] ? ' · ' . h($e['addr']) : '') ?>
+          <?= $e['target'] ? ' · ' . h($e['target']) : '' ?><?= $e['fee'] ? ' · ' . h($e['fee']) : '' ?></div></span>
+        <a class="btn small" href="<?= h($e['url'] ?: 'https://search.naver.com/search.naver?query=' . rawurlencode($e['title'])) ?>" target="_blank" rel="noopener">보기</a></li>
+    <?php endforeach; ?>
+  </ul>
+  <?php if (is_array($dstatus)): ?><p class="small muted">마지막으로 받은 시각 <?= h($dstatus['at']) ?><?= !empty($dstatus['errors']) ? ' · ⚠️ ' . h(implode(' / ', $dstatus['errors'])) : '' ?> · 출처: 한국관광공사, 서울시</p><?php endif; ?>
+</section>
+
+<?php $customs = db()->query('SELECT * FROM custom_places WHERE active = 1 ORDER BY id DESC')->fetchAll(); ?>
+<section class="card">
+  <h2>⭐ 우리 장소</h2>
+  <p class="small muted">단골 키즈카페, 아는 공원처럼 우리 가족만 아는 곳을 넣으면 추천 후보에 들어가요.</p>
+  <?php foreach ($customs as $c): ?>
+    <div class="person"><span class="who" style="width:auto;flex:1"><?= h($c['name']) ?> <span class="small muted"><?= ['in' => '실내', 'out' => '야외', 'mix' => '실내외'][$c['type']] ?? '' ?> · 약 <?= (int) $c['minutes'] ?>분</span></span>
+      <form method="post" data-confirm="이 장소를 뺄까요?"><?= csrf_field() ?><input type="hidden" name="action" value="custom_delete"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="btn small danger">빼기</button></form></div>
+  <?php endforeach; ?>
+  <details style="margin-top:8px"><summary class="small" style="color:var(--blue)">+ 장소 추가</summary>
+    <form method="post" class="form" style="margin-top:10px">
+      <?= csrf_field() ?><input type="hidden" name="action" value="custom_add">
+      <label>이름<input name="name" required placeholder="예: 연신내 ○○ 키즈카페"></label>
+      <div class="grid3">
+        <label>종류<select name="type"><option value="in">실내</option><option value="out">야외</option><option value="mix">실내외</option></select></label>
+        <label>집에서 (분)<input name="minutes" type="number" value="15" min="5" max="180"></label>
+        <label>지역<select name="area"><option value="home">집 근처</option><option value="pyeongtaek">평택</option></select></label>
+      </div>
+      <label>특히 좋은 달 (선택)</label>
+      <div class="chips" style="margin-bottom:12px"><?php for ($m = 1; $m <= 12; $m++): ?><label class="chip" style="margin:0"><input type="checkbox" name="best[]" value="<?= $m ?>" style="width:auto;margin:0 4px 0 0;display:inline"><?= $m ?>월</label><?php endfor; ?></div>
+      <label>설명<input name="note" placeholder="예: 볼풀이 넓고 부모 카페 있음"></label>
+      <label>팁<input name="tip" placeholder="예: 주말 예약 필수"></label>
+      <button class="btn primary">추가</button>
+    </form>
+  </details>
+</section>
+
 <section class="card">
   <h2>✅ 다녀온 곳 기록</h2>
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="visit">
-    <label>장소<select name="place"><?php foreach (PLACES as $p): ?><option value="<?= h($p['id']) ?>"><?= h($p['name']) ?></option><?php endforeach; ?></select></label>
+    <label>장소<select name="place">
+      <?php foreach ($customs as $c): ?><option value="c<?= (int) $c['id'] ?>">⭐ <?= h($c['name']) ?></option><?php endforeach; ?>
+      <?php foreach ($events as $e): ?><option value="<?= h($e['id']) ?>">🎉 <?= h($e['title']) ?></option><?php endforeach; ?>
+      <?php foreach (PLACES as $p): ?><option value="<?= h($p['id']) ?>"><?= h($p['name']) ?></option><?php endforeach; ?>
+    </select></label>
     <div class="grid2">
       <label>날짜<input type="date" name="day" value="<?= today() ?>" max="<?= today() ?>"></label>
       <label>별점<select name="rating"><?php for ($i = 5; $i >= 1; $i--): ?><option value="<?= $i ?>"><?= str_repeat('⭐', $i) ?></option><?php endfor; ?></select></label>

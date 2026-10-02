@@ -73,11 +73,9 @@ $stmt = db()->prepare('SELECT day, dish FROM dinner_plans WHERE day BETWEEN ? AN
 $stmt->execute([$nextMon, $nextSun]);
 $nextDinners = $stmt->fetchAll();
 
+require __DIR__ . '/lib/places.php';
 $placeNames = [];
-if (is_file(__DIR__ . '/lib/places.php')) {
-    require __DIR__ . '/lib/places.php';
-    foreach (PLACES as $p) $placeNames[$p['id']] = $p['name'];
-}
+foreach ($visits as $v) $placeNames[$v['place_id']] = place($v['place_id'])['name'] ?? $v['place_id'];
 
 page_start('주간 리포트', 'family');
 ?>

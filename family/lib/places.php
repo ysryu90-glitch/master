@@ -75,6 +75,14 @@ const MONTH_THEMES = [
 function place(string $id): ?array
 {
     foreach (PLACES as $p) if ($p['id'] === $id) return $p;
+    if (preg_match('/^c(\d+)$/', $id, $m)) {
+        $stmt = db()->prepare('SELECT * FROM custom_places WHERE id = ?');
+        $stmt->execute([(int) $m[1]]);
+        if ($c = $stmt->fetch()) return ['id' => $id, 'name' => $c['name'], 'area' => $c['area'], 'tip' => $c['tip'], 'type' => $c['type']];
+    }
+    $stmt = db()->prepare('SELECT * FROM outing_events WHERE id = ?');
+    $stmt->execute([$id]);
+    if ($e = $stmt->fetch()) return ['id' => $id, 'name' => $e['title'], 'area' => 'home', 'tip' => '', 'type' => 'out'];
     return null;
 }
 
@@ -145,6 +153,26 @@ function score_place(array $p, array $ctx): array
         $score -= 3;
     }
 
+    // 축제 · 행사 · 새로 등록된 곳 · 우리 장소
+    $kind = $p['kind'] ?? '';
+    if ($kind === 'event') {
+        $score += 3;
+        $why[] = '🎉 ' . date('n/j', strtotime($p['start'])) . '~' . date('n/j', strtotime($p['end'])) . ' 기간 행사';
+        $left = (int) round((strtotime($p['end']) - strtotime($ctx['day'] ?? today())) / 86400);
+        if ($left <= 1) { $score += 1; $why[] = '곧 끝나요'; }
+    } elseif ($kind === 'new') {
+        $score += 1.5;
+        $why[] = '🆕 새로 등록된 곳';
+    } elseif ($kind === 'custom') {
+        $score += 0.5;
+        $why[] = '⭐ 우리 장소';
+    }
+    if (isset($p['fit'])) {
+        $score += $p['fit'];
+        if ($p['fit'] > 0) $why[] = '아이와 즐길 거리 (' . implode(', ', $p['tags']) . ')';
+        if ($p['fit'] < 0) $minus[] = '어른 위주 행사';
+    }
+
     // 최근 다녀온 곳 · 찜
     if (isset($ctx['recent'][$p['id']])) { $score -= 3; $minus[] = $ctx['recent'][$p['id']] . '일 전에 다녀옴'; }
     if (in_array($p['id'], $ctx['liked'], true)) { $score += 1; $why[] = '❤️ 찜한 곳'; }
@@ -160,13 +188,13 @@ function day_context(string $d, array $homeWx, array $ptWx, string $ptDay, bool 
     $busy = count(array_filter($events, fn($e) => !$e['all_day'] && !str_contains($e['title'], '나들이')));
     $wx = $parentsDay ? ($ptWx[$d] ?? $homeWx[$d] ?? null) : ($homeWx[$d] ?? null);
     return ['events' => $events, 'parentsDay' => $parentsDay, 'busy' => $busy, 'wx' => $wx,
-        'month' => (int) date('n', strtotime($d)), 'tired' => $tired, 'recent' => $recent, 'liked' => $liked];
+        'month' => (int) date('n', strtotime($d)), 'tired' => $tired, 'recent' => $recent, 'liked' => $liked, 'day' => $d];
 }
 
-function ranked(array $ctx): array
+function ranked(array $ctx, array $extra = []): array
 {
     $list = [];
-    foreach (PLACES as $p) {
+    foreach (array_merge(PLACES, $extra) as $p) {
         $s = score_place($p, $ctx);
         if ($s['score'] > -50) $list[] = $p + $s;
     }
