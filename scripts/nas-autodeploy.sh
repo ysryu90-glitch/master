@@ -85,8 +85,12 @@ deploy() {
 run_cron() {
   local key out
   key="$(config_value secret)"
-  [ -z "$key" ] && return 0
-  out="$(curl -fsS --max-time 90 "$SITE_LOCAL/cron.php?key=$key" 2>&1)" || { log "알림 작업 실패: $out"; return 1; }
+  if [ -z "$key" ]; then log "알림 작업 건너뜀: $TARGET/config.php 에서 secret 을 읽지 못했어요"; return 1; fi
+  out="$(curl -sS --max-time 90 -w '\nHTTP %{http_code}' "$SITE_LOCAL/cron.php?key=$key" 2>&1)"
+  if ! echo "$out" | grep -q '^ok '; then
+    log "알림 작업 실패 ($SITE_LOCAL/cron.php): $(echo "$out" | tr '\n' ' ' | cut -c1-300)"
+    return 1
+  fi
   # 실제로 보낸 알림만 기록
   echo "$out" | grep '→' | while read -r line; do log "알림: $line"; done
 }
