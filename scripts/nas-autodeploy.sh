@@ -114,6 +114,7 @@ backup() {
   fi
 }
 
+date '+%Y-%m-%d %H:%M:%S' > "$DIR/last-run.txt"
 deploy
 run_cron
 backup

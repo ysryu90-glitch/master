@@ -23,6 +23,14 @@ if (is_array($config) && extension_loaded('pdo_mysql')) {
         }
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
         $add('DB 접속', true, '성공 · 표 ' . count($tables) . '개');
+        if (in_array('settings', $tables, true)) {
+            $last = $pdo->query("SELECT v FROM settings WHERE k = 'cron_last_run'")->fetchColumn();
+            $last = $last ? json_decode($last, true) : null;
+            date_default_timezone_set('Asia/Seoul');
+            $mins = $last ? (int) round((time() - strtotime($last)) / 60) : null;
+            $add('정기 작업 (NAS 작업 스케줄러)', $mins !== null && $mins <= 20,
+                $mins === null ? '아직 한 번도 실행되지 않았어요' : "마지막 실행 {$last} ({$mins}분 전)" . ($mins > 20 ? ' — 작업 스케줄러의 반복 설정을 확인해 주세요' : ''));
+        }
     } catch (Throwable $e) {
         $add('DB 접속', false, $e->getMessage());
     }
