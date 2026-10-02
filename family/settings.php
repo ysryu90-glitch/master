@@ -1,6 +1,8 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/calendar.php';
+require __DIR__ . '/lib/push.php';
+require __DIR__ . '/lib/care.php';
 
 $me = require_login();
 check_csrf();
@@ -61,6 +63,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set_setting('calendar_synced_at', '');
                 $message = '보여줄 캘린더를 저장했어요.';
                 break;
+            case 'notify':
+                $time = fn($v) => preg_match('/^\d{2}:\d{2}$/', (string) $v) ? $v : '';
+                set_setting('notify_' . $me['id'], [
+                    'morning' => post('morning_on') ? $time(post('morning')) : '',
+                    'dinner' => post('dinner_on') ? $time(post('dinner')) : '',
+                    'stale' => (bool) post('stale'),
+                    'weekly' => (bool) post('weekly'),
+                    'sick' => (bool) post('sick'),
+                ]);
+                $message = '알림 설정을 저장했어요.';
+                break;
+            case 'med_add':
+                if (post('med_name') !== '' && preg_match('/^\d{2}:\d{2}$/', post('med_time'))) {
+                    $pdo->prepare('INSERT INTO medications (member_id, name, time, created_at) VALUES (?, ?, ?, NOW())')
+                        ->execute([$me['id'], mb_substr(post('med_name'), 0, 60), post('med_time')]);
+                    $message = '약을 추가했어요. 매일 ' . post('med_time') . '에 알려 드려요.';
+                }
+                break;
+            case 'med_delete':
+                $pdo->prepare('UPDATE medications SET active = 0 WHERE id = ? AND member_id = ?')->execute([(int) post('id'), $me['id']]);
+                $message = '약을 목록에서 뺐어요.';
+                break;
             case 'home':
                 $locations = [];
                 foreach ($roles as $role => $title) {
@@ -80,7 +104,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $me = member((int) $me['id']);
 $kid = db()->query("SELECT * FROM members WHERE role = 'child' ORDER BY id LIMIT 1")->fetch() ?: null;
-$base = (is_https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/');
+$base = public_base();
+$prefs = notify_prefs((int) $me['id']);
+$myMeds = medications_of((int) $me['id']);
+$stmt = db()->prepare('SELECT COUNT(*) FROM push_subscriptions WHERE member_id = ?');
+$stmt->execute([$me['id']]);
+$devices = (int) $stmt->fetchColumn();
 $stmt = db()->prepare('SELECT received_at, body FROM health_raw WHERE member_id = ? ORDER BY id DESC LIMIT 1');
 $stmt->execute([$me['id']]);
 $last = $stmt->fetch();
@@ -105,6 +134,41 @@ page_start('설정');
   </div>
   <p class="small muted" style="margin-top:10px">마지막으로 받은 기록: <?= $last ? h(date('n월 j일 H:i', strtotime($last['received_at']))) : '아직 없음' ?></p>
   <?php if ($last): ?><details><summary class="small muted">받은 내용 보기 (문제 확인용)</summary><pre class="small" style="white-space:pre-wrap;word-break:break-all"><?= h($last['body']) ?></pre></details><?php endif; ?>
+</section>
+
+<section class="card" id="notify">
+  <h2>🔔 알림</h2>
+  <div id="push-box" data-csrf="<?= h(csrf_token()) ?>">
+    <p class="small" id="push-status">확인 중…</p>
+    <div class="btn-row"><button type="button" class="btn primary" id="push-on">이 기기에서 알림 받기</button><button type="button" class="btn" id="push-test">테스트 알림</button></div>
+    <p class="small muted" style="margin-top:8px">알림 받는 기기 <?= $devices ?>대 · 아이폰은 사파리 공유 › <b>홈 화면에 추가</b>한 아이콘으로 열어야 알림을 켤 수 있어요 (iOS 16.4 이상).</p>
+  </div>
+  <form method="post" class="form" style="margin-top:12px">
+    <?= csrf_field() ?><input type="hidden" name="action" value="notify">
+    <div class="inline"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="morning_on" value="1" <?= $prefs['morning'] ? 'checked' : '' ?> style="width:auto;margin:0"> 아침 요약 (준비 점수 · 일정 · 저녁)</label>
+      <label><input type="time" name="morning" value="<?= h($prefs['morning'] ?: '07:30') ?>"></label></div>
+    <div class="inline"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="dinner_on" value="1" <?= $prefs['dinner'] ? 'checked' : '' ?> style="width:auto;margin:0"> "오늘 저녁 집에서 드세요?"</label>
+      <label><input type="time" name="dinner" value="<?= h($prefs['dinner'] ?: '16:00') ?>"></label></div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="stale" value="1" <?= $prefs['stale'] ? 'checked' : '' ?> style="width:auto;margin:0"> 건강 기록이 이틀 넘게 안 들어오면</label>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="weekly" value="1" <?= $prefs['weekly'] ? 'checked' : '' ?> style="width:auto;margin:0"> 일요일 저녁 8시 주간 가족 리포트</label>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="sick" value="1" <?= $prefs['sick'] ? 'checked' : '' ?> style="width:auto;margin:0"> 아이 열날 때 해열제 다시 먹일 수 있는 시각</label>
+    <button class="btn primary">저장</button>
+  </form>
+</section>
+
+<section class="card" id="meds">
+  <h2>💊 내 약</h2>
+  <?php foreach ($myMeds as $med): ?>
+    <div class="person"><span class="who" style="width:auto;flex:1"><?= h($med['name']) ?> <span class="small muted">매일 <?= h($med['time']) ?></span></span>
+      <form method="post" data-confirm="이 약을 목록에서 뺄까요?"><?= csrf_field() ?><input type="hidden" name="action" value="med_delete"><input type="hidden" name="id" value="<?= (int) $med['id'] ?>"><button class="btn small danger">빼기</button></form></div>
+  <?php endforeach; ?>
+  <form method="post" class="form inline" style="margin-top:10px">
+    <?= csrf_field() ?><input type="hidden" name="action" value="med_add">
+    <label>약 이름<input name="med_name" placeholder="예: 탈모약" value="<?= $myMeds ? '' : '탈모약' ?>"></label>
+    <label>시각<input name="med_time" type="time" value="21:00"></label>
+    <button class="btn primary">추가</button>
+  </form>
+  <p class="small muted">정한 시각에 알림이 오고, 1시간 뒤에도 안 먹었으면 한 번 더 알려요. '오늘' 화면에서 먹었어요를 누르면 돼요.</p>
 </section>
 
 <section class="card">

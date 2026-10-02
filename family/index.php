@@ -3,10 +3,21 @@ require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/table.php';
+require __DIR__ . '/lib/care.php';
 
 $me = require_login();
 check_csrf();
 $today = today();
+
+// 약 먹었어요
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'med_take') {
+    $stmt = db()->prepare('SELECT id FROM medications WHERE id = ? AND member_id = ?');
+    $stmt->execute([(int) post('med'), $me['id']]);
+    if ($stmt->fetchColumn()) {
+        db()->prepare('INSERT IGNORE INTO medication_logs (med_id, day, taken_at) VALUES (?, CURDATE(), NOW())')->execute([(int) post('med')]);
+    }
+    redirect('index.php#meds');
+}
 
 // 오늘 저녁 출석 바로 바꾸기
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset(ATTENDANCE[post('status')])) {
@@ -33,9 +44,43 @@ $stmt->execute([$me['id'], $today]);
 $food = $stmt->fetch();
 
 $others = array_filter(members('adult'), fn($m) => (int) $m['id'] !== (int) $me['id']);
+$meds = medications_of((int) $me['id']);
+
+// 건강 기록이 이틀 넘게 안 들어온 사람
+$stale = [];
+foreach (members('adult') as $a) {
+    $stmt = db()->prepare('SELECT MAX(updated_at) FROM health_days WHERE member_id = ?');
+    $stmt->execute([$a['id']]);
+    $lastAt = $stmt->fetchColumn();
+    if ($lastAt && strtotime($lastAt) < time() - 48 * 3600) $stale[] = [$a, $lastAt];
+}
+
+// 아이가 최근 24시간 아팠으면
+$sickKids = [];
+foreach (members('child') as $k) {
+    $logs = sick_logs((int) $k['id'], 24);
+    if ($logs) $sickKids[] = [$k, last_temp($logs), fever_next($logs)];
+}
 
 page_start('오늘', 'today');
 ?>
+
+<?php foreach ($stale as [$a, $lastAt]): ?>
+<section class="card" style="border:1.5px solid var(--orange)">
+  <b>⚠️ <?= h($a['name']) ?> 건강 기록이 <?= (int) floor((time() - strtotime($lastAt)) / 86400) ?>일째 안 들어와요</b>
+  <p class="small muted" style="margin:4px 0 0">마지막: <?= h(date('n월 j일 H:i', strtotime($lastAt))) ?> · 아이폰 단축어 자동화가 꺼졌는지 확인해 주세요. <a href="shortcut.php">단축어 안내 ›</a></p>
+</section>
+<?php endforeach; ?>
+
+<?php foreach ($sickKids as [$k, $t, $next]): ?>
+<a href="sick.php?m=<?= (int) $k['id'] ?>" style="color:inherit">
+<section class="card" style="background:linear-gradient(135deg,rgba(249,115,22,.14),transparent)">
+  <div class="card-head"><h2>🤒 <?= h($k['name']) ?> 돌보는 중</h2><span class="more">기록 ›</span></div>
+  <?php if ($t): ?><p><b style="font-size:22px"><?= number_format((float) $t['temp'], 1) ?>°</b> <span class="small muted"><?= date('H:i', strtotime($t['at'])) ?> 측정</span></p><?php endif; ?>
+  <p class="small"><?php foreach ($next as $n): ?><?= h($n['name']) ?> <b><?= $n['at'] <= time() ? '지금 가능' : date('H:i', $n['at']) . '부터' ?></b> &nbsp; <?php endforeach; ?></p>
+</section>
+</a>
+<?php endforeach; ?>
 
 <?php if ($ready): [$levelName, $levelClass, $levelMsg] = readiness_level($ready['score']); ?>
 <section class="readiness <?= $levelClass ?>">
@@ -83,6 +128,22 @@ page_start('오늘', 'today');
     <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 오늘 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>
   <?php endforeach; ?>
 </section>
+
+<?php if ($meds): ?>
+<section class="card" id="meds">
+  <div class="card-head"><h2>💊 오늘 약</h2><a class="more" href="settings.php#meds">관리 ›</a></div>
+  <?php foreach ($meds as $med): ?>
+    <div class="person">
+      <span class="who" style="width:auto;flex:1"><?= h($med['name']) ?> <span class="small muted"><?= h($med['time']) ?> · 최근 7일 <?= medication_streak((int) $med['id']) ?>/7</span></span>
+      <?php if ($med['taken_at']): ?>
+        <span style="color:var(--accent);font-weight:700">✓ <?= date('H:i', strtotime($med['taken_at'])) ?></span>
+      <?php else: ?>
+        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="med_take"><input type="hidden" name="med" value="<?= (int) $med['id'] ?>"><button class="btn small primary">먹었어요</button></form>
+      <?php endif; ?>
+    </div>
+  <?php endforeach; ?>
+</section>
+<?php endif; ?>
 
 <section class="card tonight">
   <div class="card-head"><h2>오늘 저녁 <?= h(dinner_time()) ?></h2><a class="more" href="table.php">식탁 ›</a></div>

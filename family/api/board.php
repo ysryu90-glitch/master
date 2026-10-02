@@ -4,6 +4,7 @@ require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/readiness.php';
 require dirname(__DIR__) . '/lib/calendar.php';
 require dirname(__DIR__) . '/lib/table.php';
+require dirname(__DIR__) . '/lib/care.php';
 
 require_login_api();
 calendar_refresh_if_stale(300);
@@ -39,7 +40,13 @@ foreach (members('adult') as $m) {
     $row = health_rows((int) $m['id'], 2)[$today] ?? null;
     $ready = readiness_history((int) $m['id'], 1)[$today] ?? null;
     $level = $ready ? readiness_level($ready['score']) : null;
+    $meds = array_map(fn($x) => ['name' => $x['name'], 'time' => $x['time'], 'taken' => (bool) $x['taken_at']], medications_of((int) $m['id']));
+    $stmt = db()->prepare('SELECT MAX(updated_at) FROM health_days WHERE member_id = ?');
+    $stmt->execute([$m['id']]);
+    $lastHealth = $stmt->fetchColumn();
     $people[] = [
+        'meds' => $meds,
+        'stale' => $lastHealth && strtotime($lastHealth) < time() - 48 * 3600,
         'name' => $m['name'], 'emoji' => $m['emoji'],
         'readiness' => $ready ? $ready['score'] : null,
         'level' => $level[0] ?? null, 'levelKey' => $level[1] ?? null,
@@ -49,7 +56,20 @@ foreach (members('adult') as $m) {
     ];
 }
 
+$sick = [];
+foreach (members('child') as $kid) {
+    $logs = sick_logs((int) $kid['id'], 24);
+    if (!$logs) continue;
+    $t = last_temp($logs);
+    $sick[] = [
+        'name' => $kid['name'], 'emoji' => $kid['emoji'],
+        'temp' => $t ? (float) $t['temp'] : null, 'at' => $t ? $iso($t['at']) : null,
+        'next' => array_values(array_map(fn($n) => ['name' => $n['name'], 'at' => date('c', $n['at'])], fever_next($logs))),
+    ];
+}
+
 $data = [
+    'sick' => $sick,
     'dinnerTime' => dinner_time(),
     'events' => $events,
     'dinners' => (object) $dinners,

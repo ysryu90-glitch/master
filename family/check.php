@@ -6,7 +6,7 @@ $rows = [];
 $add = function (string $name, bool $ok, string $detail) use (&$rows) { $rows[] = [$name, $ok, $detail]; };
 
 $add('PHP 버전', version_compare(PHP_VERSION, '8.0', '>='), PHP_VERSION . (version_compare(PHP_VERSION, '8.0', '>=') ? '' : ' — PHP 8 이상이 필요해요'));
-foreach (['pdo_mysql' => 'DB 연결', 'curl' => 'iCloud 캘린더', 'simplexml' => 'iCloud 캘린더', 'mbstring' => '한글 처리'] as $ext => $why) {
+foreach (['pdo_mysql' => 'DB 연결', 'curl' => 'iCloud 캘린더 · 알림 · 날씨', 'simplexml' => 'iCloud 캘린더', 'mbstring' => '한글 처리', 'openssl' => '알림'] as $ext => $why) {
     $add("확장: $ext", extension_loaded($ext), extension_loaded($ext) ? '켜져 있음' : "꺼져 있음 ({$why}에 필요) — Web Station › 스크립트 언어 설정 › PHP 프로필 › 확장에서 체크");
 }
 $path = __DIR__ . '/config.php';

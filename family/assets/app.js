@@ -132,6 +132,65 @@
     svg.innerHTML = out;
   });
 
+  // ───────── 알림 (웹 푸시) ─────────
+  var pushBox = $('#push-box');
+  if (pushBox) setupPush(pushBox);
+
+  function setupPush(box) {
+    var status = $('#push-status', box);
+    var csrf = box.getAttribute('data-csrf');
+    function say(text) { status.textContent = text; }
+    function api(body) {
+      return fetch('api/push.php', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF': csrf },
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json(); });
+    }
+    function keyBytes(b64) {
+      var pad = '='.repeat((4 - b64.length % 4) % 4);
+      var raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      var out = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    }
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    var standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      say(ios && !standalone
+        ? '아이폰은 사파리 공유 버튼 › 홈 화면에 추가 › 그 아이콘으로 이 화면을 열어야 알림을 켤 수 있어요. (iOS 16.4 이상)'
+        : '이 브라우저는 알림을 지원하지 않아요.');
+      $all('button', box).forEach(function (b) { b.disabled = true; });
+      return;
+    }
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) {
+        say(sub && Notification.permission === 'granted' ? '✅ 이 기기에서 알림을 받고 있어요.' : '이 기기는 아직 알림이 꺼져 있어요.');
+      });
+    }).catch(function (e) { say('알림 준비 실패: ' + e.message); });
+
+    $('#push-on', box).addEventListener('click', function () {
+      say('알림 허용을 요청하는 중…');
+      Notification.requestPermission().then(function (perm) {
+        if (perm !== 'granted') throw new Error('알림이 허용되지 않았어요. 설정 앱 › 알림에서 허용해 주세요.');
+        return Promise.all([navigator.serviceWorker.ready, api({ action: 'key' })]);
+      }).then(function (r) {
+        return r[0].pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(r[1].key) });
+      }).then(function (sub) {
+        return api({ action: 'subscribe', subscription: sub.toJSON() });
+      }).then(function (res) {
+        if (!res.ok) throw new Error(res.error);
+        say('✅ 알림을 켰어요. 테스트 알림을 보내 보세요.');
+      }).catch(function (e) { say('⚠️ ' + e.message); });
+    });
+
+    $('#push-test', box).addEventListener('click', function () {
+      api({ action: 'test' }).then(function (res) {
+        say(res.ok ? '🔔 테스트 알림을 보냈어요. 잠시 후 도착해요.' : '⚠️ ' + res.error);
+      });
+    });
+  }
+
   // ───────── 식단 입력 화면 ─────────
   var mealForm = $('#meal-form');
   if (mealForm) setupMealForm(mealForm);

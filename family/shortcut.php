@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
 $me = require_login();
-$base = (is_https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/');
+$base = public_base();
 $url = $base . '/api/health.php?token=' . $me['shortcut_token'];
 
 /** 건강 샘플 찾기 한 묶음 안내 */

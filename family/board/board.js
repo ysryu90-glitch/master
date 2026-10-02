@@ -157,6 +157,16 @@
     if (coldest !== null && coldest <= 5) tips.push('🧥 아침 ' + Math.round(coldest) + '°, 따뜻하게');
     if (dusty.length) tips.push('😷 미세먼지 나쁨 · ' + dusty.join(', '));
     dinnerConflicts(now).forEach(function (c) { tips.push('🍻 오늘 저녁 ' + c); });
+    ((state.data && state.data.sick) || []).forEach(function (k) {
+      var next = (k.next || []).map(function (n) {
+        var at = new Date(n.at);
+        return n.name.replace(' 계열', '') + ' ' + (at <= now ? '지금 가능' : hhmm(at) + '부터');
+      }).join(' · ');
+      tips.unshift('🤒 ' + k.name + (k.temp != null ? ' ' + k.temp.toFixed(1) + '° (' + hhmm(new Date(k.at)) + ')' : '') + (next ? ' · ' + next : ''));
+    });
+    ((state.data && state.data.people) || []).forEach(function (p) {
+      if (p.stale) tips.push('⚠️ ' + p.name + ' 건강 기록이 이틀째 없어요');
+    });
 
     var box = $('notice');
     if (!tips.length) { box.className = 'notice hidden'; return; }
@@ -299,6 +309,9 @@
       if (p.steps != null) stats.push('<span>걸음 <b>' + p.steps.toLocaleString() + '</b></span>');
       if (p.sleepMin != null) stats.push('<span>수면 <b>' + Math.floor(p.sleepMin / 60) + '시간 ' + (p.sleepMin % 60) + '분</b></span>');
       if (!stats.length) stats.push('<span>오늘 기록 기다리는 중</span>');
+      (p.meds || []).forEach(function (m) {
+        stats.push('<span>💊 ' + esc(m.time) + ' <b>' + (m.taken ? '✓' : '아직') + '</b></span>');
+      });
       return '<div class="person">' + ring(p.readiness, p.levelKey) + '<div><div class="who">' + esc(p.emoji + ' ' + p.name) +
         (p.level ? '<span class="lv lv-' + esc(p.levelKey) + '">' + esc(p.level) + '</span>' : '') + '</div>' +
         '<div class="stats">' + stats.join('') + '</div></div></div>';

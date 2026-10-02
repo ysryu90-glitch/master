@@ -45,9 +45,13 @@
 
 로그인은 기기마다 한 번 하면 180일 유지됩니다. 비밀번호를 8번 틀리면 15분 동안 막힙니다.
 
-## 3. 자동 배포 (NAS가 GitHub에서 새 버전을 가져옴)
+## 3. 자동 배포 · 알림 · 백업 (NAS 정기 작업)
 
-한 번 설정하면, 새 버전이 GitHub에 올라올 때마다 NAS가 10분 안에 `web/family`에 반영합니다. `config.php`는 그대로 둡니다.
+`scripts/nas-autodeploy.sh` 하나가 작업 스케줄러에서 5~10분마다 돌면서 세 가지를 합니다.
+
+- **배포**: 새 버전이 GitHub에 올라오면 `web/family`에 반영합니다 (`config.php`는 그대로).
+- **알림**: `cron.php`를 불러 복약 · 아침 요약 · 저녁 출석 · 기록 끊김 · 주간 리포트 · 해열제 알림을 보냅니다. 8080 포털(`http://127.0.0.1:8080/family`)을 씁니다.
+- **백업**: 하루 한 번 DB를 `family-deploy/backups/family_board-날짜.sql.gz`로 저장하고 30일치를 보관합니다.
 
 1. **GitHub 토큰 만들기** (읽기 전용)
    - github.com › 프로필 › Settings › Developer settings › Personal access tokens › **Fine-grained tokens** › Generate new token
@@ -58,6 +62,16 @@
 3. 그 폴더에 저장소의 `scripts/nas-autodeploy.sh`를 올리고, 토큰 한 줄만 적은 `token.txt`도 올립니다.
 4. **작업 스케줄러**: 제어판 › 작업 스케줄러 › 생성 › 예약된 작업 › 사용자 정의 스크립트
    - 일반: 작업 이름 `우리집건강 자동배포`, 사용자 **root**
-   - 스케줄: 매일, 첫 실행 00:00, 빈도 **10분마다**, 마지막 실행 23:50
+   - 스케줄: 매일, 첫 실행 00:00, 빈도 **5분마다** (알림 시각이 더 정확해져요), 마지막 실행 23:55
    - 작업 설정 › 실행 명령: `bash /volume1/(폴더 경로)/family-deploy/nas-autodeploy.sh`
 5. 만든 작업을 선택하고 **실행**을 한 번 눌러 봅니다. `family-deploy/deploy.log`에 `배포 완료`가 적히면 성공입니다.
+
+## 4. 알림 받기 (각자 아이폰)
+
+1. 사파리에서 사이트를 열고 공유 › **홈 화면에 추가**
+2. 홈 화면 아이콘으로 연 뒤 설정 › 🔔 알림 › **이 기기에서 알림 받기** › 허용
+3. **테스트 알림**으로 확인 (iOS 16.4 이상, check.php 에서 openssl 확장 ✓ 필요)
+
+## 백업에서 되살리기
+
+phpMyAdmin › family_board › 가져오기에서 `backups/family_board-날짜.sql.gz` 파일을 고르면 그날 상태로 돌아갑니다.

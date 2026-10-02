@@ -5,7 +5,15 @@ declare(strict_types=1);
 date_default_timezone_set('Asia/Seoul');
 mb_internal_encoding('UTF-8');
 
-const SCHEMA_VERSION = 1;
+// 밖에서 도메인으로 http 접속하면 https로 바꾼다 (집 안 IP · 8080 접속은 그대로)
+if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https'
+    && preg_match('/^[a-z0-9.-]+\.(synology\.me|[a-z]{2,})$/i', (string) ($_SERVER['HTTP_HOST'] ?? ''))
+    && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+    header('Location: https://' . $_SERVER['HTTP_HOST'] . ($_SERVER['REQUEST_URI'] ?? '/'), true, 301);
+    exit;
+}
+
+const SCHEMA_VERSION = 2;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -218,6 +226,66 @@ function migrate(PDO $pdo): void
             fetched_at DATETIME NOT NULL,
             PRIMARY KEY (uid, start_at)
         )",
+        // 알림 (웹 푸시)
+        "CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NOT NULL,
+            endpoint_hash CHAR(64) NOT NULL UNIQUE,
+            endpoint TEXT NOT NULL,
+            p256dh VARCHAR(200) NOT NULL,
+            auth VARCHAR(100) NOT NULL,
+            user_agent VARCHAR(200) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            last_ok DATETIME NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS notify_log (
+            member_id INT NOT NULL,
+            kind VARCHAR(20) NOT NULL,
+            ref VARCHAR(60) NOT NULL,
+            sent_at DATETIME NOT NULL,
+            PRIMARY KEY (member_id, kind, ref)
+        )",
+        // 복약
+        "CREATE TABLE IF NOT EXISTS medications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NOT NULL,
+            name VARCHAR(60) NOT NULL,
+            time CHAR(5) NOT NULL,
+            active TINYINT NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS medication_logs (
+            med_id INT NOT NULL,
+            day DATE NOT NULL,
+            taken_at DATETIME NOT NULL,
+            PRIMARY KEY (med_id, day)
+        )",
+        // 아이 아플 때 (체온 · 해열제)
+        "CREATE TABLE IF NOT EXISTS sick_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NOT NULL,
+            at DATETIME NOT NULL,
+            kind VARCHAR(8) NOT NULL,
+            temp DECIMAL(3,1) NULL,
+            med VARCHAR(12) NULL,
+            dose VARCHAR(30) NOT NULL DEFAULT '',
+            note VARCHAR(200) NOT NULL DEFAULT '',
+            created_by INT NULL,
+            created_at DATETIME NOT NULL,
+            KEY member_at (member_id, at)
+        )",
+        // 주말 나들이 (찜 · 계획 · 다녀옴)
+        "CREATE TABLE IF NOT EXISTS outing_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            place_id VARCHAR(40) NOT NULL,
+            day DATE NOT NULL,
+            kind VARCHAR(8) NOT NULL,
+            rating TINYINT NULL,
+            memo VARCHAR(300) NOT NULL DEFAULT '',
+            created_by INT NULL,
+            created_at DATETIME NOT NULL,
+            KEY place (place_id)
+        )",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql . ' DEFAULT CHARSET = utf8mb4');
@@ -426,7 +494,8 @@ function csrf_field(): string
 
 function check_csrf(): void
 {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && !hash_equals(csrf_token(), (string) ($_POST['csrf'] ?? ''))) {
+    $sent = (string) ($_POST['csrf'] ?? $_SERVER['HTTP_X_CSRF'] ?? '');
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && !hash_equals(csrf_token(), $sent)) {
         fatal_page('요청이 만료됐어요', '페이지를 새로고침한 뒤 다시 시도해 주세요.');
     }
 }
@@ -439,7 +508,21 @@ const TABS = [
     'meals' => ['meals.php', '식단', '🍚'],
     'table' => ['table.php', '식탁', '🍲'],
     'calendar' => ['calendar.php', '일정', '📅'],
+    'family' => ['family.php', '가족', '👨‍👩‍👧'],
 ];
+
+/** 이 사이트의 주소 (예: https://mjys0307.synology.me/family) */
+function site_base(): string
+{
+    return (is_https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+        . rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+}
+
+/** 밖에서도 되는 주소 (https 도메인으로 한 번이라도 접속했으면 그 주소) */
+function public_base(): string
+{
+    return (string) setting('public_base', site_base());
+}
 
 function page_start(string $title, string $tab = '', array $options = []): void
 {
@@ -448,6 +531,11 @@ function page_start(string $title, string $tab = '', array $options = []): void
     header('Cache-Control: no-store');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: same-origin');
+    // https 도메인으로 접속했으면 그 주소를 기억 (단축어 · 알림 주소에 사용)
+    if (is_https() && !preg_match('/^\d+\.\d+\.\d+\.\d+/', (string) ($_SERVER['HTTP_HOST'] ?? ''))) {
+        $base = preg_replace('#/(api|board)$#', '', site_base());
+        if (setting('public_base') !== $base) set_setting('public_base', $base);
+    }
     $flash = $_COOKIE['flash'] ?? '';
     if ($flash) setcookie('flash', '', ['expires' => 1, 'path' => '/']);
     ?>
