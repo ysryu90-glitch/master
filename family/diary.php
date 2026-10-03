@@ -46,7 +46,7 @@ page_start('나들이 일기', 'family');
 <section class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
     <h2 style="margin:0">📔 <?= $year ? $year . '년' : '모든' ?> 나들이</h2>
-    <a class="btn primary small" href="diary_edit.php">✍️ 일기 쓰기</a>
+    <span style="display:flex;gap:6px"><a class="btn small" href="diary_share.php">🔗 앨범 공유</a><a class="btn primary small" href="diary_edit.php">✍️ 일기 쓰기</a></span>
   </div>
   <?php if (count($years) > 1): ?>
     <div class="chips" style="margin-top:10px">

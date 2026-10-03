@@ -369,3 +369,24 @@ body.with-tabs .sticky-save { bottom: calc(80px + env(safe-area-inset-bottom)); 
 .btn.primary.loading::after, .btn.orange.loading::after { border-color: rgba(255, 255, 255, 0.4); border-top-color: #fff; }
 .btn.loading:disabled { opacity: 1; }
 body:not(.with-tabs) #busy-box { bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+/* 일기 공유 */
+body.shared .page { padding-top: calc(16px + env(safe-area-inset-top)); padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.share-hero { text-align: center; background: linear-gradient(135deg, var(--orange-soft), var(--card)); }
+.share-hero h1 { font-size: 24px; margin: 6px 0 0; }
+.share-row { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.share-row:last-of-type { border-bottom: none; }
+.share-row.new { background: var(--accent-soft); border-radius: 14px; padding: 12px; margin: 4px -4px; }
+.share-row.off { opacity: 0.6; }
+.share-row .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.share-row .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.share-row .acts form { margin: 0; }
+.share-url { width: 100%; margin-top: 8px; font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card-2); color: var(--text); }
+.pick-list { display: grid; gap: 6px; max-height: 340px; overflow-y: auto; margin-bottom: 12px; padding: 4px; border-radius: 12px; background: var(--card-2); }
+.form .pick-list label { display: flex; align-items: center; gap: 10px; margin: 0; padding: 6px; border-radius: 10px; background: var(--card); color: var(--text); font-weight: 400; font-size: 14px; }
+.form .pick-list input { width: auto; margin: 0; display: inline; }
+.pick-list img, .pick-list .noimg { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; display: flex; align-items: center; justify-content: center; background: var(--card-2); font-size: 22px; }
+.cardmodal { position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.cardmodal .inner { background: var(--card); border-radius: 20px; padding: 14px; width: min(100%, 440px); max-height: 100%; overflow-y: auto; text-align: center; }
+.cardmodal img { width: 100%; border-radius: 12px; display: block; -webkit-touch-callout: default; }
+.cardmodal .acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }

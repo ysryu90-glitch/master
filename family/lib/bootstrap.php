@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -354,6 +354,29 @@ function migrate(PDO $pdo): void
             created_by INT NULL,
             created_at DATETIME NOT NULL,
             KEY entry (entry_id, sort)
+        )",
+        // 나들이 일기 공유 링크 (로그인 없이 보기 전용)
+        "CREATE TABLE IF NOT EXISTS diary_shares (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            token CHAR(32) NOT NULL UNIQUE,
+            kind VARCHAR(6) NOT NULL,
+            entry_id INT NULL,
+            title VARCHAR(100) NOT NULL DEFAULT '',
+            album_all TINYINT NOT NULL DEFAULT 1,
+            show_body TINYINT NOT NULL DEFAULT 1,
+            show_kid TINYINT NOT NULL DEFAULT 1,
+            show_names TINYINT NOT NULL DEFAULT 1,
+            expires_at DATETIME NULL,
+            revoked TINYINT NOT NULL DEFAULT 0,
+            views INT NOT NULL DEFAULT 0,
+            last_view DATETIME NULL,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS diary_share_entries (
+            share_id INT NOT NULL,
+            entry_id INT NOT NULL,
+            PRIMARY KEY (share_id, entry_id)
         )",
     ];
     foreach ($tables as $sql) {

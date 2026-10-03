@@ -96,6 +96,8 @@ function diary_delete(int $id): void
     if ($e['visit_log_id']) db()->prepare("DELETE FROM outing_logs WHERE id = ? AND kind = 'visit'")->execute([$e['visit_log_id']]);
     db()->prepare('DELETE FROM diary_photos WHERE entry_id = ?')->execute([$id]);
     db()->prepare('DELETE FROM diary_ratings WHERE entry_id = ?')->execute([$id]);
+    db()->prepare('DELETE FROM diary_share_entries WHERE entry_id = ?')->execute([$id]);
+    db()->prepare("DELETE FROM diary_shares WHERE kind = 'entry' AND entry_id = ?")->execute([$id]);
     db()->prepare('DELETE FROM diary_entries WHERE id = ?')->execute([$id]);
 }
 
@@ -155,4 +157,59 @@ function diary_pending_plans(): array
         WHERE l.kind = 'plan' AND l.day < CURDATE() AND l.day >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
           AND NOT EXISTS (SELECT 1 FROM diary_entries e WHERE e.place_id = l.place_id AND e.day = l.day)
         ORDER BY l.day DESC")->fetchAll();
+}
+
+// ───────── 공유 링크 ─────────
+
+function share_url(array $share): string
+{
+    return public_base() . '/s.php?t=' . $share['token'];
+}
+
+function share_by_token(string $token): ?array
+{
+    if (!preg_match('/^[0-9a-f]{32}$/', $token)) return null;
+    $stmt = db()->prepare('SELECT * FROM diary_shares WHERE token = ?');
+    $stmt->execute([$token]);
+    $s = $stmt->fetch();
+    return $s ?: null;
+}
+
+/** 지금 열 수 있는 공유인지 (중지 · 만료 확인) */
+function share_active(array $share): bool
+{
+    return !$share['revoked'] && (!$share['expires_at'] || strtotime($share['expires_at']) > time());
+}
+
+/** 이 공유로 볼 수 있는 일기 id 목록 */
+function share_entry_ids(array $share): array
+{
+    if ($share['kind'] === 'entry') return $share['entry_id'] ? [(int) $share['entry_id']] : [];
+    if ($share['album_all']) return array_map('intval', db()->query('SELECT id FROM diary_entries ORDER BY day DESC, id DESC')->fetchAll(PDO::FETCH_COLUMN));
+    $stmt = db()->prepare('SELECT e.id FROM diary_share_entries s JOIN diary_entries e ON e.id = s.entry_id WHERE s.share_id = ? ORDER BY e.day DESC, e.id DESC');
+    $stmt->execute([$share['id']]);
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+function share_create(array $o, int $by): array
+{
+    $token = bin2hex(random_bytes(16));
+    $expires = (int) ($o['days'] ?? 0) > 0 ? date('Y-m-d H:i:s', strtotime('+' . (int) $o['days'] . ' day')) : null;
+    db()->prepare('INSERT INTO diary_shares (token, kind, entry_id, title, album_all, show_body, show_kid, show_names, expires_at, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())')
+        ->execute([$token, $o['kind'], $o['entry_id'] ?? null, mb_substr((string) ($o['title'] ?? ''), 0, 100), !empty($o['album_all']) ? 1 : 0,
+            !empty($o['show_body']) ? 1 : 0, !empty($o['show_kid']) ? 1 : 0, !empty($o['show_names']) ? 1 : 0, $expires, $by]);
+    $id = (int) db()->lastInsertId();
+    foreach ($o['entries'] ?? [] as $eid) {
+        db()->prepare('INSERT IGNORE INTO diary_share_entries (share_id, entry_id) VALUES (?, ?)')->execute([$id, (int) $eid]);
+    }
+    return share_by_token($token);
+}
+
+/** 공유 목록 (일기 하나로 좁힐 수 있음) */
+function shares_list(?int $entryId = null): array
+{
+    $sql = 'SELECT s.*, e.title e_title, e.place_name e_place, e.day e_day FROM diary_shares s LEFT JOIN diary_entries e ON e.id = s.entry_id';
+    $sql .= $entryId ? ' WHERE s.kind = \'entry\' AND s.entry_id = ' . $entryId : '';
+    return db()->query($sql . ' ORDER BY s.revoked, s.id DESC')->fetchAll();
 }

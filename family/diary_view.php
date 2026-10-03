@@ -27,6 +27,12 @@ if ($e['place_id']) {
     $same = $stmt->fetchAll();
 }
 $ago = (int) round((strtotime(today()) - strtotime($e['day'])) / 86400);
+$activeShares = count(array_filter(shares_list((int) $e['id']), 'share_active'));
+$card = [
+    'title' => $e['title'] ?: $e['place_name'], 'place' => $e['title'] ? $e['place_name'] : '', 'date' => day_label($e['day']),
+    'weather' => $e['weather'], 'avg' => $e['avg'], 'kid' => trim($e['kid_said'], " \"“”"),
+    'photos' => array_map(fn($id) => 'diary_photo.php?id=' . $id, array_slice($e['photos'], 0, 4)),
+];
 
 page_start('나들이 일기', 'family');
 ?>
@@ -62,6 +68,8 @@ page_start('나들이 일기', 'family');
   <?php if (trim((string) $e['body']) !== ''): ?><div class="dbody"><?= nl2br(h($e['body'])) ?></div><?php endif; ?>
 
   <div class="acts" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+    <a class="btn small primary" href="diary_share.php?entry=<?= (int) $e['id'] ?>">🔗 가족에게 공유<?= $activeShares ? ' (' . $activeShares . ')' : '' ?></a>
+    <button type="button" class="btn small" data-card='<?= h(json_encode($card, JSON_UNESCAPED_UNICODE)) ?>'>🖼 사진 카드</button>
     <a class="btn small" href="diary_edit.php?id=<?= (int) $e['id'] ?>">✏️ 고치기 · 사진 추가</a>
     <?php if ($e['place_name']): ?><a class="btn small" href="https://map.naver.com/p/search/<?= rawurlencode($e['place_name']) ?>" target="_blank" rel="noopener">🗺 지도</a><?php endif; ?>
   </div>
@@ -87,4 +95,5 @@ page_start('나들이 일기', 'family');
   lb.addEventListener('click', function () { lb.classList.add('hidden'); img.removeAttribute('src'); });
 })();
 </script>
+<script src="assets/card.js?v=<?= asset_version('assets/card.js') ?>"></script>
 <?php page_end('family');
