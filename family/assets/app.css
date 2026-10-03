@@ -423,3 +423,13 @@ body.shared .page { padding-top: calc(16px + env(safe-area-inset-top)); padding-
 .cardmodal .cardmsg { margin: 6px 4px 0; font-weight: 700; }
 .cardmodal .cardmsg:empty { display: none; }
 .cardmodal .acts { margin-top: 12px; }
+
+/* 알림 상태 점검 */
+.pcheck { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 6px; }
+.pcheck li { display: flex; gap: 8px; font-size: 14px; align-items: flex-start; }
+.pcheck li small { color: var(--sub); font-size: 12.5px; }
+.pcheck li.no { color: var(--text); }
+.pcheck li.no small { color: var(--orange); }
+.pdev { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
+#push-results { margin-top: 10px; }
+.pdev .btn { flex: none; white-space: nowrap; }

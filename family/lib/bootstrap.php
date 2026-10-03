@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -387,6 +387,10 @@ function migrate(PDO $pdo): void
     // 예전 표에 새 칸 더하기
     $pdo->exec("ALTER TABLE diary_entries ADD COLUMN IF NOT EXISTS category VARCHAR(8) NOT NULL DEFAULT 'outing' AFTER id");
     $pdo->exec("ALTER TABLE diary_shares ADD COLUMN IF NOT EXISTS album_category VARCHAR(8) NOT NULL DEFAULT '' AFTER album_all");
+    // 알림 기기별 마지막 보내기 결과 (알림이 안 올 때 이유를 보여 주려고)
+    $pdo->exec('ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS last_try DATETIME NULL');
+    $pdo->exec('ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS last_status INT NULL');
+    $pdo->exec("ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS last_error VARCHAR(300) NOT NULL DEFAULT ''");
     $pdo->prepare("REPLACE INTO settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
 }
 

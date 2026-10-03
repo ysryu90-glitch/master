@@ -9,7 +9,8 @@ $data = json_decode($raw, true);
 if (!is_array($data)) $data = $_POST;
 
 // 토큰은 주소(?token=...)나 본문, 헤더 어디에 있어도 된다. 단축어에서는 주소에 넣는 게 가장 간단하다.
-$token = (string) ($_GET['token'] ?? $data['token'] ?? $_SERVER['HTTP_X_TOKEN'] ?? '');
+$bearer = preg_match('/Bearer\s+([0-9a-f]{32})/i', (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''), $bm) ? $bm[1] : '';
+$token = trim((string) ($_GET['token'] ?? $data['token'] ?? $_SERVER['HTTP_X_TOKEN'] ?? $bearer));
 if (!preg_match('/^[0-9a-f]{32}$/', $token)) json_out(['ok' => false, 'error' => '토큰이 없어요.']);
 $stmt = db()->prepare("SELECT * FROM members WHERE shortcut_token = ? AND role = 'adult'");
 $stmt->execute([$token]);
@@ -44,7 +45,7 @@ $values = [
 
 // 수면: 코어 · 깊은 · 렘 합계. 단축어 버전에 따라 초/분/시간으로 올 수 있어 합계로 단위를 판단한다.
 $sleep = ['core_min' => number_from($data['sleep_core'] ?? null), 'deep_min' => number_from($data['sleep_deep'] ?? null), 'rem_min' => number_from($data['sleep_rem'] ?? null)];
-$total = number_from($data['sleep_total'] ?? null);
+$total = number_from($data['sleep_total'] ?? $data['sleep'] ?? $data['sleep_hours'] ?? $data['sleep_min'] ?? null);
 $sum = array_sum(array_filter($sleep, fn($v) => $v !== null)) ?: ($total ?? 0);
 $factor = $sum > 1440 ? 1 / 60 : ($sum > 0 && $sum <= 16 ? 60 : 1);
 foreach ($sleep as $k => $v) $values[$k] = $v === null ? null : round($v * $factor);

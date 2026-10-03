@@ -55,13 +55,22 @@ function der_to_raw_signature(string $der): string
     return $fix($r) . $fix($s);
 }
 
+/** VAPID 연락처. 애플은 localhost · IP 주소로 된 값을 거절하므로 도메인일 때만 그 도메인을 쓴다 */
+function vapid_subject(): string
+{
+    $host = rtrim(strtolower((string) parse_url(public_base(), PHP_URL_HOST)), '.');
+    $isDomain = $host !== '' && strpos($host, '.') !== false && !filter_var($host, FILTER_VALIDATE_IP)
+        && !preg_match('/(^|\.)(localhost|local|lan|home|internal)$/', $host);
+    return 'mailto:family@' . ($isDomain ? $host : 'example.com');
+}
+
 function vapid_header(string $endpoint): string
 {
     $keys = vapid_keys();
     $parts = parse_url($endpoint);
     $audience = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
     $header = b64u_encode(json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
-    $claims = b64u_encode(json_encode(['aud' => $audience, 'exp' => time() + 12 * 3600, 'sub' => 'mailto:family@' . (parse_url(public_base(), PHP_URL_HOST) ?: 'example.com')]));
+    $claims = b64u_encode(json_encode(['aud' => $audience, 'exp' => time() + 3600, 'sub' => vapid_subject()], JSON_UNESCAPED_SLASHES));
     $input = "$header.$claims";
     openssl_sign($input, $der, $keys['private'], OPENSSL_ALGO_SHA256);
     return 'vapid t=' . $input . '.' . b64u_encode(der_to_raw_signature($der)) . ', k=' . $keys['public'];
@@ -86,8 +95,8 @@ function push_encrypt(string $payload, string $p256dh, string $auth): string
     return $salt . pack('N', 4096) . chr(65) . $asPublic . $cipher . $tag;
 }
 
-/** 구독 하나에 보내기. 반환: HTTP 상태 코드 */
-function push_send(array $sub, array $message): int
+/** 구독 하나에 보내기. 반환: ['status' => HTTP 코드(연결 실패면 0), 'error' => 알림 서버가 알려 준 이유] */
+function push_send(array $sub, array $message): array
 {
     $body = push_encrypt(json_encode($message, JSON_UNESCAPED_UNICODE), $sub['p256dh'], $sub['auth']);
     $ch = curl_init($sub['endpoint']);
@@ -98,39 +107,92 @@ function push_send(array $sub, array $message): int
             'Content-Type: application/octet-stream',
             'Content-Encoding: aes128gcm',
             'TTL: 43200',
-            'Urgency: normal',
+            'Urgency: high',
             'Authorization: ' . vapid_header($sub['endpoint']),
         ],
         CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => 15,
     ]);
-    curl_exec($ch);
+    $response = curl_exec($ch);
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $error = $response === false ? curl_error($ch) : '';
     curl_close($ch);
-    return $status;
+    if ($status >= 300 && is_string($response)) {
+        $json = json_decode($response, true);
+        $error = is_array($json) ? (string) ($json['reason'] ?? $json['message'] ?? $json['error'] ?? '') : trim(strip_tags($response));
+    }
+    return ['status' => $status, 'error' => mb_substr($error, 0, 250)];
 }
 
-/** 한 사람의 모든 기기에 알림. 만료된 구독은 지운다. 반환: 보낸 기기 수 */
-function push_to_member(int $memberId, string $title, string $body, string $url = 'index.php', string $tag = ''): int
+/** 기기 종류 (구독 주소로 판단) */
+function push_device_name(array $sub): string
+{
+    $host = (string) parse_url($sub['endpoint'], PHP_URL_HOST);
+    $ua = (string) ($sub['user_agent'] ?? '');
+    if (str_contains($host, 'apple.com')) return preg_match('/iPhone/', $ua) ? '아이폰' : (preg_match('/iPad/', $ua) ? '아이패드' : '애플 기기');
+    if (str_contains($host, 'googleapis.com')) return preg_match('/Android/', $ua) ? '안드로이드' : '크롬';
+    if (str_contains($host, 'mozilla')) return '파이어폭스';
+    if (str_contains($host, 'windows') || str_contains($host, 'microsoft')) return '엣지';
+    return '브라우저';
+}
+
+/** 보내기 결과를 쉬운 말로 */
+function push_explain(int $status, string $error): string
+{
+    if ($status >= 200 && $status < 300) return '✅ 보냈어요';
+    if ($status === 0) return '⚠️ NAS가 알림 서버에 연결하지 못했어요 (' . ($error ?: '연결 실패') . '). NAS의 인터넷 · 시간 설정을 확인해 주세요.';
+    if ($status === 404 || $status === 410) return '⚠️ 이 기기의 알림 등록이 만료됐어요. 그 기기에서 「알림 다시 연결」을 눌러 주세요.';
+    if ($status === 403 && stripos($error, 'Mismatch') !== false) return '⚠️ 알림 키가 바뀌었어요. 그 기기에서 「알림 다시 연결」을 눌러 주세요. (' . $error . ')';
+    if ($status === 403 && stripos($error, 'Expired') !== false) return '⚠️ NAS 시계가 맞지 않아요. DSM › 제어판 › 지역 옵션에서 시간 동기화(NTP)를 켜 주세요. (' . $error . ')';
+    if ($status === 403 || $status === 401) return '⚠️ 알림 서버가 인증을 거절했어요 (' . ($error ?: $status) . '). 「알림 다시 연결」 뒤에도 같으면 이 문구를 알려 주세요.';
+    if ($status === 413) return '⚠️ 알림 내용이 너무 길어요.';
+    if ($status === 429) return '⚠️ 짧은 시간에 너무 많이 보냈어요. 잠시 뒤에 다시 해 주세요.';
+    return '⚠️ 알림 서버 오류 ' . $status . ($error ? ' (' . $error . ')' : '') . '. 잠시 뒤에 다시 해 주세요.';
+}
+
+/** 한 사람의 모든 기기에 보내고 기기별 결과를 돌려준다. 만료된 구독은 지운다 */
+function push_to_member_detail(int $memberId, string $title, string $body, string $url = 'index.php', string $tag = ''): array
 {
     $stmt = db()->prepare('SELECT * FROM push_subscriptions WHERE member_id = ?');
     $stmt->execute([$memberId]);
-    $sent = 0;
     $base = public_base();
+    $results = [];
     foreach ($stmt->fetchAll() as $sub) {
         try {
-            $status = push_send($sub, ['title' => $title, 'body' => $body, 'url' => preg_match('#^https?://#', $url) ? $url : $base . '/' . $url, 'tag' => $tag]);
+            $r = push_send($sub, ['title' => $title, 'body' => $body, 'url' => preg_match('#^https?://#', $url) ? $url : $base . '/' . $url, 'tag' => $tag]);
         } catch (Throwable $e) {
-            $status = 0;
+            $r = ['status' => 0, 'error' => $e->getMessage()];
         }
-        if ($status === 404 || $status === 410) {
+        $ok = $r['status'] >= 200 && $r['status'] < 300;
+        if ($r['status'] === 404 || $r['status'] === 410) {
             db()->prepare('DELETE FROM push_subscriptions WHERE id = ?')->execute([$sub['id']]);
-        } elseif ($status >= 200 && $status < 300) {
-            db()->prepare('UPDATE push_subscriptions SET last_ok = NOW() WHERE id = ?')->execute([$sub['id']]);
-            $sent++;
+        } else {
+            db()->prepare('UPDATE push_subscriptions SET last_try = NOW(), last_status = ?, last_error = ?' . ($ok ? ', last_ok = NOW()' : '') . ' WHERE id = ?')
+                ->execute([$r['status'], $ok ? '' : mb_substr($r['error'], 0, 300), $sub['id']]);
         }
+        $results[] = ['id' => (int) $sub['id'], 'device' => push_device_name($sub), 'ok' => $ok, 'status' => $r['status'],
+            'message' => push_explain($r['status'], $r['error']), 'endpoint_hash' => $sub['endpoint_hash']];
     }
-    return $sent;
+    return $results;
+}
+
+/** 한 사람의 모든 기기에 알림. 반환: 보낸 기기 수 */
+function push_to_member(int $memberId, string $title, string $body, string $url = 'index.php', string $tag = ''): int
+{
+    return count(array_filter(push_to_member_detail($memberId, $title, $body, $url, $tag), fn($r) => $r['ok']));
+}
+
+/** 내 알림 기기 목록 (설정 화면용) */
+function push_devices(int $memberId): array
+{
+    $stmt = db()->prepare('SELECT * FROM push_subscriptions WHERE member_id = ? ORDER BY created_at DESC');
+    $stmt->execute([$memberId]);
+    return array_map(fn($s) => [
+        'id' => (int) $s['id'], 'device' => push_device_name($s), 'endpoint_hash' => $s['endpoint_hash'],
+        'created' => $s['created_at'], 'last_ok' => $s['last_ok'],
+        'last' => $s['last_try'] ? push_explain((int) $s['last_status'], (string) $s['last_error']) : '',
+    ], $stmt->fetchAll());
 }
 
 /** 같은 알림을 두 번 보내지 않도록 기록. 처음이면 true */

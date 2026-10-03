@@ -13,13 +13,19 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var url = (event.notification.data && event.notification.data.url) || './index.php';
+  var url = new URL((event.notification.data && event.notification.data.url) || './index.php', self.registration.scope).href;
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
     for (var i = 0; i < list.length; i++) {
-      if ('focus' in list[i]) { list[i].navigate(url); return list[i].focus(); }
+      var c = list[i];
+      if (c.url.indexOf(self.registration.scope) === 0 && 'focus' in c) {
+        // 열려 있는 앱을 앞으로 가져와서 그 화면으로 이동 (이동이 안 되면 그냥 앞으로만)
+        return c.focus().then(function (fc) {
+          return fc && 'navigate' in fc ? fc.navigate(url).catch(function () { return fc; }) : fc;
+        });
+      }
     }
-    return self.clients.openWindow(url);
-  }));
+    return self.clients.openWindow ? self.clients.openWindow(url) : null;
+  }).catch(function () { return self.clients.openWindow(url); }));
 });
 
 self.addEventListener('install', function () { self.skipWaiting(); });

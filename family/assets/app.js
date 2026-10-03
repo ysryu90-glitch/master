@@ -262,15 +262,23 @@
   if (pushBox) setupPush(pushBox);
 
   function setupPush(box) {
-    var status = $('#push-status', box);
     var csrf = box.getAttribute('data-csrf');
-    function say(text) { status.textContent = text; }
+    var statusEl = $('#push-status', box), checkEl = $('#push-check', box), devEl = $('#push-devices', box), resEl = $('#push-results', box);
+    var onBtn = $('#push-on', box), testBtn = $('#push-test', box), resetBtn = $('#push-reset', box);
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    var supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    var reg = null, server = null, sub = null;
+
+    function say(text) { statusEl.textContent = text; }
     function api(body) {
       return fetch('api/push.php', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-CSRF': csrf },
         body: JSON.stringify(body)
-      }).then(function (r) { return r.json(); });
+      }).then(function (r) { return r.text(); }).then(function (t) {
+        try { return JSON.parse(t); } catch (e) { throw new Error('서버 응답을 읽지 못했어요. 새로고침해 주세요.'); }
+      });
     }
     function keyBytes(b64) {
       var pad = '='.repeat((4 - b64.length % 4) % 4);
@@ -279,43 +287,122 @@
       for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
       return out;
     }
-    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    var standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-      say(ios && !standalone
-        ? '아이폰은 사파리 공유 버튼 › 홈 화면에 추가 › 그 아이콘으로 이 화면을 열어야 알림을 켤 수 있어요. (iOS 16.4 이상)'
-        : '이 브라우저는 알림을 지원하지 않아요.');
-      $all('button', box).forEach(function (b) { b.disabled = true; });
-      return;
+    function sameKey(s, b64) {
+      var k = s && s.options && s.options.applicationServerKey;
+      if (!k || !b64) return true; // 확인할 수 없으면 같다고 봄
+      var a = new Uint8Array(k), b = keyBytes(b64);
+      if (a.length !== b.length) return false;
+      for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+      return true;
     }
-    navigator.serviceWorker.register('sw.js').then(function (reg) {
-      return reg.pushManager.getSubscription().then(function (sub) {
-        say(sub && Notification.permission === 'granted' ? '✅ 이 기기에서 알림을 받고 있어요.' : '이 기기는 아직 알림이 꺼져 있어요.');
-      });
-    }).catch(function (e) { say('알림 준비 실패: ' + e.message); });
+    function check(items) {
+      checkEl.innerHTML = items.map(function (it) {
+        return '<li class="' + (it[0] ? 'ok' : 'no') + '"><span>' + (it[0] ? '✅' : '⚠️') + '</span><span>' + esc(it[1]) + (it[2] ? '<br><small>' + esc(it[2]) + '</small>' : '') + '</span></li>';
+      }).join('');
+    }
+    function devices(list) {
+      if (!list || !list.length) { devEl.innerHTML = '<p class="small muted">알림 받는 기기가 아직 없어요.</p>'; return; }
+      devEl.innerHTML = '<p class="small" style="font-weight:700;margin:12px 0 4px">내 알림 기기 ' + list.length + '대</p>' + list.map(function (d) {
+        var mine = server && d.endpoint_hash === server.this;
+        return '<div class="pdev"><div><b>' + esc(d.device) + '</b>' + (mine ? ' <span class="tag why">이 기기</span>' : '') +
+          '<div class="small muted">등록 ' + esc((d.created || '').slice(0, 10)) + (d.last_ok ? ' · 마지막 성공 ' + esc(d.last_ok.slice(5, 16)) : '') + '</div>' +
+          (d.last ? '<div class="small">' + esc(d.last) + '</div>' : '') + '</div>' +
+          '<button type="button" class="btn small danger" data-remove="' + d.id + '">빼기</button></div>';
+      }).join('');
+    }
+    devEl.addEventListener('click', function (ev) {
+      var id = ev.target.getAttribute && ev.target.getAttribute('data-remove');
+      if (!id || !window.confirm('이 기기를 알림 목록에서 뺄까요?')) return;
+      Busy.track(api({ action: 'remove', id: +id }), '기기를 빼는 중이에요…', ev.target).then(refresh);
+    });
 
-    $('#push-on', box).addEventListener('click', function () {
-      var btn = this;
-      say('알림 허용을 요청하는 중…');
-      Busy.track(Notification.requestPermission().then(function (perm) {
-        if (perm !== 'granted') throw new Error('알림이 허용되지 않았어요. 설정 앱 › 알림에서 허용해 주세요.');
+    function refresh() {
+      var items = [];
+      items.push([location.protocol === 'https:', 'https 주소로 열었어요', location.protocol === 'https:' ? '' : '알림은 https://도메인 주소에서만 켤 수 있어요. 내부 IP 주소가 아니라 도메인 주소로 열어 주세요.']);
+      if (ios) items.push([standalone, '홈 화면 아이콘으로 열었어요', standalone ? '' : '사파리 공유 버튼 › 「홈 화면에 추가」 › 그 아이콘으로 이 화면을 열어 주세요. (iOS 16.4 이상)']);
+      items.push([supported, '이 브라우저가 알림을 지원해요', supported ? '' : (ios ? '홈 화면 아이콘으로 열지 않았거나 iOS가 16.4보다 낮아요.' : '다른 브라우저를 써 주세요.')]);
+      if (!supported) {
+        check(items); say('이 상태에서는 알림을 켤 수 없어요. 위의 ⚠️ 항목을 먼저 해결해 주세요.');
+        onBtn.disabled = testBtn.disabled = resetBtn.disabled = true;
+        return Promise.resolve();
+      }
+      var perm = Notification.permission;
+      items.push([perm === 'granted', perm === 'granted' ? '알림이 허용돼 있어요' : (perm === 'denied' ? '알림이 차단돼 있어요' : '아직 알림을 허용하지 않았어요'),
+        perm === 'denied' ? (ios ? '아이폰 설정 앱 › 알림 › 「우리집 건강」에서 알림 허용을 켜 주세요.' : '주소창의 자물쇠 › 알림 › 허용으로 바꿔 주세요.') : (perm === 'default' ? '아래 「이 기기에서 알림 받기」를 눌러 주세요.' : '')]);
+      return navigator.serviceWorker.register('sw.js').then(function (r) {
+        reg = r;
+        return Promise.all([r.pushManager.getSubscription(), null]);
+      }).then(function (x) {
+        sub = x[0];
+        return api({ action: 'status', endpoint: sub ? sub.endpoint : '' });
+      }).then(function (st) {
+        server = st;
+        var keyOk = !sub || sameKey(sub, st.key);
+        // 기기에는 등록돼 있는데 서버가 모르면 (만료로 지워졌거나 다른 사람으로 로그인) 조용히 다시 알려 줌
+        if (sub && keyOk && !st.known && perm === 'granted') {
+          return api({ action: 'subscribe', subscription: sub.toJSON() }).then(function () { return api({ action: 'status', endpoint: sub.endpoint }); })
+            .then(function (st2) { server = st2; return st2; });
+        }
+        return st;
+      }).then(function (st) {
+        var keyOk = !sub || sameKey(sub, st.key);
+        var registered = !!sub && st.known && keyOk;
+        items.push([registered, registered ? '이 기기가 알림 받을 곳으로 등록돼 있어요' : '이 기기가 아직 등록되지 않았어요',
+          !keyOk ? '알림 키가 바뀌었어요. 「알림 다시 연결」을 눌러 주세요.' : (registered ? '' : '「이 기기에서 알림 받기」를 눌러 주세요.')]);
+        check(items);
+        devices(st.devices);
+        onBtn.classList.toggle('hidden', registered);
+        resetBtn.classList.toggle('hidden', !sub);
+        say(registered ? '✅ 준비 완료! 「테스트 알림」으로 확인해 보세요.' : (perm === 'denied' ? '알림이 차단돼 있어서 켤 수 없어요.' : '아래 버튼으로 이 기기를 등록해 주세요.'));
+      }).catch(function (e) { check(items); say('⚠️ 알림 상태를 확인하지 못했어요: ' + e.message); });
+    }
+
+    function subscribeFresh(forceNew) {
+      return Notification.requestPermission().then(function (perm) {
+        if (perm !== 'granted') throw new Error(ios ? '알림이 허용되지 않았어요. 아이폰 설정 앱 › 알림 › 「우리집 건강」에서 허용해 주세요.' : '알림이 허용되지 않았어요. 브라우저 설정에서 허용해 주세요.');
         return Promise.all([navigator.serviceWorker.ready, api({ action: 'key' })]);
       }).then(function (r) {
-        return r[0].pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(r[1].key) });
-      }).then(function (sub) {
-        return api({ action: 'subscribe', subscription: sub.toJSON() });
+        var pm = r[0].pushManager, key = r[1].key;
+        return pm.getSubscription().then(function (old) {
+          if (old && (forceNew || !sameKey(old, key))) {
+            return api({ action: 'unsubscribe', endpoint: old.endpoint }).then(function () { return old.unsubscribe(); }).then(function () { return null; });
+          }
+          return old;
+        }).then(function (old) {
+          return old || pm.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
+        });
+      }).then(function (s) {
+        return api({ action: 'subscribe', subscription: s.toJSON() });
       }).then(function (res) {
         if (!res.ok) throw new Error(res.error);
-        say('✅ 알림을 켰어요. 테스트 알림을 보내 보세요.');
-      }), '이 기기를 알림 받을 곳으로 등록하는 중이에요…', btn).catch(function (e) { say('⚠️ ' + e.message); });
+      });
+    }
+
+    onBtn.addEventListener('click', function () {
+      resEl.innerHTML = '';
+      Busy.track(subscribeFresh(false), '이 기기를 알림 받을 곳으로 등록하는 중이에요…', onBtn)
+        .then(function () { return refresh(); }, function (e) { say('⚠️ ' + e.message); });
+    });
+    resetBtn.addEventListener('click', function () {
+      resEl.innerHTML = '';
+      Busy.track(subscribeFresh(true), '알림을 새로 연결하는 중이에요…', resetBtn)
+        .then(function () { return refresh(); }, function (e) { say('⚠️ ' + e.message); });
+    });
+    testBtn.addEventListener('click', function () {
+      resEl.innerHTML = '';
+      Busy.track(api({ action: 'test' }), '내 기기들로 테스트 알림을 보내는 중이에요…', testBtn).then(function (res) {
+        var rows = (res.results || []).map(function (r) {
+          return '<li class="' + (r.ok ? 'ok' : 'no') + '"><span>' + (r.ok ? '✅' : '⚠️') + '</span><span><b>' + esc(r.device) + '</b>' +
+            (server && r.endpoint_hash === server.this ? ' (이 기기)' : '') + '<br><small>' + esc(r.message) + '</small></span></li>';
+        }).join('');
+        resEl.innerHTML = (res.ok ? '<p class="small" style="font-weight:700">🔔 보냈어요! 몇 초 안에 도착해요. 화면을 잠그거나 다른 앱으로 가 있으면 더 잘 보여요.</p>'
+          : '<p class="small" style="font-weight:700;color:var(--red)">⚠️ ' + esc(res.error || '보내지 못했어요') + '</p>') +
+          (rows ? '<ul class="pcheck">' + rows + '</ul>' : '');
+        return refresh();
+      }, function (e) { resEl.innerHTML = '<p class="small" style="color:var(--red)">⚠️ ' + esc(e.message) + '</p>'; });
     });
 
-    $('#push-test', box).addEventListener('click', function () {
-      say('테스트 알림을 보내는 중…');
-      Busy.track(api({ action: 'test' }), '테스트 알림을 보내는 중이에요…', this).then(function (res) {
-        say(res.ok ? '🔔 테스트 알림을 보냈어요. 잠시 후 도착해요.' : '⚠️ ' + res.error);
-      }, function (e) { say('⚠️ 보내지 못했어요: ' + e.message); });
-    });
+    refresh();
   }
 
   // ───────── 식단 입력 화면 ─────────

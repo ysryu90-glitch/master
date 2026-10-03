@@ -118,9 +118,6 @@ $kid = db()->query("SELECT * FROM members WHERE role = 'child' ORDER BY id LIMIT
 $base = public_base();
 $prefs = notify_prefs((int) $me['id']);
 $myMeds = medications_of((int) $me['id']);
-$stmt = db()->prepare('SELECT COUNT(*) FROM push_subscriptions WHERE member_id = ?');
-$stmt->execute([$me['id']]);
-$devices = (int) $stmt->fetchColumn();
 $stmt = db()->prepare('SELECT received_at, body FROM health_raw WHERE member_id = ? ORDER BY id DESC LIMIT 1');
 $stmt->execute([$me['id']]);
 $last = $stmt->fetch();
@@ -150,9 +147,16 @@ page_start('설정');
 <section class="card" id="notify">
   <h2>🔔 알림</h2>
   <div id="push-box" data-csrf="<?= h(csrf_token()) ?>">
-    <p class="small" id="push-status">확인 중…</p>
-    <div class="btn-row"><button type="button" class="btn primary" id="push-on">이 기기에서 알림 받기</button><button type="button" class="btn" id="push-test">테스트 알림</button></div>
-    <p class="small muted" style="margin-top:8px">알림 받는 기기 <?= $devices ?>대 · 아이폰은 사파리 공유 › <b>홈 화면에 추가</b>한 아이콘으로 열어야 알림을 켤 수 있어요 (iOS 16.4 이상).</p>
+    <ul class="pcheck" id="push-check"></ul>
+    <p class="small" id="push-status" style="font-weight:700">확인 중…</p>
+    <div class="btn-row">
+      <button type="button" class="btn primary" id="push-on">이 기기에서 알림 받기</button>
+      <button type="button" class="btn" id="push-test">🔔 테스트 알림</button>
+      <button type="button" class="btn hidden" id="push-reset">↻ 알림 다시 연결</button>
+    </div>
+    <div id="push-results"></div>
+    <div id="push-devices"></div>
+    <p class="small muted" style="margin-top:8px">아이폰은 사파리 공유 › <b>홈 화면에 추가</b>한 아이콘으로 열어야 알림을 켤 수 있어요 (iOS 16.4 이상). 엄마 · 아빠 휴대폰에서 각각 켜 주세요.</p>
   </div>
   <form method="post" class="form" style="margin-top:12px">
     <?= csrf_field() ?><input type="hidden" name="action" value="notify">

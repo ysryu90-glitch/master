@@ -23,8 +23,20 @@ switch ($data['action'] ?? $_GET['action'] ?? '') {
         db()->prepare('DELETE FROM push_subscriptions WHERE endpoint_hash = ? AND member_id = ?')
             ->execute([hash('sha256', (string) ($data['endpoint'] ?? '')), $me['id']]);
         json_out(['ok' => true]);
+    case 'status':
+        // 이 기기가 서버에 등록돼 있는지 + 내 기기 목록
+        $hash = hash('sha256', (string) ($data['endpoint'] ?? ''));
+        $devices = push_devices((int) $me['id']);
+        json_out(['ok' => true, 'key' => vapid_keys()['public'], 'known' => in_array($hash, array_column($devices, 'endpoint_hash'), true),
+            'this' => $hash, 'devices' => $devices, 'https' => is_https()]);
+    case 'remove':
+        db()->prepare('DELETE FROM push_subscriptions WHERE id = ? AND member_id = ?')->execute([(int) ($data['id'] ?? 0), $me['id']]);
+        json_out(['ok' => true]);
     case 'test':
-        $sent = push_to_member((int) $me['id'], '🔔 알림 테스트', $me['name'] . '님, 이 기기에서 알림을 잘 받고 있어요.', 'settings.php#notify', 'test');
-        json_out($sent ? ['ok' => true, 'sent' => $sent] : ['ok' => false, 'error' => '보낼 기기가 없거나 보내기에 실패했어요.']);
+        $results = push_to_member_detail((int) $me['id'], '🔔 알림 테스트', $me['name'] . '님, 이 기기에서 알림을 잘 받고 있어요. (' . date('H:i:s') . ')', 'settings.php#notify', 'test');
+        if (!$results) json_out(['ok' => false, 'error' => '알림 받을 기기가 등록돼 있지 않아요. 먼저 「이 기기에서 알림 받기」를 눌러 주세요.', 'results' => []]);
+        $ok = count(array_filter($results, fn($r) => $r['ok']));
+        json_out(['ok' => $ok > 0, 'sent' => $ok, 'results' => $results,
+            'error' => $ok ? '' : '모든 기기에 보내지 못했어요. 아래 이유를 확인해 주세요.']);
 }
 json_out(['ok' => false, 'error' => '알 수 없는 요청']);

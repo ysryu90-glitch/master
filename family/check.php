@@ -28,11 +28,31 @@ if (is_array($config) && extension_loaded('pdo_mysql')) {
             $last = $last ? json_decode($last, true) : null;
             date_default_timezone_set('Asia/Seoul');
             $mins = $last ? (int) round((time() - strtotime($last)) / 60) : null;
+            $pub = $pdo->query("SELECT v FROM settings WHERE k = 'public_base'")->fetchColumn();
+            $pub = $pub ? json_decode($pub, true) : '';
+            $add('바깥 주소 (공유 링크 · 알림)', is_string($pub) && str_starts_with($pub, 'https://'),
+                $pub ? $pub . (str_starts_with($pub, 'https://') ? '' : ' — https://도메인 주소로 사이트를 한 번 열어 주세요') : '아직 없음 — https://도메인 주소로 사이트를 한 번 열어 주세요');
             $add('정기 작업 (NAS 작업 스케줄러)', $mins !== null && $mins <= 20,
                 $mins === null ? '아직 한 번도 실행되지 않았어요' : "마지막 실행 {$last} ({$mins}분 전)" . ($mins > 20 ? ' — 작업 스케줄러의 반복 설정을 확인해 주세요' : ''));
         }
     } catch (Throwable $e) {
         $add('DB 접속', false, $e->getMessage());
+    }
+}
+// 알림: NAS → 애플 알림 서버 연결 · NAS 시계
+if (extension_loaded('curl')) {
+    $headers = [];
+    $ch = curl_init('https://web.push.apple.com/');
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => false, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_TIMEOUT => 8,
+        CURLOPT_HEADERFUNCTION => function ($c, $line) use (&$headers) { if (stripos($line, 'date:') === 0) $headers['date'] = trim(substr($line, 5)); return strlen($line); }]);
+    curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    $add('알림 서버 연결 (애플)', $code > 0, $code > 0 ? '연결됨 (응답 ' . $code . ')' : '연결 실패: ' . $err . ' — NAS의 인터넷 · DNS · 인증서를 확인해 주세요');
+    if (!empty($headers['date']) && ($t = strtotime($headers['date']))) {
+        $skew = time() - $t;
+        $add('NAS 시계', abs($skew) <= 120, abs($skew) <= 120 ? '정확함 (차이 ' . $skew . '초)' : "NAS 시계가 {$skew}초 틀려요 — 알림이 거절될 수 있어요. DSM › 제어판 › 지역 옵션 › 시간에서 'NTP 서버와 동기화'를 켜 주세요");
     }
 }
 $add('접속 방식', true, (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'HTTPS (암호화됨)' : 'HTTP — 밖에서 접속할 때는 https:// 주소를 써 주세요');
