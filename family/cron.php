@@ -30,6 +30,7 @@ function due(string $hhmm, int $now): bool
 
 foreach (members('adult') as $m) {
     $id = (int) $m['id'];
+    if (!has_push($id)) continue; // 기기를 등록하지 않은 사람은 건너뜀 (등록하면 그날 알림부터 받아요)
     $prefs = notify_prefs($id);
 
     // 💊 복약 (정각 + 1시간 뒤 한 번 더)

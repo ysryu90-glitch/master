@@ -13,7 +13,7 @@ const WEATHER_CODES = [
 function http_json(string $url): ?array
 {
     $ch = curl_init($url);
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5]);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4]);
     $body = curl_exec($ch);
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
@@ -33,7 +33,12 @@ function daily_forecast(float $lat, float $lon): array
 
     $q = "latitude=$lat&longitude=$lon&timezone=Asia%2FSeoul";
     $f = http_json("https://api.open-meteo.com/v1/forecast?$q&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=10");
-    if (!$f) return is_array($cached) ? $cached['days'] : [];
+    if (!$f) {
+        // 실패하면 10분 뒤에 다시 시도 (그동안 페이지가 매번 기다리지 않게)
+        $old = is_array($cached) ? ($cached['days'] ?? []) : [];
+        set_setting($key, ['at' => time() - 3000, 'days' => $old]);
+        return $old;
+    }
     $a = http_json("https://air-quality-api.open-meteo.com/v1/air-quality?$q&hourly=pm10,pm2_5&forecast_days=5");
 
     // 미세먼지는 낮 시간(9~18시) 평균

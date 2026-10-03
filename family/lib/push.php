@@ -153,3 +153,11 @@ function notify_prefs(int $memberId): array
         'sick' => true,         // 아이 해열제 다음 복용 가능
     ];
 }
+
+/** 이 사람이 알림 받을 기기를 등록했는지 */
+function has_push(int $memberId): bool
+{
+    $stmt = db()->prepare('SELECT 1 FROM push_subscriptions WHERE member_id = ? LIMIT 1');
+    $stmt->execute([$memberId]);
+    return (bool) $stmt->fetchColumn();
+}

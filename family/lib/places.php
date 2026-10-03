@@ -53,6 +53,41 @@ const PLACES = [
         'note' => '실내라 날씨 상관없고 유아 놀이기구도 많아요', 'tip' => '입장료 부담 · 오픈 시간에 맞춰 가기', 'long' => true],
     ['id' => 'hangang_sled', 'name' => '한강 눈썰매장 (뚝섬 · 여의도)', 'min' => 40, 'type' => 'out', 'tags' => ['눈썰매'], 'best' => [12, 1, 2],
         'note' => '겨울 시즌에만 열리는 눈썰매장', 'tip' => '운영 기간 확인', 'season_only' => [12, 1, 2]],
+    // 서울 근교 하루 코스 (차로 45~90분)
+    ['id' => 'nat_arboretum', 'name' => '국립수목원 (포천 광릉숲)', 'min' => 50, 'type' => 'out', 'tags' => ['숲', '수목원', '유모차 길'], 'best' => [4, 5, 6, 9, 10],
+        'note' => '오래된 광릉숲 산책길이 평탄해서 아이와 걷기 좋아요', 'tip' => '사전 예약제 · 휴원일 확인', 'near' => true],
+    ['id' => 'imjingak', 'name' => '파주 임진각 평화누리', 'min' => 50, 'type' => 'out', 'tags' => ['넓은 잔디', '바람개비', '연날리기'], 'best' => [4, 5, 9, 10],
+        'note' => '넓은 언덕 잔디밭에서 뛰놀고 연날리기', 'tip' => '바람이 세니 겉옷 챙기기', 'near' => true],
+    ['id' => 'majang_lake', 'name' => '파주 마장호수', 'min' => 50, 'type' => 'out', 'tags' => ['호수', '출렁다리', '산책'], 'best' => [4, 5, 10, 11],
+        'note' => '호수 둘레길과 출렁다리', 'tip' => '주말 주차 일찍', 'near' => true],
+    ['id' => 'incheon_kids_science', 'name' => '인천어린이과학관', 'min' => 45, 'type' => 'in', 'tags' => ['과학', '체험'], 'best' => [],
+        'note' => '유아부터 즐기는 체험형 과학관', 'tip' => '회차 예약', 'near' => true],
+    ['id' => 'gwangmyeong_cave', 'name' => '광명동굴', 'min' => 50, 'type' => 'in', 'tags' => ['동굴', '빛 전시'], 'best' => [7, 8],
+        'note' => '여름에도 시원한 동굴 속 빛 전시', 'tip' => '안은 서늘해요 · 겉옷', 'near' => true],
+    ['id' => 'siheung_gaetgol', 'name' => '시흥 갯골생태공원', 'min' => 55, 'type' => 'out', 'tags' => ['갯벌', '흔들전망대', '억새'], 'best' => [5, 9, 10],
+        'note' => '갯골 산책로와 흔들전망대, 가을 억새', 'tip' => '그늘이 적어 모자 챙기기', 'near' => true],
+    ['id' => 'uiwang_railbike', 'name' => '의왕 레일바이크 (왕송호수)', 'min' => 55, 'type' => 'out', 'tags' => ['레일바이크', '호수', '철도박물관'], 'best' => [4, 5, 9, 10],
+        'note' => '호수 둘레 레일바이크, 옆에 철도박물관', 'tip' => '레일바이크 예약', 'near' => true],
+    ['id' => 'mului_garden', 'name' => '남양주 물의정원', 'min' => 55, 'type' => 'out', 'tags' => ['꽃', '강변 산책'], 'best' => [5, 9, 10],
+        'note' => '봄 양귀비 · 가을 코스모스가 피는 강변 정원', 'tip' => '', 'near' => true],
+    ['id' => 'suwon_hwaseong', 'name' => '수원 화성 · 행궁', 'min' => 60, 'type' => 'out', 'tags' => ['성곽', '역사', '플라잉수원'], 'best' => [4, 5, 9, 10],
+        'note' => '성곽길 걷고 행궁 구경, 열기구 체험', 'tip' => '성곽길은 일부만 걸어도 충분', 'near' => true],
+    ['id' => 'incheon_fairytale', 'name' => '인천 송월동 동화마을 · 차이나타운', 'min' => 60, 'type' => 'out', 'tags' => ['동화 벽화', '짜장면'], 'best' => [4, 5, 9, 10, 11],
+        'note' => '동화 속 같은 골목 구경하고 짜장면', 'tip' => '', 'near' => true],
+    ['id' => 'yeongjong_seaside', 'name' => '영종도 씨사이드파크', 'min' => 60, 'type' => 'out', 'tags' => ['바다', '레일바이크', '놀이터'], 'best' => [5, 6, 9, 10],
+        'note' => '바다 보며 레일바이크, 넓은 놀이터', 'tip' => '바닷바람 · 겉옷', 'near' => true],
+    ['id' => 'yangpyeong_dumulmeori', 'name' => '양평 두물머리 · 세미원', 'min' => 65, 'type' => 'out', 'tags' => ['강', '연꽃', '산책'], 'best' => [7, 8, 10],
+        'note' => '강이 만나는 풍경과 연꽃 정원', 'tip' => '주말 차 막힘 · 아침 일찍', 'near' => true],
+    ['id' => 'pocheon_artvalley', 'name' => '포천 아트밸리', 'min' => 70, 'type' => 'mix', 'tags' => ['호수', '모노레일', '천문과학관'], 'best' => [4, 5, 9, 10],
+        'note' => '모노레일 타고 올라가 호수 구경, 천문과학관', 'tip' => '', 'near' => true, 'long' => true],
+    ['id' => 'folk_village', 'name' => '한국민속촌 (용인)', 'min' => 70, 'type' => 'out', 'tags' => ['옛날 마을', '공연', '놀이기구'], 'best' => [4, 5, 9, 10],
+        'note' => '옛날 마을 구경과 마당 공연, 어린이 놀이기구', 'tip' => '종일 코스', 'near' => true, 'long' => true],
+    ['id' => 'petite_france', 'name' => '가평 쁘띠프랑스', 'min' => 80, 'type' => 'mix', 'tags' => ['동화마을', '인형극'], 'best' => [4, 5, 9, 10],
+        'note' => '어린왕자 테마 마을과 인형극', 'tip' => '경춘 국도 막힘', 'near' => true, 'long' => true],
+    ['id' => 'morning_calm', 'name' => '가평 아침고요수목원', 'min' => 85, 'type' => 'out', 'tags' => ['정원', '겨울 불빛 정원'], 'best' => [4, 5, 10, 12, 1, 2],
+        'note' => '봄 · 가을 정원, 겨울엔 불빛 축제', 'tip' => '겨울 불빛은 해 질 무렵', 'near' => true, 'long' => true],
+    ['id' => 'everland', 'name' => '에버랜드', 'min' => 80, 'type' => 'out', 'tags' => ['놀이공원', '동물'], 'best' => [4, 5, 9, 10],
+        'note' => '판다와 사파리, 유아 놀이기구', 'tip' => '오픈 시간에 맞춰 · 종일 코스', 'near' => true, 'long' => true],
     // 평택 부모님 댁 근처
     ['id' => 'pt_farm', 'name' => '평택 농업생태원', 'min' => 80, 'pmin' => 15, 'area' => 'pyeongtaek', 'type' => 'out', 'tags' => ['동물 먹이주기', '체험'], 'best' => [4, 5, 6, 9, 10],
         'note' => '동물 먹이주기와 농촌 체험', 'tip' => ''],
@@ -137,8 +172,13 @@ function score_place(array $p, array $ctx): array
     // 계절
     if (in_array($month, $p['best'], true)) { $score += 2; $why[] = MONTH_THEMES[$month]; }
 
-    // 거리 · 일정 · 컨디션
-    $score -= $minutes / 25;
+    // 거리 · 일정 · 컨디션 (40분까지는 25분당 −1, 그 뒤로는 완만하게)
+    $score -= min($minutes, 40) / 25 + max(0, $minutes - 40) / 50;
+    $niceDay = $wx && $wx['rain'] < 30 && $wx['max'] >= 12 && $wx['max'] <= 28;
+    if ($minutes >= 45 && $minutes <= 100 && $ctx['busy'] === 0 && !$ctx['tired'] && $niceDay && !$ctx['parentsDay']) {
+        $score += 1.5;
+        $why[] = '🚗 근교 하루 나들이 하기 좋은 날';
+    }
     if ($minutes <= 20 && !$ctx['parentsDay']) $why[] = "가까워요 (약 {$minutes}분)";
     if ($ctx['busy'] >= 1 && $minutes > 30) { $score -= 2; $minus[] = '그날 다른 일정이 있어 멀어요'; }
     if ($ctx['busy'] >= 1 && $minutes <= 20) { $score += 1; $why[] = '다른 일정 사이에 다녀오기 좋아요'; }

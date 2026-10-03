@@ -110,7 +110,8 @@ function discover_fetch(): array
     $horizon = date('Y-m-d', strtotime('+21 day'));
     $near = function (?float $lat, ?float $lon) use ($home, $parents): bool {
         if ($lat === null || $lon === null) return false;
-        return km_between($home['lat'], $home['lon'], $lat, $lon) <= 35 || km_between($parents['lat'], $parents['lon'], $lat, $lon) <= 15;
+        // 서울 · 근교 (집에서 약 60km) 또는 부모님 댁 근처 15km
+        return km_between($home['lat'], $home['lon'], $lat, $lon) <= 60 || km_between($parents['lat'], $parents['lon'], $lat, $lon) <= 15;
     };
     $result = ['festival' => 0, 'new' => 0, 'seoul' => 0, 'errors' => []];
 
@@ -210,7 +211,7 @@ function discover_candidates(string $day, array $home, array $parents): array
         $kmPar = $lat !== null ? km_between($parents['lat'], $parents['lon'], $lat, $lon) : 99.0;
         $area = $kmHome > 40 && $kmPar <= 15 ? 'pyeongtaek' : 'home';
         $minutes = est_minutes($kmHome);
-        if ($area === 'home' && $minutes > 80) continue;
+        if ($area === 'home' && $minutes > 110) continue;
         $text = $e['title'] . ' ' . $e['place'] . ' ' . $e['target'] . ' ' . $e['category'];
         [$fit, $good, $bad] = kid_fit($text);
         $where = trim($e['place'] ?: $e['addr']);
@@ -224,6 +225,7 @@ function discover_candidates(string $day, array $home, array $parents): array
             'tip' => $e['kind'] === 'event' ? '행사 시간 · 예약은 주최 측 안내 확인' : '최근 관광 정보에 새로 등록된 곳이에요',
             'kind' => $e['kind'], 'start' => $e['start_date'], 'end' => $e['end_date'], 'fit' => $fit, 'bad' => $bad,
             'url' => $e['url'], 'source' => $e['source'],
+            'near' => $minutes >= 45 && !preg_match('/^서울/u', trim((string) $e['addr'])),
         ];
     }
     foreach (db()->query('SELECT * FROM custom_places WHERE active = 1') as $c) {

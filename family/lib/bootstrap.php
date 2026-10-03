@@ -585,6 +585,7 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <meta name="apple-mobile-web-app-title" content="우리집 건강">
 <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="assets/icon.png">
 <link rel="apple-touch-icon" href="assets/icon.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="assets/app.css?v=<?= asset_version('assets/app.css') ?>">

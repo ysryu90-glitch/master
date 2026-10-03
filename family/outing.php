@@ -189,7 +189,7 @@ page_start('주말 나들이', 'family');
 </section>
 <?php endif; ?>
 
-<?php foreach (array_merge($days, $nextWeekend) as $idx => $d):
+<?php $nearShown = []; foreach (array_merge($days, $nextWeekend) as $idx => $d):
     $ctx = day_context($d, $homeWx, $ptWx, $ptDay, $tired, $recent, $liked);
     $list = ranked($ctx, discover_candidates($d, $home, $parents));
     $top = array_slice($list, 0, 3);
@@ -197,6 +197,11 @@ page_start('주말 나들이', 'family');
     $planB = null;
     if ($top && $top[0]['type'] === 'out' && $wx && $wx['rain'] >= 30) {
         foreach ($list as $c) if ($c['type'] !== 'out' && !in_array($c['id'], array_column($top, 'id'), true)) { $planB = $c; break; }
+    }
+    $nearTrip = null;
+    if (!$ctx['parentsDay'] && !array_filter($top, fn($c) => !empty($c['near']))) {
+        foreach ($list as $c) if (!empty($c['near']) && $c['minutes'] <= 110 && !in_array($c['id'], $nearShown, true)) { $nearTrip = $c; break; }
+        if ($nearTrip) $nearShown[] = $nearTrip['id']; // 날마다 다른 근교를 보여 줘요
     }
     $air = $wx ? air_grade($wx['pm25'], $wx['pm10']) : null;
     if ($idx === count($days) && $nextWeekend): ?>
@@ -229,6 +234,10 @@ page_start('주말 나들이', 'family');
   <?php endforeach; ?>
   <?php if ($planB): ?>
     <div class="planb">☔ 비가 오면 플랜 B: <b><?= h($planB['name']) ?></b> (<?= $typeLabel[$planB['type']] ?> · 약 <?= (int) $planB['minutes'] ?>분) — <?= h($planB['note']) ?></div>
+  <?php endif; ?>
+  <?php if ($nearTrip): ?>
+    <div class="planb">🚗 서울 근교로 간다면: <b><?= h($nearTrip['name']) ?></b> (<?= $typeLabel[$nearTrip['type']] ?> · 약 <?= (int) $nearTrip['minutes'] ?>분) — <?= h($nearTrip['note']) ?>
+      <form method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($nearTrip['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small">📌 이 날 가요</button></form></div>
   <?php endif; ?>
   <div style="margin-top:10px">
     <?php if ($ctx['parentsDay'] && $ptDay === $d): ?>
