@@ -1,5 +1,5 @@
 <?php
-// 나들이 일기 사진 (?id=사진번호, &t=1 이면 작은 사진)
+// 일기 사진 (?id=사진번호, &t=1 이면 작은 사진)
 require __DIR__ . '/lib/bootstrap.php';
 require_login();
 $id = (int) ($_GET['id'] ?? 0);

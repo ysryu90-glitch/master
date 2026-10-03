@@ -1,5 +1,16 @@
 <?php
-// 나들이 일기: 다녀온 날의 사진 · 가족별 별점 · 글
+// 가족 일기 (일상 · 나들이): 사진 · 가족별 별점 · 글
+
+/** 일기 종류 [키 => [이름, 아이콘]] */
+const DIARY_CATEGORIES = [
+    'daily' => ['일상', '🏠'],
+    'outing' => ['나들이', '🧺'],
+];
+
+function diary_category(?string $c): string
+{
+    return isset(DIARY_CATEGORIES[$c]) ? $c : 'daily';
+}
 
 const DIARY_PHOTO_MAX = 3 * 1024 * 1024;  // 사진 한 장 (휴대폰에서 1600px로 줄여서 올림)
 const DIARY_THUMB_MAX = 400 * 1024;
@@ -14,11 +25,15 @@ function diary_entry(int $id): ?array
 }
 
 /** 일기 목록 (최신순). 연도를 주면 그해만 */
-function diary_entries(?int $year = null, int $limit = 500): array
+function diary_entries(?int $year = null, int $limit = 500, ?string $category = null): array
 {
-    $sql = 'SELECT * FROM diary_entries' . ($year ? ' WHERE YEAR(day) = ?' : '') . ' ORDER BY day DESC, id DESC LIMIT ' . $limit;
+    $where = [];
+    $args = [];
+    if ($year) { $where[] = 'YEAR(day) = ?'; $args[] = $year; }
+    if ($category) { $where[] = 'category = ?'; $args[] = $category; }
+    $sql = 'SELECT * FROM diary_entries' . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY day DESC, id DESC LIMIT ' . $limit;
     $stmt = db()->prepare($sql);
-    $stmt->execute($year ? [$year] : []);
+    $stmt->execute($args);
     return diary_decorate($stmt->fetchAll());
 }
 
@@ -61,7 +76,7 @@ function diary_sync_visit(int $entryId): void
     if (!$e) return;
     $rating = $e['avg'] !== null ? (int) round($e['avg']) : null;
     $memo = mb_substr($e['title'] ?: strip_tags((string) $e['body']), 0, 300);
-    if ($e['place_id']) {
+    if ($e['place_id'] && $e['category'] === 'outing') { // 나들이 일기만 추천에 반영
         if ($e['visit_log_id']) {
             db()->prepare("UPDATE outing_logs SET place_id = ?, day = ?, rating = ?, memo = ? WHERE id = ? AND kind = 'visit'")
                 ->execute([$e['place_id'], $e['day'], $rating, $memo, $e['visit_log_id']]);
@@ -132,7 +147,7 @@ function place_ratings(): array
     try {
         $rows = db()->query('SELECT e.place_id, AVG(x.a) a, COUNT(*) n, SUM(e.again) g FROM diary_entries e
             LEFT JOIN (SELECT entry_id, AVG(stars) a FROM diary_ratings GROUP BY entry_id) x ON x.entry_id = e.id
-            WHERE e.place_id IS NOT NULL GROUP BY e.place_id');
+            WHERE e.place_id IS NOT NULL AND e.category = \'outing\' GROUP BY e.place_id');
         foreach ($rows as $r) $cache[$r['place_id']] = [$r['a'] === null ? null : (float) $r['a'], (int) $r['n'], (int) $r['g']];
     } catch (Throwable $e) {
         // 일기 표가 아직 없을 때
@@ -185,7 +200,12 @@ function share_active(array $share): bool
 function share_entry_ids(array $share): array
 {
     if ($share['kind'] === 'entry') return $share['entry_id'] ? [(int) $share['entry_id']] : [];
-    if ($share['album_all']) return array_map('intval', db()->query('SELECT id FROM diary_entries ORDER BY day DESC, id DESC')->fetchAll(PDO::FETCH_COLUMN));
+    if ($share['album_all']) {
+        $cat = $share['album_category'] ?? '';
+        $stmt = db()->prepare('SELECT id FROM diary_entries' . ($cat ? ' WHERE category = ?' : '') . ' ORDER BY day DESC, id DESC');
+        $stmt->execute($cat ? [$cat] : []);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
     $stmt = db()->prepare('SELECT e.id FROM diary_share_entries s JOIN diary_entries e ON e.id = s.entry_id WHERE s.share_id = ? ORDER BY e.day DESC, e.id DESC');
     $stmt->execute([$share['id']]);
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
@@ -195,9 +215,10 @@ function share_create(array $o, int $by): array
 {
     $token = bin2hex(random_bytes(16));
     $expires = (int) ($o['days'] ?? 0) > 0 ? date('Y-m-d H:i:s', strtotime('+' . (int) $o['days'] . ' day')) : null;
-    db()->prepare('INSERT INTO diary_shares (token, kind, entry_id, title, album_all, show_body, show_kid, show_names, expires_at, created_by, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())')
+    db()->prepare('INSERT INTO diary_shares (token, kind, entry_id, title, album_all, album_category, show_body, show_kid, show_names, expires_at, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())')
         ->execute([$token, $o['kind'], $o['entry_id'] ?? null, mb_substr((string) ($o['title'] ?? ''), 0, 100), !empty($o['album_all']) ? 1 : 0,
+            isset(DIARY_CATEGORIES[$o['album_category'] ?? '']) ? $o['album_category'] : '',
             !empty($o['show_body']) ? 1 : 0, !empty($o['show_kid']) ? 1 : 0, !empty($o['show_names']) ? 1 : 0, $expires, $by]);
     $id = (int) db()->lastInsertId();
     foreach ($o['entries'] ?? [] as $eid) {

@@ -128,7 +128,7 @@ $liked = db()->query("SELECT place_id FROM outing_logs WHERE kind = 'like'")->fe
 $plans = db()->query("SELECT * FROM outing_logs WHERE kind = 'plan' AND day >= CURDATE() ORDER BY day")->fetchAll();
 // 일기로 쓰지 않은 예전 '다녀옴' 기록과 최근 일기
 $visits = db()->query("SELECT l.* FROM outing_logs l WHERE l.kind = 'visit' AND NOT EXISTS (SELECT 1 FROM diary_entries d WHERE d.visit_log_id = l.id) ORDER BY l.day DESC, l.id DESC LIMIT 5")->fetchAll();
-$recentDiary = diary_entries(null, 8);
+$recentDiary = diary_entries(null, 8, 'outing');
 $pendingDiary = diary_pending_plans();
 
 // 부모님 댁 마지막 방문 (기록 + 지난 캘린더에서 '평택 · 부모님' 일정)
@@ -186,7 +186,7 @@ page_start('주말 나들이', 'family');
 <section class="card" style="display:flex;gap:12px;align-items:center">
   <span style="font-size:28px">📔</span>
   <span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pp['name']) ?></b><div class="small muted">잘 다녀오셨어요? 사진과 별점을 남겨 주세요.</div></span>
-  <a class="btn small primary" href="diary_edit.php?place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">일기 쓰기</a>
+  <a class="btn small primary" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">일기 쓰기</a>
 </section>
 <?php endforeach; ?>
 
@@ -308,8 +308,9 @@ page_start('주말 나들이', 'family');
 </section>
 
 <section class="card">
-  <h2>📔 다녀왔어요 · 나들이 일기</h2>
+  <h2>📔 다녀왔어요 · 나들이 일기 쓰기</h2>
   <form method="get" action="diary_edit.php" class="form">
+    <input type="hidden" name="cat" value="outing">
     <label>장소<select name="place">
       <?php foreach ($customs as $c): ?><option value="c<?= (int) $c['id'] ?>">⭐ <?= h($c['name']) ?></option><?php endforeach; ?>
       <?php foreach ($events as $e): ?><option value="<?= h($e['id']) ?>">🎉 <?= h($e['title']) ?></option><?php endforeach; ?>
@@ -339,11 +340,11 @@ page_start('주말 나들이', 'family');
     <ul class="list" style="margin-top:8px">
       <?php foreach ($visits as $v): $vp = place($v['place_id']); ?>
         <li><span class="time"><?= date('n/j', strtotime($v['day'])) ?></span><span class="grow"><span class="title"><?= h($vp['name'] ?? $v['place_id']) ?> <?= $v['rating'] ? str_repeat('⭐', (int) $v['rating']) : '' ?></span><?= $v['memo'] ? '<div class="sub">' . h($v['memo']) . '</div>' : '' ?></span>
-          <a class="btn small" href="diary_edit.php?place=<?= rawurlencode($v['place_id']) ?>&day=<?= h($v['day']) ?>">📔 일기로</a></li>
+          <a class="btn small" href="diary_edit.php?cat=outing&place=<?= rawurlencode($v['place_id']) ?>&day=<?= h($v['day']) ?>">📔 일기로</a></li>
       <?php endforeach; ?>
     </ul>
   <?php endif; ?>
-  <p style="margin:12px 0 0"><a class="btn small" href="diary.php">📔 나들이 일기 전체 보기 ›</a></p>
+  <p style="margin:12px 0 0"><a class="btn small" href="diary.php?c=outing">📔 나들이 일기 모아 보기 ›</a></p>
 </section>
 
 <p class="small muted">날씨 · 미세먼지는 은평구(부모님 댁 가는 날은 평택) 예보 기준이에요. 이동 시간은 차로 대략적인 값이고, 운영 시간과 예약은 가기 전에 꼭 확인해 주세요.</p>

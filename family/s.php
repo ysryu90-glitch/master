@@ -1,5 +1,5 @@
 <?php
-// 나들이 일기 공유 링크 (로그인 없이 보기 전용)
+// 일기 공유 링크 (로그인 없이 보기 전용)
 //   s.php?t=코드           일기 한 편 또는 앨범
 //   s.php?t=코드&e=번호     앨범 안의 일기 한 편
 //   s.php?t=코드&p=사진번호  사진 (&th=1 작은 사진)
@@ -61,13 +61,13 @@ function share_head(string $title, string $desc = '', string $image = ''): void
 
 function share_foot(): void
 {
-    echo '<p class="small muted" style="text-align:center;margin:24px 0 8px">📔 우리 가족 나들이 일기 · 보기 전용 링크</p></main>'
+    echo '<p class="small muted" style="text-align:center;margin:24px 0 8px">📔 우리 가족 일기 · 보기 전용 링크</p></main>'
         . '<script src="assets/app.js?v=' . asset_version('assets/app.js') . '"></script>'
         . '<script src="assets/card.js?v=' . asset_version('assets/card.js') . '"></script></body></html>';
 }
 
 if (!$ok) {
-    share_head('나들이 일기');
+    share_head('우리 가족 일기');
     echo '<section class="card" style="text-align:center;padding:40px 20px"><div style="font-size:48px">🔒</div><h2>볼 수 없는 링크예요</h2>'
         . '<p class="muted">링크가 만료되었거나 공유가 중지됐어요.<br>보내 준 가족에게 새 링크를 부탁해 주세요.</p></section>';
     share_foot();
@@ -103,7 +103,7 @@ if ($entryId) {
         'photos' => array_map(fn($id) => $photoUrl($id), array_slice($e['photos'], 0, 4)),
     ];
     ?>
-<?php if ($isAlbum): ?><p style="margin:0 4px 10px"><a href="<?= h($self) ?>">‹ <?= h($share['title'] ?: '나들이 앨범') ?></a></p><?php endif; ?>
+<?php if ($isAlbum): ?><p style="margin:0 4px 10px"><a href="<?= h($self) ?>">‹ <?= h($share['title'] ?: '우리 가족 앨범') ?></a></p><?php endif; ?>
 <article class="card dentry">
   <?php if ($e['photos']): ?>
     <div class="dgallery">
@@ -112,7 +112,7 @@ if ($entryId) {
     <?php if (count($e['photos']) > 1): ?><p class="small muted" style="text-align:center;margin:6px 0 0">← 옆으로 넘겨 보세요 · <?= count($e['photos']) ?>장 →</p><?php endif; ?>
   <?php endif; ?>
   <div class="dhead">
-    <div class="ddate"><?= date('Y년 n월 j일', strtotime($e['day'])) ?> (<?= weekday_short($e['day']) ?>)<?= $e['weather'] ? ' · ' . h($e['weather']) : '' ?></div>
+    <div class="ddate"><?php if (isset(DIARY_CATEGORIES[$e['category']])): ?><span class="dbadge <?= h($e['category']) ?>"><?= DIARY_CATEGORIES[$e['category']][1] ?> <?= DIARY_CATEGORIES[$e['category']][0] ?></span> <?php endif; ?><?= date('Y년 n월 j일', strtotime($e['day'])) ?> (<?= weekday_short($e['day']) ?>)<?= $e['weather'] ? ' · ' . h($e['weather']) : '' ?></div>
     <h2 class="dtitle"><?= h($title) ?></h2>
     <?php if ($e['title'] && $e['place_name']): ?><div class="dplace">📍 <?= h($e['place_name']) ?></div><?php endif; ?>
     <?php if ($e['avg'] !== null): ?><div class="davg"><span class="st"><?= stars_text($e['avg']) ?></span> <?= number_format($e['avg'], 1) ?><?= $e['again'] ? ' · <span class="again">💛 또 가고 싶어요</span>' : '' ?></div><?php endif; ?>
@@ -132,8 +132,8 @@ if ($entryId) {
 </article>
 <?php if ($newer || $older): ?>
 <div style="display:flex;justify-content:space-between;margin:4px 4px 16px">
-  <?php if ($newer): ?><a class="btn small" href="<?= h($self . '&e=' . $newer) ?>">‹ 다음 나들이</a><?php else: ?><span></span><?php endif; ?>
-  <?php if ($older): ?><a class="btn small" href="<?= h($self . '&e=' . $older) ?>">이전 나들이 ›</a><?php endif; ?>
+  <?php if ($newer): ?><a class="btn small" href="<?= h($self . '&e=' . $newer) ?>">‹ 다음 일기</a><?php else: ?><span></span><?php endif; ?>
+  <?php if ($older): ?><a class="btn small" href="<?= h($self . '&e=' . $older) ?>">이전 일기 ›</a><?php endif; ?>
 </div>
 <?php endif; ?>
 <div id="lightbox" class="lightbox hidden" role="dialog" aria-label="사진 크게 보기"><img alt=""><button type="button" aria-label="닫기">✕</button></div>
@@ -157,18 +157,18 @@ foreach (array_chunk($allowed, 200) as $chunk) {
     $in = implode(',', array_map('intval', $chunk));
     $entries = array_merge($entries, diary_decorate(db()->query("SELECT * FROM diary_entries WHERE id IN ($in) ORDER BY day DESC, id DESC")->fetchAll()));
 }
-$albumTitle = $share['title'] ?: '우리 가족 나들이 앨범';
+$albumTitle = $share['title'] ?: (['daily' => '우리 가족 일상 앨범', 'outing' => '우리 가족 나들이 앨범'][$share['album_category']] ?? '우리 가족 일기 앨범');
 $cover = null;
 foreach ($entries as $x) if ($x['cover']) { $cover = $x['cover']; break; }
 $photoCount = array_sum(array_map(fn($x) => count($x['photos']), $entries));
-share_head('📔 ' . $albumTitle, '나들이 ' . count($entries) . '번 · 사진 ' . $photoCount . '장', $cover ? $base . $photoUrl($cover) : '');
+share_head('📔 ' . $albumTitle, '일기 ' . count($entries) . '편 · 사진 ' . $photoCount . '장', $cover ? $base . $photoUrl($cover) : '');
 $byMonth = [];
 foreach ($entries as $x) $byMonth[substr($x['day'], 0, 7)][] = $x;
 ?>
 <section class="card share-hero">
   <div style="font-size:40px">📔</div>
   <h1><?= h($albumTitle) ?></h1>
-  <p class="muted" style="margin:4px 0 0">나들이 <?= count($entries) ?>번 · 사진 <?= $photoCount ?>장<?= $share['album_all'] ? ' · 새 나들이가 생기면 여기에 저절로 더해져요' : '' ?></p>
+  <p class="muted" style="margin:4px 0 0">일기 <?= count($entries) ?>편 · 사진 <?= $photoCount ?>장<?= $share['album_all'] ? ' · 새 일기가 생기면 여기에 저절로 더해져요' : '' ?></p>
 </section>
 <?php if (!$entries): ?><section class="card"><p class="muted">아직 일기가 없어요.</p></section><?php endif; ?>
 <?php foreach ($byMonth as $ym => $list): ?>

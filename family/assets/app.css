@@ -390,3 +390,11 @@ body.shared .page { padding-top: calc(16px + env(safe-area-inset-top)); padding-
 .cardmodal .inner { background: var(--card); border-radius: 20px; padding: 14px; width: min(100%, 440px); max-height: 100%; overflow-y: auto; text-align: center; }
 .cardmodal img { width: 100%; border-radius: 12px; display: block; -webkit-touch-callout: default; }
 .cardmodal .acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+/* 일기 종류 */
+.segmented.dcat a { flex: 1; text-align: center; padding: 8px 4px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--sub); text-decoration: none; }
+.segmented.dcat a.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+.segmented.dcat small { font-weight: 600; color: var(--dim); margin-left: 2px; }
+.dbadge { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; margin-right: 2px; vertical-align: 1px; }
+.dbadge.daily { background: var(--blue-soft); color: var(--blue); }
+.dbadge.outing { background: var(--orange-soft); color: var(--orange); }

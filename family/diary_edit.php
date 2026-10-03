@@ -1,5 +1,5 @@
 <?php
-// 나들이 일기 쓰기 · 고치기 (사진은 휴대폰에서 줄인 뒤 한 장씩 올림)
+// 일기 (일상 · 나들이) 쓰기 · 고치기 (사진은 휴대폰에서 줄인 뒤 한 장씩 올림)
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
@@ -37,7 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 저장
     $day = valid_day(post('day'));
     if ($day > today()) $day = today();
-    $placeId = (string) post('place');
+    $category = diary_category(post('category'));
+    $placeId = $category === 'outing' ? (string) post('place') : '';
     $placeName = mb_substr(post('place_name'), 0, 100);
     if ($placeId === '_' || $placeId === '') {
         $placeId = null;
@@ -46,23 +47,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($p) $placeName = $p['name']; else $placeId = null;
     }
     $title = mb_substr(post('title'), 0, 100);
-    if ($placeName === '' && $title === '') {
-        $err = '장소나 제목 중 하나는 적어 주세요.';
+    if ($placeName === '' && $title === '' && post('body') === '') {
+        $err = $category === 'outing' ? '장소나 제목 중 하나는 적어 주세요.' : '제목이나 내용 중 하나는 적어 주세요.';
         if ($ajax) json_out(['ok' => false, 'error' => $err]);
         flash($err);
         redirect('diary_edit.php' . ($id ? '?id=' . $id : ''));
     }
     $weather = mb_substr(post('weather'), 0, 60);
     if ($weather === '') $weather = diary_weather_for($day);
-    $fields = [$day, $placeId, $placeName, $title, mb_substr(post('body'), 0, 5000), mb_substr(post('kid_said'), 0, 300), $weather, post('again') ? 1 : 0];
+    $fields = [$category, $day, $placeId, $placeName, $title, mb_substr(post('body'), 0, 5000), mb_substr(post('kid_said'), 0, 300), $weather, $category === 'outing' && post('again') ? 1 : 0];
 
     $pdo = db();
     $pdo->beginTransaction();
     if ($id && diary_entry($id)) {
-        $pdo->prepare('UPDATE diary_entries SET day = ?, place_id = ?, place_name = ?, title = ?, body = ?, kid_said = ?, weather = ?, again = ?, updated_at = NOW() WHERE id = ?')
+        $pdo->prepare('UPDATE diary_entries SET category = ?, day = ?, place_id = ?, place_name = ?, title = ?, body = ?, kid_said = ?, weather = ?, again = ?, updated_at = NOW() WHERE id = ?')
             ->execute([...$fields, $id]);
     } else {
-        $pdo->prepare('INSERT INTO diary_entries (day, place_id, place_name, title, body, kid_said, weather, again, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())')
+        $pdo->prepare('INSERT INTO diary_entries (category, day, place_id, place_name, title, body, kid_said, weather, again, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())')
             ->execute([...$fields, $me['id']]);
         $id = (int) $pdo->lastInsertId();
     }
@@ -96,6 +97,7 @@ if (!empty($_GET['id'])) {
     if (!$entry) redirect('diary.php');
 }
 $e = $entry ?? [
+    'category' => isset($_GET['cat']) ? diary_category($_GET['cat']) : (!empty($_GET['place']) ? 'outing' : 'daily'),
     'id' => 0, 'day' => valid_day($_GET['day'] ?? null), 'place_id' => (string) ($_GET['place'] ?? ''), 'place_name' => '',
     'title' => '', 'body' => '', 'kid_said' => '', 'weather' => '', 'again' => 0, 'ratings' => [], 'photos' => [],
 ];
@@ -115,21 +117,35 @@ foreach (PLACES as $p) $choices['추천 장소'][$p['id']] = $p['name'];
 $known = $e['place_id'] && place($e['place_id']);
 if ($e['place_id'] && !$known) $e['place_id'] = '';
 $freeText = !$e['place_id'];
+$cat = $e['category'];
+$isOuting = $cat === 'outing';
+// 종류에 따라 바뀌는 글 [일상, 나들이]
+$t = fn(string $daily, string $outing) => ' data-daily="' . h($daily) . '" data-outing="' . h($outing) . '"';
+$tt = fn(string $daily, string $outing) => h($isOuting ? $outing : $daily);
 
 $kidFaces = ['😢', '😕', '🙂', '😄', '🤩'];
-page_start($entry ? '일기 고치기' : '나들이 일기 쓰기', 'family');
+page_start($entry ? '일기 고치기' : '일기 쓰기', 'family');
 ?>
 <form id="diary-form" method="post" class="form" action="diary_edit.php" data-csrf="<?= csrf_token() ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="id" value="<?= (int) $e['id'] ?>">
 
   <section class="card">
-    <h2>📍 어디 다녀왔어요?</h2>
+    <h2>📔 어떤 일기예요?</h2>
+    <div class="segmented" id="cat-seg" style="margin-bottom:0">
+      <?php foreach (DIARY_CATEGORIES as $key => [$label, $icon]): ?>
+        <label><input type="radio" name="category" value="<?= $key ?>" <?= $key === $cat ? 'checked' : '' ?>><span><?= $icon ?> <?= $label ?></span></label>
+      <?php endforeach; ?>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2<?= $t('📅 언제 있었던 일이에요?', '📍 어디 다녀왔어요?') ?>><?= $tt('📅 언제 있었던 일이에요?', '📍 어디 다녀왔어요?') ?></h2>
     <div class="grid2">
       <label>날짜<input type="date" name="day" value="<?= h($e['day']) ?>" max="<?= today() ?>" required></label>
       <label>날씨<input name="weather" value="<?= h($e['weather']) ?>" placeholder="예: ☀️ 맑음 22°/12°"></label>
     </div>
-    <label>장소<select name="place" id="place-select">
+    <label data-only="outing" class="<?= $isOuting ? '' : 'hidden' ?>">장소<select name="place" id="place-select">
       <option value="_" <?= $freeText ? 'selected' : '' ?>>✏️ 직접 적기</option>
       <?php foreach ($choices as $group => $opts): ?>
         <optgroup label="<?= h($group) ?>">
@@ -137,8 +153,8 @@ page_start($entry ? '일기 고치기' : '나들이 일기 쓰기', 'family');
         </optgroup>
       <?php endforeach; ?>
     </select></label>
-    <label id="place-name" class="<?= $freeText ? '' : 'hidden' ?>">장소 이름<input name="place_name" value="<?= h($freeText ? $e['place_name'] : '') ?>" placeholder="예: 동네 놀이터, 할머니 댁 뒷산"></label>
-    <label>제목<input name="title" value="<?= h($e['title']) ?>" maxlength="100" placeholder="예: 처음 본 꽃사슴!"></label>
+    <label id="place-name" class="<?= $freeText || !$isOuting ? '' : 'hidden' ?>"><span<?= $t('장소 (선택)', '장소 이름') ?>><?= $tt('장소 (선택)', '장소 이름') ?></span><input name="place_name" value="<?= h($freeText ? $e['place_name'] : '') ?>" placeholder="<?= $tt('예: 우리 집, 유치원, 동네 놀이터', '예: 동네 놀이터, 할머니 댁 뒷산') ?>"<?= $t('예: 우리 집, 유치원, 동네 놀이터', '예: 동네 놀이터, 할머니 댁 뒷산') ?>></label>
+    <label>제목<input name="title" value="<?= h($e['title']) ?>" maxlength="100" placeholder="<?= $tt('예: 처음으로 혼자 양치한 날', '예: 처음 본 꽃사슴!') ?>"<?= $t('예: 처음으로 혼자 양치한 날', '예: 처음 본 꽃사슴!') ?>></label>
   </section>
 
   <section class="card">
@@ -159,7 +175,7 @@ page_start($entry ? '일기 고치기' : '나들이 일기 쓰기', 'family');
   </section>
 
   <section class="card">
-    <h2>⭐ 가족 별점</h2>
+    <h2<?= $t('😊 오늘 하루 별점', '⭐ 가족 별점') ?>><?= $tt('😊 오늘 하루 별점', '⭐ 가족 별점') ?></h2>
     <?php foreach (members() as $m): $isKid = $m['role'] === 'child'; $cur = (int) ($e['ratings'][(int) $m['id']] ?? 0); ?>
       <div class="rate-row">
         <span class="who"><?= h($m['emoji'] . ' ' . $m['name']) ?></span>
@@ -171,13 +187,13 @@ page_start($entry ? '일기 고치기' : '나들이 일기 쓰기', 'family');
         </span>
       </div>
     <?php endforeach; ?>
-    <label class="dagain"><input type="checkbox" name="again" value="1" <?= $e['again'] ? 'checked' : '' ?>> 💛 또 가고 싶어요 (나들이 추천에 다시 올려요)</label>
+    <label class="dagain<?= $isOuting ? '' : ' hidden' ?>" data-only="outing"><input type="checkbox" name="again" value="1" <?= $e['again'] ? 'checked' : '' ?>> 💛 또 가고 싶어요 (나들이 추천에 다시 올려요)</label>
   </section>
 
   <section class="card">
     <h2>✍️ 오늘의 이야기</h2>
-    <label>일기<textarea name="body" rows="7" placeholder="무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…"><?= h($e['body']) ?></textarea></label>
-    <label>👧 아이가 한 말<input name="kid_said" value="<?= h($e['kid_said']) ?>" maxlength="300" placeholder="예: &quot;사슴 또 보러 오자!&quot;"></label>
+    <label>일기<textarea name="body" rows="7" placeholder="<?= $tt('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>"<?= $t('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>><?= h($e['body']) ?></textarea></label>
+    <label>👧 아이가 한 말<input name="kid_said" value="<?= h($e['kid_said']) ?>" maxlength="300" placeholder="<?= $tt('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>"<?= $t('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>></label>
   </section>
 
   <p id="diary-status" class="small" style="margin:0 4px 10px"></p>

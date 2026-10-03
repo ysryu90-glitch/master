@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -321,9 +321,10 @@ function migrate(PDO $pdo): void
             created_by INT NULL,
             created_at DATETIME NOT NULL
         )",
-        // 나들이 일기: 다녀온 날의 글 · 가족별 별점 · 사진
+        // 가족 일기 (일상 · 나들이): 글 · 가족별 별점 · 사진
         "CREATE TABLE IF NOT EXISTS diary_entries (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            category VARCHAR(8) NOT NULL DEFAULT 'outing',
             day DATE NOT NULL,
             place_id VARCHAR(60) NULL,
             place_name VARCHAR(100) NOT NULL DEFAULT '',
@@ -355,7 +356,7 @@ function migrate(PDO $pdo): void
             created_at DATETIME NOT NULL,
             KEY entry (entry_id, sort)
         )",
-        // 나들이 일기 공유 링크 (로그인 없이 보기 전용)
+        // 일기 공유 링크 (로그인 없이 보기 전용)
         "CREATE TABLE IF NOT EXISTS diary_shares (
             id INT AUTO_INCREMENT PRIMARY KEY,
             token CHAR(32) NOT NULL UNIQUE,
@@ -363,6 +364,7 @@ function migrate(PDO $pdo): void
             entry_id INT NULL,
             title VARCHAR(100) NOT NULL DEFAULT '',
             album_all TINYINT NOT NULL DEFAULT 1,
+            album_category VARCHAR(8) NOT NULL DEFAULT '',
             show_body TINYINT NOT NULL DEFAULT 1,
             show_kid TINYINT NOT NULL DEFAULT 1,
             show_names TINYINT NOT NULL DEFAULT 1,
@@ -382,6 +384,9 @@ function migrate(PDO $pdo): void
     foreach ($tables as $sql) {
         $pdo->exec($sql . ' DEFAULT CHARSET = utf8mb4');
     }
+    // 예전 표에 새 칸 더하기
+    $pdo->exec("ALTER TABLE diary_entries ADD COLUMN IF NOT EXISTS category VARCHAR(8) NOT NULL DEFAULT 'outing' AFTER id");
+    $pdo->exec("ALTER TABLE diary_shares ADD COLUMN IF NOT EXISTS album_category VARCHAR(8) NOT NULL DEFAULT '' AFTER album_all");
     $pdo->prepare("REPLACE INTO settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
 }
 

@@ -1,5 +1,5 @@
 <?php
-// 나들이 일기 한 편
+// 일기 한 편 (일상 · 나들이)
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/diary.php';
 
@@ -12,11 +12,12 @@ foreach (members() as $m) $names[(int) $m['id']] = $m;
 $kidFaces = ['😢', '😕', '🙂', '😄', '🤩'];
 
 // 앞뒤 일기
-$stmt = db()->prepare('SELECT id FROM diary_entries WHERE (day, id) < (?, ?) ORDER BY day DESC, id DESC LIMIT 1');
-$stmt->execute([$e['day'], $e['id']]);
+// 같은 종류 안에서 앞뒤 일기
+$stmt = db()->prepare('SELECT id FROM diary_entries WHERE category = ? AND (day, id) < (?, ?) ORDER BY day DESC, id DESC LIMIT 1');
+$stmt->execute([$e['category'], $e['day'], $e['id']]);
 $older = $stmt->fetchColumn();
-$stmt = db()->prepare('SELECT id FROM diary_entries WHERE (day, id) > (?, ?) ORDER BY day, id LIMIT 1');
-$stmt->execute([$e['day'], $e['id']]);
+$stmt = db()->prepare('SELECT id FROM diary_entries WHERE category = ? AND (day, id) > (?, ?) ORDER BY day, id LIMIT 1');
+$stmt->execute([$e['category'], $e['day'], $e['id']]);
 $newer = $stmt->fetchColumn();
 
 // 같은 곳 다른 날
@@ -34,9 +35,10 @@ $card = [
     'photos' => array_map(fn($id) => 'diary_photo.php?id=' . $id, array_slice($e['photos'], 0, 4)),
 ];
 
-page_start('나들이 일기', 'family');
+[$catLabel, $catIcon] = DIARY_CATEGORIES[$e['category']] ?? ['일기', '📔'];
+page_start($catLabel . ' 일기', 'family');
 ?>
-<p style="margin:0 4px 10px"><a href="diary.php">‹ 일기 목록</a></p>
+<p style="margin:0 4px 10px"><a href="diary.php?c=<?= h($e['category']) ?>">‹ <?= h($catLabel) ?> 일기 목록</a></p>
 
 <article class="card dentry">
   <?php if ($e['photos']): ?>
@@ -49,7 +51,7 @@ page_start('나들이 일기', 'family');
   <?php endif; ?>
 
   <div class="dhead">
-    <div class="ddate"><?= h(day_label($e['day'])) ?><?= $ago >= 365 ? ' · ' . floor($ago / 365) . '년 전' : '' ?><?= $e['weather'] ? ' · ' . h($e['weather']) : '' ?></div>
+    <div class="ddate"><span class="dbadge <?= h($e['category']) ?>"><?= $catIcon ?> <?= h($catLabel) ?></span> <?= h(day_label($e['day'])) ?><?= $ago >= 365 ? ' · ' . floor($ago / 365) . '년 전' : '' ?><?= $e['weather'] ? ' · ' . h($e['weather']) : '' ?></div>
     <h2 class="dtitle"><?= h($e['title'] ?: $e['place_name']) ?></h2>
     <?php if ($e['title'] && $e['place_name']): ?><div class="dplace">📍 <?= h($e['place_name']) ?></div><?php endif; ?>
     <?php if ($e['avg'] !== null): ?><div class="davg"><span class="st"><?= stars_text($e['avg']) ?></span> <?= number_format($e['avg'], 1) ?><?= $e['again'] ? ' · <span class="again">💛 또 가고 싶어요</span>' : '' ?></div>
@@ -79,8 +81,8 @@ page_start('나들이 일기', 'family');
 </article>
 
 <div style="display:flex;justify-content:space-between;margin:4px 4px 16px">
-  <?php if ($newer): ?><a class="btn small" href="diary_view.php?id=<?= (int) $newer ?>">‹ 다음 나들이</a><?php else: ?><span></span><?php endif; ?>
-  <?php if ($older): ?><a class="btn small" href="diary_view.php?id=<?= (int) $older ?>">이전 나들이 ›</a><?php endif; ?>
+  <?php if ($newer): ?><a class="btn small" href="diary_view.php?id=<?= (int) $newer ?>">‹ 다음 <?= h($catLabel) ?></a><?php else: ?><span></span><?php endif; ?>
+  <?php if ($older): ?><a class="btn small" href="diary_view.php?id=<?= (int) $older ?>">이전 <?= h($catLabel) ?> ›</a><?php endif; ?>
 </div>
 
 <div id="lightbox" class="lightbox hidden" role="dialog" aria-label="사진 크게 보기"><img alt=""><button type="button" aria-label="닫기">✕</button></div>

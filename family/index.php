@@ -211,7 +211,7 @@ page_start('오늘', 'today');
 </section>
 
 <?php if ($pendingDiary): $pl = $pendingDiary[0]; ?>
-<a class="card memory" href="diary_edit.php?place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">
+<a class="card memory" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">
   <span style="font-size:30px">📔</span>
   <span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pl['name']) ?></b> 잘 다녀오셨어요?<div class="small muted">사진 · 별점 남기고 나들이 일기 쓰기 ›</div></span>
 </a>

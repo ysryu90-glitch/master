@@ -1,4 +1,4 @@
-// 나들이 일기 공유: 링크 보내기 · 복사, 사진 카드 만들기
+// 일기 공유: 링크 보내기 · 복사, 사진 카드 만들기
 (function () {
   'use strict';
   var busy = function () { return window.Busy || { start: function () {}, done: function () {}, set: function () {} }; };
@@ -25,9 +25,9 @@
   });
   document.querySelectorAll('[data-share-url]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var url = btn.getAttribute('data-share-url'), title = btn.getAttribute('data-share-title') || '나들이 일기';
+      var url = btn.getAttribute('data-share-url'), title = btn.getAttribute('data-share-title') || '우리 가족 일기';
       if (navigator.share) {
-        navigator.share({ title: '📔 ' + title, text: '우리 가족 나들이 일기예요 📔 ' + title, url: url }).catch(function () {});
+        navigator.share({ title: '📔 ' + title, text: '우리 가족 일기예요 📔 ' + title, url: url }).catch(function () {});
       } else {
         copyText(url).then(function () { busy().done('📋 이 기기에서는 바로 보내기가 안 돼서 링크를 복사했어요.'); },
           function (e) { busy().done('⚠️ ' + e.message, true); });
@@ -130,13 +130,13 @@
       kl.forEach(function (l, i) { ctx.fillText(l, x + 22, y + 46 + i * 50); });
     }
     ctx.font = '600 26px ' + FONT; ctx.fillStyle = '#b3a798'; ctx.textAlign = 'right';
-    ctx.fillText('📔 우리 가족 나들이 일기', W - 56, H - 36);
+    ctx.fillText('📔 우리 가족 일기', W - 56, H - 36);
     return new Promise(function (resolve) { c.toBlob(resolve, 'image/jpeg', 0.9); });
   }
 
   function showCard(blob, d) {
     var url = URL.createObjectURL(blob);
-    var name = '나들이-' + (d.title || '일기').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 30) + '.jpg';
+    var name = '일기-' + (d.title || '일기').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 30) + '.jpg';
     var file = null;
     try { file = new File([blob], name, { type: 'image/jpeg' }); } catch (e) {}
     var canShare = !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
@@ -151,7 +151,7 @@
     dl.href = url; dl.download = name;
     m.addEventListener('click', function (ev) {
       var act = ev.target.getAttribute && ev.target.getAttribute('data-act');
-      if (act === 'share') navigator.share({ files: [file], title: d.title || '나들이 일기' }).catch(function () {});
+      if (act === 'share') navigator.share({ files: [file], title: d.title || '우리 가족 일기' }).catch(function () {});
       if (act === 'close' || ev.target === m) { m.remove(); URL.revokeObjectURL(url); }
     });
     document.body.appendChild(m);

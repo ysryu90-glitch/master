@@ -137,7 +137,7 @@
     renderNight(now);
   }
 
-  // 📔 나들이 일기 사진: 1분마다 다음 사진
+  // 📔 일기 사진: 1분마다 다음 사진
   var memIdx = 0;
   function renderMemory(reset) {
     var list = (state.data && state.data.memories) || [];

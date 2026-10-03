@@ -1,5 +1,5 @@
 <?php
-// 나들이 일기 공유: 링크 만들기 · 보내기 · 중지
+// 일기 공유: 링크 만들기 · 보내기 · 중지
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/diary.php';
 
@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($kind === 'album' && !$all && !$picked) { flash('앨범에 넣을 일기를 하나 이상 골라 주세요.'); redirect('diary_share.php'); }
             $s = share_create([
                 'kind' => $kind, 'entry_id' => $kind === 'entry' ? $entryId : null, 'title' => post('title'),
-                'album_all' => $all, 'entries' => $kind === 'album' && !$all ? $picked : [],
+                'album_all' => $all, 'album_category' => post('album_category'), 'entries' => $kind === 'album' && !$all ? $picked : [],
                 'show_body' => post('show_body'), 'show_kid' => post('show_kid'), 'show_names' => post('show_names'),
                 'days' => (int) post('days'),
             ], (int) $me['id']);
@@ -51,7 +51,7 @@ page_start('일기 공유', 'family');
     <p class="muted" style="margin-top:0">「<?= h($entry['title'] ?: $entry['place_name']) ?>」 (<?= date('n/j', strtotime($entry['day'])) ?>) 한 편만 볼 수 있는 링크예요.
       여러 일기를 모아 보내려면 <a href="diary_share.php">가족 앨범</a>을 만들어 주세요.</p>
   <?php else: ?>
-    <p class="muted" style="margin-top:0">할머니 · 할아버지께 링크 하나만 드리면 나들이 일기를 앨범처럼 보실 수 있어요. 로그인은 필요 없어요.</p>
+    <p class="muted" style="margin-top:0">할머니 · 할아버지께 링크 하나만 드리면 우리 가족 일기를 앨범처럼 보실 수 있어요. 로그인은 필요 없어요.</p>
   <?php endif; ?>
   <form method="post" class="form" data-busy="공유 링크를 만드는 중이에요…">
     <?= csrf_field() ?>
@@ -59,16 +59,20 @@ page_start('일기 공유', 'family');
     <input type="hidden" name="kind" value="<?= $entry ? 'entry' : 'album' ?>">
     <?php if ($entry): ?><input type="hidden" name="entry" value="<?= (int) $entry['id'] ?>"><?php endif; ?>
     <?php if (!$entry): ?>
-      <label>앨범 이름<input name="title" maxlength="100" placeholder="예: 하린이네 나들이 앨범"></label>
+      <label>앨범 이름<input name="title" maxlength="100" placeholder="예: 하린이네 일기장"></label>
       <div class="segmented" style="margin-bottom:12px">
         <label><input type="radio" name="album_all" value="1" checked><span>모든 일기 (새 일기도)</span></label>
         <label><input type="radio" name="album_all" value="0"><span>고른 일기만</span></label>
       </div>
+      <label id="album-cat">어떤 일기를 넣을까요?<select name="album_category">
+        <option value="">📔 모든 일기 (일상 + 나들이)</option>
+        <?php foreach (DIARY_CATEGORIES as $key => [$label, $icon]): ?><option value="<?= $key ?>"><?= $icon ?> <?= $label ?> 일기만</option><?php endforeach; ?>
+      </select></label>
       <div id="pick-list" class="pick-list hidden">
         <?php foreach ($entries as $x): ?>
           <label><input type="checkbox" name="entries[]" value="<?= (int) $x['id'] ?>">
             <?php if ($x['cover']): ?><img src="diary_photo.php?id=<?= $x['cover'] ?>&t=1" alt=""><?php else: ?><span class="noimg">🧺</span><?php endif; ?>
-            <span><?= date('Y.n.j', strtotime($x['day'])) ?><br><b><?= h($x['title'] ?: $x['place_name']) ?></b></span></label>
+            <span><?= DIARY_CATEGORIES[$x['category']][1] ?? '' ?> <?= date('Y.n.j', strtotime($x['day'])) ?><br><b><?= h($x['title'] ?: $x['place_name']) ?></b></span></label>
         <?php endforeach; ?>
         <?php if (!$entries): ?><p class="muted">아직 일기가 없어요.</p><?php endif; ?>
       </div>
@@ -94,7 +98,7 @@ $list = $entry ? array_values(array_filter($shares, fn($s) => $s['kind'] === 'en
   <?php if (!$list): ?><p class="muted">아직 만든 링크가 없어요.</p><?php endif; ?>
   <?php foreach ($list as $s):
       $active = share_active($s);
-      $name = $s['kind'] === 'album' ? '📚 ' . ($s['title'] ?: '우리 가족 나들이 앨범') . ($s['album_all'] ? ' (모든 일기)' : ' (고른 일기)') : '📔 ' . ($s['e_title'] ?: $s['e_place'] ?: '일기') . ($s['e_day'] ? ' · ' . date('n/j', strtotime($s['e_day'])) : '');
+      $name = $s['kind'] === 'album' ? '📚 ' . ($s['title'] ?: '우리 가족 앨범') . ($s['album_all'] ? ' (' . ($s['album_category'] ? DIARY_CATEGORIES[$s['album_category']][0] . ' 일기 전부' : '모든 일기') . ')' : ' (고른 일기)') : '📔 ' . ($s['e_title'] ?: $s['e_place'] ?: '일기') . ($s['e_day'] ? ' · ' . date('n/j', strtotime($s['e_day'])) : '');
       $state = $s['revoked'] ? '⏸ 중지됨' : (!$active ? '⌛ 기간 끝남' : ($s['expires_at'] ? '✅ ' . date('n/j', strtotime($s['expires_at'])) . '까지' : '✅ 공유 중'));
       $hidden = array_filter([$s['show_body'] ? '' : '일기 글', $s['show_kid'] ? '' : '아이 말', $s['show_names'] ? '' : '이름']);
   ?>
@@ -123,7 +127,10 @@ $list = $entry ? array_values(array_filter($shares, fn($s) => $s['kind'] === 'en
 (function () {
   var pick = document.getElementById('pick-list');
   if (pick) document.querySelectorAll('[name=album_all]').forEach(function (r) {
-    r.addEventListener('change', function () { pick.classList.toggle('hidden', r.value !== '0' || !r.checked); });
+    r.addEventListener('change', function () {
+      pick.classList.toggle('hidden', r.value !== '0' || !r.checked);
+      document.getElementById('album-cat').classList.toggle('hidden', r.value === '0' && r.checked);
+    });
   });
 })();
 </script>

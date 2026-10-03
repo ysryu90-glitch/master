@@ -1,4 +1,4 @@
-// 나들이 일기 쓰기: 별점 · 장소 · 사진 줄여서 한 장씩 올리기
+// 일기 쓰기: 일상 · 나들이, 별점 · 장소 · 사진 줄여서 한 장씩 올리기
 (function () {
   'use strict';
   var form = document.getElementById('diary-form');
@@ -26,7 +26,22 @@
   // 장소: 직접 적기일 때만 이름 칸
   var sel = document.getElementById('place-select');
   var nameBox = document.getElementById('place-name');
-  sel.addEventListener('change', function () { nameBox.classList.toggle('hidden', sel.value !== '_'); });
+  function category() { var c = form.querySelector('[name=category]:checked'); return c ? c.value : 'daily'; }
+  function placeBox() { nameBox.classList.toggle('hidden', category() === 'outing' && sel.value !== '_'); }
+  sel.addEventListener('change', placeBox);
+
+  // 일상 ↔ 나들이: 장소 고르기 · 또 가고 싶어요는 나들이만, 안내 글도 바꿈
+  form.querySelectorAll('[name=category]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var cat = category();
+      form.querySelectorAll('[data-only]').forEach(function (el) { el.classList.toggle('hidden', el.getAttribute('data-only') !== cat); });
+      form.querySelectorAll('[data-' + cat + ']').forEach(function (el) {
+        var text = el.getAttribute('data-' + cat);
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = text; else el.textContent = text;
+      });
+      placeBox();
+    });
+  });
 
   // 기존 사진 지우기 표시
   grid.addEventListener('change', function (ev) {
