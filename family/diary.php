@@ -48,38 +48,28 @@ page_start('일기', 'family');
   </a>
 <?php endforeach; ?>
 
-<section class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-    <h2 style="margin:0">📔 <?= $year ? $year . '년 ' : '' ?><?= $cat ? DIARY_CATEGORIES[$cat][0] . ' 일기' : '우리 가족 일기' ?></h2>
-    <span style="display:flex;gap:6px"><a class="btn small" href="diary_share.php">🔗 공유</a><a class="btn primary small" href="diary_edit.php?cat=<?= $cat ?: 'daily' ?>">✍️ 일기 쓰기</a></span>
-  </div>
-  <div class="segmented dcat" style="margin:12px 0 0">
-    <a class="<?= $cat ? '' : 'on' ?>" href="<?= h($q(['c' => ''])) ?>">📔 전체 <small><?= array_sum($catCount) ?></small></a>
-    <?php foreach (DIARY_CATEGORIES as $key => [$label, $icon]): ?>
-      <a class="<?= $cat === $key ? 'on' : '' ?>" href="<?= h($q(['c' => $key])) ?>"><?= $icon ?> <?= $label ?> <small><?= $catCount[$key] ?? 0 ?></small></a>
-    <?php endforeach; ?>
+<section class="card dtop">
+  <div class="dtop-row">
+    <nav class="dtabs">
+      <a class="<?= $cat ? '' : 'on' ?>" href="<?= h($q(['c' => ''])) ?>">전체 <small><?= array_sum($catCount) ?></small></a>
+      <?php foreach (DIARY_CATEGORIES as $key => [$label, $icon]): ?>
+        <a class="<?= $cat === $key ? 'on' : '' ?>" href="<?= h($q(['c' => $key])) ?>"><?= $icon ?> <?= $label ?> <small><?= $catCount[$key] ?? 0 ?></small></a>
+      <?php endforeach; ?>
+    </nav>
+    <a class="btn small icon" href="diary_share.php" aria-label="공유" title="공유">🔗</a>
+    <a class="btn primary small" href="diary_edit.php?cat=<?= $cat ?: 'daily' ?>">✍️ 쓰기</a>
   </div>
   <?php if (count($years) > 1): ?>
-    <div class="chips" style="margin-top:10px">
-      <a class="chip<?= $year ? '' : ' on' ?>" href="<?= h($q(['y' => ''])) ?>">모든 해</a>
-      <?php foreach ($years as $y): ?><a class="chip<?= $y === $year ? ' on' : '' ?>" href="<?= h($q(['y' => $y])) ?>"><?= $y ?></a><?php endforeach; ?>
+    <div class="dyears">
+      <a class="<?= $year ? '' : 'on' ?>" href="<?= h($q(['y' => ''])) ?>">모든 해</a>
+      <?php foreach ($years as $y): ?><a class="<?= $y === $year ? 'on' : '' ?>" href="<?= h($q(['y' => $y])) ?>"><?= $y ?></a><?php endforeach; ?>
     </div>
   <?php endif; ?>
   <?php if ($entries): ?>
-    <div class="dstats">
-      <div><b><?= count($entries) ?></b><span>편 일기</span></div>
-      <?php if ($cat === 'daily'): ?>
-        <div><b><?= count(array_unique(array_column($entries, 'day'))) ?></b><span>일 기록</span></div>
-      <?php else: ?>
-        <div><b><?= count($outings) ?></b><span>번 나들이 · <?= $places ?>곳</span></div>
-      <?php endif; ?>
-      <div><b><?= $photoCount ?></b><span>장 사진</span></div>
-    </div>
-    <?php if ($best): ?><p class="small muted" style="margin:8px 0 0">🏆 최고 나들이: <a href="diary_view.php?id=<?= (int) $best['id'] ?>"><?= h($best['place_name'] ?: $best['title']) ?></a> <span style="color:#f59e0b"><?= stars_text($best['avg']) ?></span></p><?php endif; ?>
+    <p class="dsum"><?= count($entries) ?>편<?php if ($cat === 'daily'): ?> · <?= count(array_unique(array_column($entries, 'day'))) ?>일 기록<?php elseif ($outings): ?> · 나들이 <?= count($outings) ?>번<?= $places > 1 ? ' (' . $places . '곳)' : '' ?><?php endif; ?> · 사진 <?= $photoCount ?>장<?php if ($best): ?>
+      · 🏆 <a href="diary_view.php?id=<?= (int) $best['id'] ?>"><?= h($best['place_name'] ?: $best['title']) ?></a> <span class="st"><?= stars_text($best['avg']) ?></span><?php endif; ?></p>
   <?php else: ?>
-    <p class="muted" style="margin:12px 0 0"><?php if ($cat === 'outing'): ?>아직 나들이 일기가 없어요. 다녀온 날 사진 몇 장과 별점만 남겨도 좋은 추억이 돼요.<br>
-    남긴 별점은 나들이 추천에도 반영돼요 (좋았던 곳은 다시 추천, 별로였던 곳은 뒤로).<?php else: ?>아직 일기가 없어요. 아이가 처음 해 본 것, 웃겼던 말, 가족끼리 보낸 저녁처럼
-    평범한 하루도 사진 한 장과 한 줄이면 충분해요.<?php endif; ?></p>
+    <p class="dsum"><?= $cat === 'outing' ? '아직 나들이 일기가 없어요. 사진 몇 장과 별점만 남겨도 좋은 추억이 되고, 별점은 나들이 추천에도 반영돼요.' : '아직 일기가 없어요. 사진 한 장과 한 줄이면 충분해요.' ?></p>
   <?php endif; ?>
 </section>
 
