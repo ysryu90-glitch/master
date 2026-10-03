@@ -414,3 +414,12 @@ body.shared .page { padding-top: calc(16px + env(safe-area-inset-top)); padding-
 .dyears a.on { background: var(--accent); color: #fff; }
 .dsum { margin: 8px 2px 0; font-size: 12.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dsum .st { color: #f59e0b; letter-spacing: 0; }
+
+/* 누르는 순간 반응 */
+.btn, .chip, .dtabs a, .dcard, .tabbar a { -webkit-tap-highlight-color: transparent; transition: transform 0.08s, opacity 0.08s, background 0.15s; }
+.btn:active:not(:disabled), .chip:active, .dtabs a:active { transform: scale(0.96); opacity: 0.8; }
+.dcard:active { transform: scale(0.99); opacity: 0.9; }
+.cardmodal .cardhint { margin: 10px 4px 0; }
+.cardmodal .cardmsg { margin: 6px 4px 0; font-weight: 700; }
+.cardmodal .cardmsg:empty { display: none; }
+.cardmodal .acts { margin-top: 12px; }

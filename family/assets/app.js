@@ -49,7 +49,7 @@
       meter.classList.remove('on'); pctEl.textContent = ''; hint.textContent = '';
       box.classList.remove('on', 'slow');
       var text = message || '처리하는 중이에요…';
-      timers.push(setTimeout(function () { showBox(text); }, opts.delay == null ? 500 : opts.delay));
+      timers.push(setTimeout(function () { showBox(text); }, opts.delay == null ? 200 : opts.delay));
       timers.push(setTimeout(function () { hint.textContent = '조금 오래 걸리고 있어요. 그대로 기다려 주세요.'; }, 8000));
       timers.push(setTimeout(function () {
         box.classList.add('slow');
@@ -123,8 +123,11 @@
     try { url = new URL(a.href, location.href); } catch (err) { return; }
     if (url.origin !== location.origin || !/^https?:$/.test(url.protocol)) return;
     if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
-    Busy.start(a.getAttribute('data-busy') || PAGE_MSG[pageOf(url)] || '불러오는 중이에요…', { delay: 700 });
+    Busy.start(a.getAttribute('data-busy') || PAGE_MSG[pageOf(url)] || '불러오는 중이에요…', { delay: 400 });
   });
+
+  // 아이폰에서 누르는 순간 버튼이 눌린 모양이 보이게 (:active 켜기)
+  document.addEventListener('touchstart', function () {}, { passive: true });
 
   // 뒤로 가기로 돌아왔을 때 (사파리가 예전 화면을 그대로 보여 줄 때) 원래대로
   window.addEventListener('pageshow', function () {
