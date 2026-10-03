@@ -65,6 +65,9 @@ foreach (members('child') as $k) {
     if ($logs) $sickKids[] = [$k, last_temp($logs), fever_next($logs)];
 }
 
+// 다녀온 나들이 중 아직 일기가 없는 것
+$pendingDiary = array_values(array_filter(array_map(fn($pl) => ($pp = place($pl['place_id'])) ? $pl + ['name' => $pp['name']] : null, diary_pending_plans())));
+
 // 이번 주말 나들이 미리보기 (목~일, 다가오는 첫 쉬는 날 기준)
 $outing = null;
 if ((int) date('N') >= 4) {
@@ -206,6 +209,13 @@ page_start('오늘', 'today');
   <div class="macro"><span>단백질</span><div class="meter blue"><i style="width:<?= min(100, $food['protein'] / max(1, $me['protein_target']) * 100) ?>%"></i></div><span class="n"><?= num($food['protein']) ?> / <?= num($me['protein_target']) ?>g</span></div>
   <p class="small muted" style="margin-top:8px"><?= (int) $food['meals'] ?>끼 기록</p>
 </section>
+
+<?php if ($pendingDiary): $pl = $pendingDiary[0]; ?>
+<a class="card memory" href="diary_edit.php?place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">
+  <span style="font-size:30px">📔</span>
+  <span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pl['name']) ?></b> 잘 다녀오셨어요?<div class="small muted">사진 · 별점 남기고 나들이 일기 쓰기 ›</div></span>
+</a>
+<?php endif; ?>
 
 <?php if ($outing && $outing['picks']): $wd = ['일', '월', '화', '수', '목', '금', '토']; ?>
 <section class="card">

@@ -68,7 +68,13 @@ foreach (members('child') as $kid) {
     ];
 }
 
+// 📔 나들이 일기 사진 (하루 동안은 같은 순서, 화면에서 1분마다 넘김)
+$memories = array_map(fn($r) => ['photo' => 'diary_photo.php?id=' . $r['id'], 'title' => $r['title'] ?: $r['place_name'], 'day' => $r['day']],
+    db()->query('SELECT p.id, e.title, e.place_name, e.day FROM diary_photos p JOIN diary_entries e ON e.id = p.entry_id
+        ORDER BY RAND(' . crc32($today) . ') LIMIT 24')->fetchAll());
+
 $data = [
+    'memories' => $memories,
     'sick' => $sick,
     'dinnerTime' => dinner_time(),
     'events' => $events,

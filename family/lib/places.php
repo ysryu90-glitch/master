@@ -1,6 +1,7 @@
 <?php
 // 주말 나들이 후보 (5살 아이와 가기 좋은 곳). min = 은평구 집에서 차로 대략 몇 분, pmin = 평택 부모님 댁에서.
 // type: out 야외 · in 실내 · mix 실내외. best = 특히 좋은 달. 운영 시간 · 예약은 가기 전에 꼭 확인.
+require_once __DIR__ . '/diary.php';
 
 const PLACES = [
     ['id' => 'seodaemun_nhm', 'name' => '서대문자연사박물관', 'min' => 15, 'type' => 'in', 'tags' => ['공룡', '박물관'], 'best' => [],
@@ -216,6 +217,14 @@ function score_place(array $p, array $ctx): array
     // 최근 다녀온 곳 · 찜
     if (isset($ctx['recent'][$p['id']])) { $score -= 3; $minus[] = $ctx['recent'][$p['id']] . '일 전에 다녀옴'; }
     if (in_array($p['id'], $ctx['liked'], true)) { $score += 1; $why[] = '❤️ 찜한 곳'; }
+
+    // 나들이 일기 별점 (한 달 넘게 지난 곳만 다시 추천)
+    $pr = place_ratings()[$p['id']] ?? null;
+    if ($pr && !isset($ctx['recent'][$p['id']])) {
+        [$avg, , $again] = $pr;
+        if ($again > 0 || ($avg !== null && $avg >= 4.5)) { $score += 1; $why[] = '📔 지난번에 다들 좋아했어요'; }
+        elseif ($avg !== null && $avg <= 2) { $score -= 2; $minus[] = '📔 지난번 별점이 낮았어요'; }
+    }
 
     return ['score' => $score, 'why' => array_values(array_unique($why)), 'minus' => $minus, 'minutes' => $minutes];
 }

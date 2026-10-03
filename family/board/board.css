@@ -175,3 +175,9 @@ html, body {
   .grid { grid-template-columns: 1fr; }
   .people { flex-wrap: wrap; }
 }
+
+/* 📔 나들이 일기 사진 */
+.memory-card { position: relative; padding: 0 !important; overflow: hidden; height: 24vmin; flex: none !important; }
+.memory-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.memory-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 3vmin 1.6vmin 1.2vmin; font-size: 1.8vmin; font-weight: 700; color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

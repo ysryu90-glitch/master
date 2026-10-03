@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -320,6 +320,40 @@ function migrate(PDO $pdo): void
             active TINYINT NOT NULL DEFAULT 1,
             created_by INT NULL,
             created_at DATETIME NOT NULL
+        )",
+        // 나들이 일기: 다녀온 날의 글 · 가족별 별점 · 사진
+        "CREATE TABLE IF NOT EXISTS diary_entries (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            day DATE NOT NULL,
+            place_id VARCHAR(60) NULL,
+            place_name VARCHAR(100) NOT NULL DEFAULT '',
+            title VARCHAR(100) NOT NULL DEFAULT '',
+            body TEXT NULL,
+            kid_said VARCHAR(300) NOT NULL DEFAULT '',
+            weather VARCHAR(60) NOT NULL DEFAULT '',
+            again TINYINT NOT NULL DEFAULT 0,
+            visit_log_id INT NULL,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            KEY day (day),
+            KEY place (place_id)
+        )",
+        "CREATE TABLE IF NOT EXISTS diary_ratings (
+            entry_id INT NOT NULL,
+            member_id INT NOT NULL,
+            stars TINYINT NOT NULL,
+            PRIMARY KEY (entry_id, member_id)
+        )",
+        "CREATE TABLE IF NOT EXISTS diary_photos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            entry_id INT NOT NULL,
+            sort INT NOT NULL DEFAULT 0,
+            photo MEDIUMBLOB NOT NULL,
+            thumb MEDIUMBLOB NOT NULL,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL,
+            KEY entry (entry_id, sort)
         )",
     ];
     foreach ($tables as $sql) {

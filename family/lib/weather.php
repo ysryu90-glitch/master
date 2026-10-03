@@ -32,7 +32,7 @@ function daily_forecast(float $lat, float $lon): array
     if (is_array($cached) && ($cached['at'] ?? 0) > time() - 3600) return $cached['days'];
 
     $q = "latitude=$lat&longitude=$lon&timezone=Asia%2FSeoul";
-    $f = http_json("https://api.open-meteo.com/v1/forecast?$q&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=10");
+    $f = http_json("https://api.open-meteo.com/v1/forecast?$q&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=10&past_days=7");
     if (!$f) {
         // 실패하면 10분 뒤에 다시 시도 (그동안 페이지가 매번 기다리지 않게)
         $old = is_array($cached) ? ($cached['days'] ?? []) : [];

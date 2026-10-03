@@ -131,9 +131,26 @@
     renderDinner(now);
     renderWeather();
     renderShopping();
+    renderMemory(true);
     renderPeople();
     renderStatus();
     renderNight(now);
+  }
+
+  // 📔 나들이 일기 사진: 1분마다 다음 사진
+  var memIdx = 0;
+  function renderMemory(reset) {
+    var list = (state.data && state.data.memories) || [];
+    var card = $('memory-card');
+    if (!list.length) { card.className = 'card memory-card hidden'; return; }
+    if (reset) memIdx = memIdx % list.length; else memIdx = (memIdx + 1) % list.length;
+    var m = list[memIdx];
+    var img = $('memory-img');
+    var src = '../' + m.photo;
+    if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+    var d = m.day.split('-');
+    $('memory-cap').textContent = '📔 ' + (+d[0] !== new Date().getFullYear() ? d[0] + '.' : '') + (+d[1]) + '.' + (+d[2]) + ' ' + m.title;
+    card.className = 'card memory-card';
   }
 
   function renderClock(now) {
@@ -361,6 +378,7 @@
     if (isNight(now)) $('night-clock').textContent = hhmm(now);
     if (now.getMinutes() !== state.lastMinute) {
       state.lastMinute = now.getMinutes();
+      memIdx++;
       if (state.data) render(); else renderClock(now);
     }
     if (now.getHours() === 4 && now.getMinutes() === 0 && now.getSeconds() < 2) window.location.reload();

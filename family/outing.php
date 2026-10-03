@@ -126,7 +126,10 @@ foreach (db()->query("SELECT place_id, MAX(day) d FROM outing_logs WHERE kind = 
 }
 $liked = db()->query("SELECT place_id FROM outing_logs WHERE kind = 'like'")->fetchAll(PDO::FETCH_COLUMN);
 $plans = db()->query("SELECT * FROM outing_logs WHERE kind = 'plan' AND day >= CURDATE() ORDER BY day")->fetchAll();
-$visits = db()->query("SELECT * FROM outing_logs WHERE kind = 'visit' ORDER BY day DESC, id DESC LIMIT 8")->fetchAll();
+// 일기로 쓰지 않은 예전 '다녀옴' 기록과 최근 일기
+$visits = db()->query("SELECT l.* FROM outing_logs l WHERE l.kind = 'visit' AND NOT EXISTS (SELECT 1 FROM diary_entries d WHERE d.visit_log_id = l.id) ORDER BY l.day DESC, l.id DESC LIMIT 5")->fetchAll();
+$recentDiary = diary_entries(null, 8);
+$pendingDiary = diary_pending_plans();
 
 // 부모님 댁 마지막 방문 (기록 + 지난 캘린더에서 '평택 · 부모님' 일정)
 $parentsLast = (string) setting('parents_last_visit', '');
@@ -178,6 +181,14 @@ page_start('주말 나들이', 'family');
     <p class="small muted" style="margin-top:6px">👵 부모님 댁 마지막 방문: <?= $parentsGap ?>일 전</p>
   <?php endif; ?>
 </section>
+
+<?php foreach ($pendingDiary as $pl): $pp = place($pl['place_id']); if (!$pp) continue; ?>
+<section class="card" style="display:flex;gap:12px;align-items:center">
+  <span style="font-size:28px">📔</span>
+  <span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pp['name']) ?></b><div class="small muted">잘 다녀오셨어요? 사진과 별점을 남겨 주세요.</div></span>
+  <a class="btn small primary" href="diary_edit.php?place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">일기 쓰기</a>
+</section>
+<?php endforeach; ?>
 
 <?php if ($plans): ?>
 <section class="card">
@@ -297,33 +308,42 @@ page_start('주말 나들이', 'family');
 </section>
 
 <section class="card">
-  <h2>✅ 다녀온 곳 기록</h2>
-  <form method="post" class="form">
-    <?= csrf_field() ?><input type="hidden" name="action" value="visit">
+  <h2>📔 다녀왔어요 · 나들이 일기</h2>
+  <form method="get" action="diary_edit.php" class="form">
     <label>장소<select name="place">
       <?php foreach ($customs as $c): ?><option value="c<?= (int) $c['id'] ?>">⭐ <?= h($c['name']) ?></option><?php endforeach; ?>
       <?php foreach ($events as $e): ?><option value="<?= h($e['id']) ?>">🎉 <?= h($e['title']) ?></option><?php endforeach; ?>
       <?php foreach (PLACES as $p): ?><option value="<?= h($p['id']) ?>"><?= h($p['name']) ?></option><?php endforeach; ?>
+      <option value="_">✏️ 목록에 없는 곳 (직접 적기)</option>
     </select></label>
-    <div class="grid2">
-      <label>날짜<input type="date" name="day" value="<?= today() ?>" max="<?= today() ?>"></label>
-      <label>별점<select name="rating"><?php for ($i = 5; $i >= 1; $i--): ?><option value="<?= $i ?>"><?= str_repeat('⭐', $i) ?></option><?php endfor; ?></select></label>
-    </div>
-    <label>메모<input name="memo" placeholder="예: 딸이 공룡 보고 엄청 좋아함, 주차 30분 대기"></label>
-    <button class="btn primary">기록</button>
+    <label>날짜<input type="date" name="day" value="<?= today() ?>" max="<?= today() ?>"></label>
+    <button class="btn primary">📸 사진 · 별점 남기기</button>
   </form>
+  <p class="small muted" style="margin:0 0 8px">남긴 별점은 추천에 반영돼요. 다 같이 좋아한 곳은 한 달 뒤 다시 추천하고, 별로였던 곳은 뒤로 보내요.</p>
   <form method="post" class="form inline" style="margin-top:12px">
     <?= csrf_field() ?><input type="hidden" name="action" value="parents">
     <label>👵 부모님 댁 다녀온 날<input type="date" name="day" value="<?= today() ?>" max="<?= today() ?>"></label>
     <button class="btn">기록</button>
   </form>
+  <?php if ($recentDiary): ?>
+    <div class="dphotos" style="margin-top:12px">
+      <?php foreach ($recentDiary as $de): ?>
+        <a class="dph" href="diary_view.php?id=<?= (int) $de['id'] ?>" title="<?= h($de['place_name'] ?: $de['title']) ?>">
+          <?php if ($de['cover']): ?><img src="diary_photo.php?id=<?= $de['cover'] ?>&t=1" alt="" loading="lazy"><?php else: ?><span style="display:flex;height:100%;align-items:center;justify-content:center;font-size:30px">🧺</span><?php endif; ?>
+          <span class="rm" style="pointer-events:none"><span><?= date('n/j', strtotime($de['day'])) ?></span></span>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
   <?php if ($visits): ?>
     <ul class="list" style="margin-top:8px">
       <?php foreach ($visits as $v): $vp = place($v['place_id']); ?>
-        <li><span class="time"><?= date('n/j', strtotime($v['day'])) ?></span><span class="grow"><span class="title"><?= h($vp['name'] ?? $v['place_id']) ?> <?= $v['rating'] ? str_repeat('⭐', (int) $v['rating']) : '' ?></span><?= $v['memo'] ? '<div class="sub">' . h($v['memo']) . '</div>' : '' ?></span></li>
+        <li><span class="time"><?= date('n/j', strtotime($v['day'])) ?></span><span class="grow"><span class="title"><?= h($vp['name'] ?? $v['place_id']) ?> <?= $v['rating'] ? str_repeat('⭐', (int) $v['rating']) : '' ?></span><?= $v['memo'] ? '<div class="sub">' . h($v['memo']) . '</div>' : '' ?></span>
+          <a class="btn small" href="diary_edit.php?place=<?= rawurlencode($v['place_id']) ?>&day=<?= h($v['day']) ?>">📔 일기로</a></li>
       <?php endforeach; ?>
     </ul>
   <?php endif; ?>
+  <p style="margin:12px 0 0"><a class="btn small" href="diary.php">📔 나들이 일기 전체 보기 ›</a></p>
 </section>
 
 <p class="small muted">날씨 · 미세먼지는 은평구(부모님 댁 가는 날은 평택) 예보 기준이에요. 이동 시간은 차로 대략적인 값이고, 운영 시간과 예약은 가기 전에 꼭 확인해 주세요.</p>
