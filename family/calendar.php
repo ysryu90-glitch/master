@@ -56,7 +56,7 @@ page_start('가족 일정', 'calendar');
   <section class="card">
     <details>
       <summary style="font-weight:700">+ 일정 추가</summary>
-      <form method="post" class="form" style="margin-top:12px">
+      <form data-busy="아이클라우드 캘린더에 일정을 넣는 중이에요…" method="post" class="form" style="margin-top:12px">
         <?= csrf_field() ?><input type="hidden" name="action" value="add">
         <label>제목<input name="title" required placeholder="예: 딸 유치원 상담"></label>
         <label>캘린더<select name="calendar"><?php foreach ($calendars as $c): ?><option><?= h($c['name']) ?></option><?php endforeach; ?></select></label>
@@ -88,7 +88,7 @@ page_start('가족 일정', 'calendar');
     </section>
   <?php endforeach; ?>
 
-  <form method="post" style="text-align:center">
+  <form data-busy="아이클라우드 캘린더를 새로 불러오는 중이에요…" method="post" style="text-align:center">
     <?= csrf_field() ?><input type="hidden" name="action" value="sync">
     <button class="btn small">↻ 지금 새로 받기</button>
     <p class="small muted" style="margin-top:6px">마지막으로 받은 시각: <?= h((string) setting('calendar_synced_at', '-')) ?> · 10분마다 자동으로 받아요</p>

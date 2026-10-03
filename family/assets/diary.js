@@ -57,6 +57,8 @@
     this.value = '';
     for (var i = 0; i < files.length; i++) {
       statusEl.textContent = '사진 준비 중 ' + (i + 1) + '/' + files.length + '…';
+      B().set(100 * i / files.length, '사진 준비 중 ' + (i + 1) + '/' + files.length);
+      await new Promise(function (r) { setTimeout(r, 30); }); // 화면이 진행률을 그릴 틈
       try {
         var img = await loadImage(files[i]);
         var item = { photo: shrink(img, 1600, 0.82), thumb: shrink(img, 480, 0.75) };
@@ -74,45 +76,65 @@
         statusEl.textContent = e.message;
       }
     }
+    B().done(files.length ? '사진 ' + files.length + '장 준비 완료' : '');
     statusEl.textContent = queue.length ? '새 사진 ' + queue.length + '장은 저장할 때 올라가요.' : '';
   });
 
-  async function send(data) {
-    var res = await fetch(form.action, {
-      method: 'POST', body: data, credentials: 'same-origin',
-      headers: { 'X-Requested-With': 'fetch', 'X-CSRF': form.dataset.csrf },
+  // XHR 로 보내야 올라가는 양(%)을 알 수 있다
+  function send(data, onProgress) {
+    return new Promise(function (resolve) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', form.action);
+      xhr.setRequestHeader('X-Requested-With', 'fetch');
+      xhr.setRequestHeader('X-CSRF', form.dataset.csrf);
+      xhr.timeout = 120000;
+      if (onProgress && xhr.upload) xhr.upload.onprogress = function (e) { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+      xhr.onload = function () {
+        try { resolve(JSON.parse(xhr.responseText)); } catch (e) { resolve({ ok: false, error: '서버 응답을 읽지 못했어요 (' + xhr.status + ')' }); }
+      };
+      xhr.onerror = function () { resolve({ ok: false, error: '인터넷 연결이 끊겼어요. 다시 저장을 눌러 주세요.' }); };
+      xhr.ontimeout = function () { resolve({ ok: false, error: '응답이 너무 늦어요. 다시 저장을 눌러 주세요.' }); };
+      xhr.send(data);
     });
-    var text = await res.text();
-    try { return JSON.parse(text); } catch (e) { return { ok: false, error: '서버 응답을 읽지 못했어요 (' + res.status + ')' }; }
   }
+  var B = function () { return window.Busy || { start: function () {}, set: function () {}, message: function () {}, done: function () {} }; };
 
   form.addEventListener('submit', async function (ev) {
     ev.preventDefault();
     saveBtn.disabled = true;
+    saveBtn.classList.add('loading');
+    var total = queue.reduce(function (n, q) { return n + q.photo.length + q.thumb.length; }, 0);
+    var sent = 0;
+    function progress(part, label) { B().set(total ? 4 + 95 * (sent + part) / total : 50, label); }
     statusEl.textContent = '저장 중…';
+    B().start('일기를 저장하는 중이에요…', { delay: 0, timeout: 120000 });
     try {
       var r = await send(new FormData(form));
       if (!r.ok) throw new Error(r.error || '저장하지 못했어요');
       var id = r.id, failed = 0;
       form.querySelector('[name=id]').value = id;
+      if (queue.length) progress(0, '사진 올리는 중 1/' + queue.length);
       for (var i = 0; i < queue.length; i++) {
-        statusEl.textContent = '사진 올리는 중 ' + (i + 1) + '/' + queue.length + '…';
+        var label = '사진 올리는 중 ' + (i + 1) + '/' + queue.length;
+        statusEl.textContent = label + '…';
+        var size = queue[i].photo.length + queue[i].thumb.length;
         var fd = new FormData();
         fd.append('action', 'photo'); fd.append('id', id); fd.append('csrf', form.dataset.csrf);
         fd.append('photo', queue[i].photo); fd.append('thumb', queue[i].thumb);
-        var p = await send(fd);
+        var p = await send(fd, function (f) { progress(size * f, label); });
+        sent += size;
+        progress(0, label);
         if (p.ok) queue[i].done = true; else { failed++; statusEl.textContent = p.error; }
       }
       queue = queue.filter(function (q) { if (q.done) q.el.remove(); return !q.done; });
-      if (failed) {
-        statusEl.textContent = '일기는 저장했지만 사진 ' + failed + '장을 못 올렸어요. 저장을 한 번 더 눌러 주세요.';
-        saveBtn.disabled = false;
-        return;
-      }
+      if (failed) throw new Error('일기는 저장했지만 사진 ' + failed + '장을 못 올렸어요. 저장을 한 번 더 눌러 주세요.');
+      B().set(100, '저장했어요! 일기로 이동해요…');
       location.href = 'diary_view.php?id=' + id;
     } catch (e) {
       statusEl.textContent = e.message;
+      B().done('⚠️ ' + e.message, true);
       saveBtn.disabled = false;
+      saveBtn.classList.remove('loading');
     }
   });
 })();

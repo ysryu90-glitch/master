@@ -221,14 +221,14 @@ page_start('설정');
 <section class="card" id="calendar">
   <h2>📅 iCloud 캘린더</h2>
   <p class="small muted">appleid.apple.com › 로그인 및 보안 › 앱 전용 암호에서 만든 암호를 넣어 주세요. Apple ID 원래 비밀번호는 쓰지 않아요.</p>
-  <form method="post" class="form">
+  <form data-busy="아이클라우드에 연결하고 캘린더를 찾는 중이에요…" method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="icloud">
     <label>Apple ID (이메일)<input name="icloud_user" type="email" value="<?= h((string) setting('icloud_user', '')) ?>" autocomplete="off"></label>
     <label>앱 전용 암호 <?= setting('icloud_password') ? '(저장됨 · 바꿀 때만 입력)' : '' ?><input name="icloud_password" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off"></label>
     <button class="btn primary">연결 · 캘린더 찾기</button>
   </form>
   <?php if ($calendars): ?>
-    <form method="post" class="form" style="margin-top:14px">
+    <form data-busy="고른 캘린더를 저장하고 일정을 불러오는 중이에요…" method="post" class="form" style="margin-top:14px">
       <?= csrf_field() ?><input type="hidden" name="action" value="calendars">
       <h3>보여줄 캘린더 (아무것도 안 고르면 전부)</h3>
       <?php foreach ($calendars as $c): ?>
@@ -259,7 +259,7 @@ page_start('설정');
 <section class="card" id="discover">
   <h2>🧺 나들이 데이터</h2>
   <p class="small muted">축제 · 행사와 새로 생긴 곳을 매일 새벽에 받아와 주말 나들이 추천에 넣어요. 둘 다 무료 인증키예요.</p>
-  <form method="post" class="form">
+  <form data-busy="키를 저장하고 축제 · 행사 정보를 받아오는 중이에요 (최대 30초)…" method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="discover_keys">
     <label>한국관광공사 TourAPI 인증키 (공공데이터포털 · Decoding 키) <?= setting('tourapi_key') ? '✓ 저장됨' : '' ?>
       <input name="tourapi_key" type="password" autocomplete="off" placeholder="<?= setting('tourapi_key') ? '바꿀 때만 입력' : '' ?>"></label>

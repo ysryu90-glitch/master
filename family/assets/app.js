@@ -11,6 +11,128 @@
   }
   function round(v, d) { var p = Math.pow(10, d || 0); return Math.round((+v || 0) * p) / p; }
 
+  // ───────── 진행 표시: 위쪽 막대 + 안내 상자 + 누른 버튼 돌기 ─────────
+  // 홈 화면 앱(아이폰)에는 브라우저 로딩 표시가 없어서, 누르면 바로 '진행 중'이 보이게 한다.
+  var Busy = window.Busy = (function () {
+    var bar = document.createElement('div');
+    bar.id = 'busy-bar';
+    bar.innerHTML = '<i></i>';
+    var box = document.createElement('div');
+    box.id = 'busy-box';
+    box.setAttribute('role', 'status');
+    box.setAttribute('aria-live', 'polite');
+    box.innerHTML = '<div class="row"><span class="spin"></span><span class="msg"></span><span class="pct"></span></div>'
+      + '<div class="meter"><i></i></div><div class="hint"></div>';
+    document.body.appendChild(bar);
+    document.body.appendChild(box);
+    var fill = bar.firstChild, msgEl = box.querySelector('.msg'), pctEl = box.querySelector('.pct'),
+      meter = box.querySelector('.meter'), meterFill = meter.firstChild, hint = box.querySelector('.hint');
+    var pct = 0, trickle = null, timers = [], active = false, determinate = false, hideTimer = null;
+
+    function clearTimers() { timers.forEach(clearTimeout); timers = []; clearInterval(trickle); trickle = null; }
+    function width(p) { pct = Math.max(pct, Math.min(p, 99.5)); fill.style.width = pct + '%'; }
+    function showBox(message) {
+      msgEl.textContent = message;
+      box.classList.add('on');
+    }
+    function start(message, opts) {
+      opts = opts || {};
+      clearTimers(); clearTimeout(hideTimer);
+      active = true; determinate = false; pct = 0;
+      bar.className = 'on';
+      fill.style.transition = 'none'; fill.style.width = '0%';
+      void fill.offsetWidth;
+      fill.style.transition = '';
+      width(8);
+      // 정해진 진행률을 모를 때는 천천히 차오르게 (90%에서 멈춤)
+      trickle = setInterval(function () { if (!determinate) width(pct + (90 - pct) * 0.06); }, 250);
+      meter.classList.remove('on'); pctEl.textContent = ''; hint.textContent = '';
+      box.classList.remove('on', 'slow');
+      var text = message || '처리하는 중이에요…';
+      timers.push(setTimeout(function () { showBox(text); }, opts.delay == null ? 500 : opts.delay));
+      timers.push(setTimeout(function () { hint.textContent = '조금 오래 걸리고 있어요. 그대로 기다려 주세요.'; }, 8000));
+      timers.push(setTimeout(function () {
+        box.classList.add('slow');
+        hint.innerHTML = '응답이 너무 늦어요. 인터넷 연결을 확인하고 <button type="button" class="btn small">새로고침</button> 해 주세요.';
+        hint.querySelector('button').onclick = function () { location.reload(); };
+      }, opts.timeout || 45000));
+    }
+    function set(p, message) {
+      if (!active) start(message, { delay: 0 });
+      determinate = true;
+      p = Math.max(0, Math.min(100, p));
+      fill.style.width = p + '%'; pct = p;
+      meter.classList.add('on'); meterFill.style.width = p + '%';
+      pctEl.textContent = Math.round(p) + '%';
+      if (message) showBox(message);
+    }
+    function message(text) { if (active) showBox(text); }
+    function done(finalMessage, isError) {
+      clearTimers();
+      active = false;
+      fill.style.width = '100%';
+      hideTimer = setTimeout(function () { bar.className = ''; fill.style.width = '0%'; pct = 0; }, 350);
+      if (finalMessage) {
+        msgEl.textContent = finalMessage; pctEl.textContent = ''; hint.textContent = '';
+        meter.classList.remove('on');
+        box.classList.add('on', 'end'); box.classList.toggle('err', !!isError);
+        setTimeout(function () { box.classList.remove('on', 'end', 'err'); }, isError ? 5000 : 2200);
+      } else {
+        box.classList.remove('on', 'slow');
+      }
+      $all('.btn.loading').forEach(function (b) { b.classList.remove('loading'); b.disabled = false; });
+    }
+    /** 버튼을 돌게 하고 promise 가 끝나면 원래대로 */
+    function track(promise, message, button) {
+      if (button) { button.classList.add('loading'); button.disabled = true; }
+      start(message, { delay: 300 });
+      return promise.then(function (v) { done(); return v; }, function (e) { done('⚠️ ' + (e && e.message || e), true); throw e; });
+    }
+    return { start: start, set: set, message: message, done: done, track: track };
+  })();
+
+  // 페이지마다 오래 걸리는 화면 안내
+  var PAGE_MSG = {
+    'outing.php': '날씨 · 일정 · 축제를 살펴서 나들이 추천을 만드는 중이에요…',
+    'index.php': '오늘 화면을 불러오는 중이에요…',
+    'calendar.php': '일정을 불러오는 중이에요…',
+    'report.php': '이번 주 리포트를 만드는 중이에요…'
+  };
+  function pageOf(url) { var m = /([a-z_]+\.php)/.exec(url.pathname); return m ? m[1] : (/\/$/.test(url.pathname) ? 'index.php' : ''); }
+
+  // 폼 보내기: 다른 스크립트가 막지 않았으면 진행 표시 + 두 번 누름 방지
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (e.defaultPrevented || form.hasAttribute('data-no-busy')) return;
+    if (form.getAttribute('data-sending') === '1') { e.preventDefault(); return; }
+    form.setAttribute('data-sending', '1');
+    var btn = e.submitter || form.querySelector('button:not([type=button]), input[type=submit]');
+    if (btn && btn.classList) btn.classList.add('loading');
+    setTimeout(function () { if (btn) btn.disabled = true; }, 0); // 값이 먼저 실려 가도록 한 박자 뒤에
+    var msg = (btn && btn.getAttribute && btn.getAttribute('data-busy')) || form.getAttribute('data-busy');
+    if (!msg && (form.method || '').toLowerCase() === 'get') msg = PAGE_MSG[pageOf(new URL(form.action, location.href))];
+    Busy.start(msg || '저장하는 중이에요…');
+  });
+
+  // 같은 사이트 안의 링크 이동
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.target === '_blank' || a.hasAttribute('download') || a.hasAttribute('data-no-busy')) return;
+    var url;
+    try { url = new URL(a.href, location.href); } catch (err) { return; }
+    if (url.origin !== location.origin || !/^https?:$/.test(url.protocol)) return;
+    if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+    Busy.start(a.getAttribute('data-busy') || PAGE_MSG[pageOf(url)] || '불러오는 중이에요…', { delay: 700 });
+  });
+
+  // 뒤로 가기로 돌아왔을 때 (사파리가 예전 화면을 그대로 보여 줄 때) 원래대로
+  window.addEventListener('pageshow', function () {
+    Busy.done();
+    $all('form[data-sending]').forEach(function (f) { f.removeAttribute('data-sending'); });
+    $all('.btn.loading, button.loading').forEach(function (b) { b.classList.remove('loading'); b.disabled = false; });
+  });
+
   // ───────── 삭제 등 확인 ─────────
   $all('form[data-confirm]').forEach(function (form) {
     form.addEventListener('submit', function (e) {
@@ -170,8 +292,9 @@
     }).catch(function (e) { say('알림 준비 실패: ' + e.message); });
 
     $('#push-on', box).addEventListener('click', function () {
+      var btn = this;
       say('알림 허용을 요청하는 중…');
-      Notification.requestPermission().then(function (perm) {
+      Busy.track(Notification.requestPermission().then(function (perm) {
         if (perm !== 'granted') throw new Error('알림이 허용되지 않았어요. 설정 앱 › 알림에서 허용해 주세요.');
         return Promise.all([navigator.serviceWorker.ready, api({ action: 'key' })]);
       }).then(function (r) {
@@ -181,13 +304,14 @@
       }).then(function (res) {
         if (!res.ok) throw new Error(res.error);
         say('✅ 알림을 켰어요. 테스트 알림을 보내 보세요.');
-      }).catch(function (e) { say('⚠️ ' + e.message); });
+      }), '이 기기를 알림 받을 곳으로 등록하는 중이에요…', btn).catch(function (e) { say('⚠️ ' + e.message); });
     });
 
     $('#push-test', box).addEventListener('click', function () {
-      api({ action: 'test' }).then(function (res) {
+      say('테스트 알림을 보내는 중…');
+      Busy.track(api({ action: 'test' }), '테스트 알림을 보내는 중이에요…', this).then(function (res) {
         say(res.ok ? '🔔 테스트 알림을 보냈어요. 잠시 후 도착해요.' : '⚠️ ' + res.error);
-      });
+      }, function (e) { say('⚠️ 보내지 못했어요: ' + e.message); });
     });
   }
 

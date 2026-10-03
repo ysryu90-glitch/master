@@ -239,7 +239,7 @@ page_start('주말 나들이', 'family');
         <a class="btn small" href="https://map.naver.com/p/search/<?= rawurlencode($p['name']) ?>" target="_blank" rel="noopener">🗺 지도</a>
         <?php if (!empty($p['url'])): ?><a class="btn small" href="<?= h($p['url']) ?>" target="_blank" rel="noopener">ℹ️ 안내</a><?php endif; ?>
         <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="like"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small"><?= in_array($p['id'], $liked, true) ? '❤️ 찜됨' : '🤍 찜' ?></button></form>
-        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small primary">📌 이 날 가요</button></form>
+        <form data-busy="나들이로 정하고 가족 캘린더에 넣는 중이에요…" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small primary">📌 이 날 가요</button></form>
       </div>
     </div>
   <?php endforeach; ?>
@@ -248,7 +248,7 @@ page_start('주말 나들이', 'family');
   <?php endif; ?>
   <?php if ($nearTrip): ?>
     <div class="planb">🚗 서울 근교로 간다면: <b><?= h($nearTrip['name']) ?></b> (<?= $typeLabel[$nearTrip['type']] ?> · 약 <?= (int) $nearTrip['minutes'] ?>분) — <?= h($nearTrip['note']) ?>
-      <form method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($nearTrip['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small">📌 이 날 가요</button></form></div>
+      <form data-busy="나들이로 정하고 가족 캘린더에 넣는 중이에요…" method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($nearTrip['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small">📌 이 날 가요</button></form></div>
   <?php endif; ?>
   <div style="margin-top:10px">
     <?php if ($ctx['parentsDay'] && $ptDay === $d): ?>
@@ -263,7 +263,7 @@ page_start('주말 나들이', 'family');
 <?php $events = upcoming_events($home); $dstatus = setting('discover_status'); ?>
 <section class="card">
   <div class="card-head"><h2>🎉 3주 안 축제 · 행사</h2>
-    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="discover"><button class="btn small">↻ 새로 받기</button></form></div>
+    <form data-busy="축제 · 행사 · 새 장소를 받아오는 중이에요 (최대 30초)…" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="discover"><button class="btn small">↻ 새로 받기</button></form></div>
   <?php if (!setting('tourapi_key') && !setting('seoul_key')): ?>
     <p class="small muted">설정 › 🧺 나들이 데이터에 관광공사 · 서울시 인증키를 넣으면 축제 · 행사와 새로 생긴 곳을 매일 받아와 추천에 넣어요.</p>
   <?php elseif (!$events): ?>
