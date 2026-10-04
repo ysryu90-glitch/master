@@ -106,7 +106,7 @@ $challenges = db()->query("SELECT food, COUNT(*) tries, SUM(reaction = 'good') g
 $together = (int) db()->query("SELECT COUNT(*) FROM dinner_outcomes WHERE together = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
 $shopping = db()->query('SELECT * FROM shopping ORDER BY done, id DESC')->fetchAll();
 
-page_start('가족 식탁', 'table');
+page_start('오늘 저녁 · 식탁', 'table');
 ?>
 <div class="week" style="margin-bottom:14px">
   <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("$weekStart +$i day")); $p = $plans[$d] ?? null; ?>
@@ -153,12 +153,18 @@ page_start('가족 식탁', 'table');
   <?php endforeach; ?>
 </section>
 
+<?php
+// 저녁 시간 30분 전부터 (지난 날은 항상) 기록 칸을 펼쳐 둠
+$afterDinner = $day < today() || ($day === today() && time() >= strtotime(today() . ' ' . dinner_time()) - 1800);
+?>
 <section class="card">
   <h2>저녁 어땠어요?</h2>
   <?php if ($outcome): ?>
     <p><b><?= $outcome['place'] === 'out' ? '🍽 외식' : ($outcome['together'] ? '🏠 함께 먹었어요' : '🙅 따로 먹었어요') ?></b> <?= $outcome['dish'] ? '· ' . h($outcome['dish']) : '' ?></p>
     <?php if ($outcome['note']): ?><p class="small muted">📝 <?= h($outcome['note']) ?></p><?php endif; ?>
   <?php endif; ?>
+  <details class="fold"<?= $afterDinner && !$outcome ? ' open' : '' ?>>
+  <summary><?= $outcome ? '✏️ 고치기' : ($afterDinner ? '기록하기' : '저녁 먹고 나서 기록해요 (' . h(dinner_time()) . ')') ?></summary>
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="outcome"><input type="hidden" name="day" value="<?= $day ?>">
     <label>먹은 메뉴<input name="dish" value="<?= h($outcome['dish'] ?? $plan['dish'] ?? '') ?>" placeholder="계획과 다르면 고쳐 주세요"></label>
@@ -170,6 +176,7 @@ page_start('가족 식탁', 'table');
       <button class="btn" name="place" value="apart">따로 먹었어요</button>
     </div>
   </form>
+  </details>
   <p class="small muted">최근 7일 함께한 저녁 <b><?= $together ?>번</b></p>
 </section>
 
@@ -183,6 +190,8 @@ page_start('가족 식탁', 'table');
       <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="kid_delete"><input type="hidden" name="day" value="<?= $day ?>"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>"><button class="btn small danger">삭제</button></form>
     </div>
   <?php endforeach; ?>
+  <details class="fold"<?= $afterDinner ? ' open' : '' ?>>
+  <summary>먹은 음식 반응 남기기</summary>
   <form method="post" class="form" style="margin-top:10px">
     <?= csrf_field() ?><input type="hidden" name="action" value="kid"><input type="hidden" name="day" value="<?= $day ?>"><input type="hidden" name="member" value="<?= (int) $kid['id'] ?>">
     <label>음식<input name="food" value="<?= h($plan ? preg_split('/\s*[·,]\s*/u', $plan['dish'])[0] : '') ?>" placeholder="예: 브로콜리"></label>
@@ -192,6 +201,7 @@ page_start('가족 식탁', 'table');
       <?php foreach (REACTIONS as $key => [$icon, $label]): ?><button class="btn" name="reaction" value="<?= $key ?>"><?= $icon ?> <?= $label ?></button><?php endforeach; ?>
     </div>
   </form>
+  </details>
   <?php if ($favorites): ?><h3 style="margin-top:12px">😋 잘 먹는 음식</h3><div class="chips"><?php foreach ($favorites as $f): ?><span class="chip"><?= h($f['food']) ?> <?= (int) $f['n'] ?></span><?php endforeach; ?></div><?php endif; ?>
   <?php if ($challenges): ?><h3 style="margin-top:12px">💪 도전 중인 음식</h3><div class="chips"><?php foreach ($challenges as $c): ?><span class="chip orange"><?= h($c['food']) ?> <?= (int) $c['tries'] ?>번째<?= $c['good'] ? ' · 성공 ' . (int) $c['good'] : '' ?></span><?php endforeach; ?></div>
     <p class="small muted" style="margin-top:6px">아이들은 새 음식을 8~15번쯤 만나야 익숙해진대요. 조리법을 바꿔 가며 계속 도전해 봐요.</p><?php endif; ?>

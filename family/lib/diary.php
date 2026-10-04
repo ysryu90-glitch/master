@@ -166,12 +166,13 @@ function diary_weather_for(string $day): string
 }
 
 /** 계획했던 나들이 중 날짜가 지났는데 일기가 없는 것 (최근 2주) */
-function diary_pending_plans(): array
+function diary_pending_plans(int $limit = 3): array
 {
-    return db()->query("SELECT l.* FROM outing_logs l
+    // 같은 날 같은 곳을 두 번 눌러 계획이 겹쳐도 한 번만
+    return db()->query("SELECT l.place_id, l.day, MIN(l.id) id FROM outing_logs l
         WHERE l.kind = 'plan' AND l.day < CURDATE() AND l.day >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
           AND NOT EXISTS (SELECT 1 FROM diary_entries e WHERE e.place_id = l.place_id AND e.day = l.day)
-        ORDER BY l.day DESC")->fetchAll();
+        GROUP BY l.place_id, l.day ORDER BY l.day DESC LIMIT " . max(1, $limit))->fetchAll();
 }
 
 // ───────── 공유 링크 ─────────

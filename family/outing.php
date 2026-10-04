@@ -26,7 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
         case 'plan':
-            if ($p) {
+            $dup = db()->prepare("SELECT id FROM outing_logs WHERE kind = 'plan' AND place_id = ? AND day = ?");
+            $dup->execute([$placeId, $day]);
+            if ($p && $dup->fetchColumn()) {
+                flash('이미 ' . date('n/j', strtotime($day)) . ' ' . $p['name'] . '(으)로 정해 뒀어요.');
+            } elseif ($p) {
                 db()->prepare("INSERT INTO outing_logs (place_id, day, kind, created_by, created_at) VALUES (?, ?, 'plan', ?, NOW())")->execute([$placeId, $day, $me['id']]);
                 $msg = date('n/j', strtotime($day)) . ' ' . $p['name'] . '(으)로 정했어요.';
                 if (setting('icloud_user')) {
@@ -44,7 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
         case 'cancel':
-            db()->prepare("DELETE FROM outing_logs WHERE id = ? AND kind = 'plan'")->execute([(int) post('id')]);
+            // 같은 날 같은 곳 계획이 겹쳐 있으면 함께 취소
+            db()->prepare("DELETE l FROM outing_logs l JOIN (SELECT place_id, day FROM outing_logs WHERE id = ? AND kind = 'plan') x
+                ON x.place_id = l.place_id AND x.day = l.day WHERE l.kind = 'plan'")->execute([(int) post('id')]);
             break;
         case 'visit':
             if ($p) {
@@ -125,7 +131,7 @@ foreach (db()->query("SELECT place_id, MAX(day) d FROM outing_logs WHERE kind = 
     $recent[$r['place_id']] = (int) round((strtotime(today()) - strtotime($r['d'])) / 86400);
 }
 $liked = db()->query("SELECT place_id FROM outing_logs WHERE kind = 'like'")->fetchAll(PDO::FETCH_COLUMN);
-$plans = db()->query("SELECT * FROM outing_logs WHERE kind = 'plan' AND day >= CURDATE() ORDER BY day")->fetchAll();
+$plans = db()->query("SELECT MIN(id) id, place_id, day FROM outing_logs WHERE kind = 'plan' AND day >= CURDATE() GROUP BY place_id, day ORDER BY day")->fetchAll();
 // 일기로 쓰지 않은 예전 '다녀옴' 기록과 최근 일기
 $visits = db()->query("SELECT l.* FROM outing_logs l WHERE l.kind = 'visit' AND NOT EXISTS (SELECT 1 FROM diary_entries d WHERE d.visit_log_id = l.id) ORDER BY l.day DESC, l.id DESC LIMIT 5")->fetchAll();
 $recentDiary = diary_entries(null, 8, 'outing');
@@ -149,7 +155,7 @@ $blockLabel = function (array $ds) use ($weekdays): string {
     return $range . (count($ds) >= 3 ? ' · ' . count($ds) . '일 연휴' : '') . ($names ? ' · ' . implode(', ', array_unique($names)) : '');
 };
 
-page_start('주말 나들이', 'family');
+page_start('나들이 추천', 'family');
 ?>
 <style>
   .wxline { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; }

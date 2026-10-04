@@ -65,7 +65,7 @@ $base = "meals.php?m={$who['id']}";
 $carbsTarget = round($who['kcal_target'] * 0.55 / 4);
 $fatTarget = round($who['kcal_target'] * 0.25 / 9);
 
-page_start('식단', 'meals');
+page_start('식단 기록', 'meals');
 ?>
 <div class="segmented">
   <?php foreach ($all as $m): ?>

@@ -91,25 +91,71 @@ if ((int) date('N') >= 4) {
     }
 }
 
-page_start('오늘', 'today');
+page_start('홈', 'home', ['class' => 'home']);
 ?>
 
+<?php
+$h = (int) date('G');
+$greet = $h >= 5 && $h < 11 ? '좋은 아침이에요' : ($h < 17 && $h >= 11 ? '좋은 오후예요' : ($h >= 17 && $h < 22 ? '좋은 저녁이에요' : '편안한 밤 보내세요'));
+$myAtt = $att[(int) $me['id']] ?? null;
+$todoMeds = array_values(array_filter($meds, fn($m) => !$m['taken_at']));
+$doneMeds = count($meds) - count($todoMeds);
+$homeLoc = array_values(array_filter(locations(), fn($l) => $l['role'] === 'home'));
+?>
+<section class="hello">
+  <div class="d"><?= date('n월 j일') ?> <?= ['일', '월', '화', '수', '목', '금', '토'][(int) date('w')] ?>요일<?= isset(HOLIDAYS[$today]) ? ' · ' . h(HOLIDAYS[$today]) : '' ?></div>
+  <h1><?= $greet ?>, <?= h($me['name']) ?>님</h1>
+  <?php if ($homeLoc): ?><div class="wxmini" data-weather='<?= h(json_encode($homeLoc, JSON_UNESCAPED_UNICODE)) ?>' data-compact><span class="muted small">날씨 불러오는 중…</span></div><?php endif; ?>
+</section>
+
 <?php foreach ($stale as [$a, $lastAt]): ?>
-<section class="card" style="border:1.5px solid var(--orange)">
+<section class="card alert">
   <b>⚠️ <?= h($a['name']) ?> 건강 기록이 <?= (int) floor((time() - strtotime($lastAt)) / 86400) ?>일째 안 들어와요</b>
   <p class="small muted" style="margin:4px 0 0">마지막: <?= h(date('n월 j일 H:i', strtotime($lastAt))) ?> · 아이폰 단축어 자동화가 꺼졌는지 확인해 주세요. <a href="shortcut.php">단축어 안내 ›</a></p>
 </section>
 <?php endforeach; ?>
 
 <?php foreach ($sickKids as [$k, $t, $next]): ?>
-<a href="sick.php?m=<?= (int) $k['id'] ?>" style="color:inherit">
-<section class="card" style="background:linear-gradient(135deg,rgba(249,115,22,.14),transparent)">
+<a href="sick.php?m=<?= (int) $k['id'] ?>" class="card sickcard">
   <div class="card-head"><h2>🤒 <?= h($k['name']) ?> 돌보는 중</h2><span class="more">기록 ›</span></div>
   <?php if ($t): ?><p><b style="font-size:22px"><?= number_format((float) $t['temp'], 1) ?>°</b> <span class="small muted"><?= date('H:i', strtotime($t['at'])) ?> 측정</span></p><?php endif; ?>
   <p class="small"><?php foreach ($next as $n): ?><?= h($n['name']) ?> <b><?= $n['at'] <= time() ? '지금 가능' : date('H:i', $n['at']) . '부터' ?></b> &nbsp; <?php endforeach; ?></p>
-</section>
 </a>
 <?php endforeach; ?>
+
+<div class="home-cols">
+
+<section class="card todo" id="meds">
+  <div class="card-head"><h2>✅ 오늘 할 일</h2></div>
+  <?php foreach ($todoMeds as $med): ?>
+    <div class="todo-row">
+      <span class="ic">💊</span><span class="grow"><b><?= h($med['name']) ?></b> <span class="small muted"><?= h($med['time']) ?></span></span>
+      <form method="post" action="meds.php"><?= csrf_field() ?><input type="hidden" name="action" value="med_take"><input type="hidden" name="med" value="<?= (int) $med['id'] ?>"><input type="hidden" name="back" value="home"><button class="btn small primary">먹었어요</button></form>
+    </div>
+  <?php endforeach; ?>
+  <?php if (!$myAtt): ?>
+    <div class="todo-row col">
+      <span class="grow"><span class="ic">🍲</span> <b>오늘 저녁 집에서 드세요?</b> <span class="small muted"><?= h(dinner_time()) ?></span></span>
+      <form method="post" class="btn-row">
+        <?= csrf_field() ?>
+        <button class="btn small" name="status" value="home">🏠 집에서</button>
+        <button class="btn small" name="status" value="late" onclick="var t=prompt('몇 시쯤 도착해요? (예: 20:30)','20:00'); if(t===null) return false; this.form.late_time.value=t;">🕗 늦어요</button>
+        <button class="btn small" name="status" value="out">🙅 따로</button>
+        <input type="hidden" name="late_time" value="">
+      </form>
+    </div>
+  <?php endif; ?>
+  <?php if ($pendingDiary): $pl = $pendingDiary[0]; ?>
+    <a class="todo-row" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">
+      <span class="ic">📔</span><span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pl['name']) ?></b> 일기 쓰기<div class="small muted">사진 · 별점 남기기</div></span><span class="more">›</span>
+    </a>
+  <?php endif; ?>
+  <?php if (!$todoMeds && $myAtt && !$pendingDiary): ?>
+    <p class="done">🎉 오늘 할 일을 다 했어요<?= $doneMeds ? ' · 💊 약 ' . $doneMeds . '개 먹음' : '' ?></p>
+  <?php elseif ($doneMeds): ?>
+    <p class="small muted" style="margin:8px 0 0">💊 오늘 약 <?= $doneMeds ?>개 먹음 · <a href="meds.php">약 기록 ›</a></p>
+  <?php endif; ?>
+</section>
 
 <?php if ($ready): [$levelName, $levelClass, $levelMsg] = readiness_level($ready['score']); ?>
 <section class="readiness <?= $levelClass ?>">
@@ -117,23 +163,26 @@ page_start('오늘', 'today');
   <div class="score"><?= number_format($ready['score'], 1) ?><small> / 10</small></div>
   <div class="level"><?= h($levelName) ?></div>
   <div class="msg"><?= h($levelMsg) ?></div>
-  <div class="components">
-    <?php foreach ($ready['components'] as $c): ?>
-      <div class="comp">
-        <div class="row"><span><?= h($c['title']) ?></span><span><?= $c['score'] < 40 ? '낮음' : ($c['score'] < 70 ? '보통' : '좋음') ?></span></div>
-        <div class="bar"><i style="width:<?= (int) $c['score'] ?>%"></i></div>
-        <div class="detail"><?= h($c['detail']) ?></div>
-      </div>
-    <?php endforeach; ?>
-  </div>
+  <details class="why">
+    <summary>점수 근거 보기</summary>
+    <div class="components">
+      <?php foreach ($ready['components'] as $c): ?>
+        <div class="comp">
+          <div class="row"><span><?= h($c['title']) ?></span><span><?= $c['score'] < 40 ? '낮음' : ($c['score'] < 70 ? '보통' : '좋음') ?></span></div>
+          <div class="bar"><i style="width:<?= (int) $c['score'] ?>%"></i></div>
+          <div class="detail"><?= h($c['detail']) ?></div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </details>
 </section>
 <?php else: ?>
 <section class="readiness none">
   <div class="label">오늘의 준비 점수</div>
   <?php if ($counted === 0): ?>
     <div class="level">아직 건강 기록이 없어요</div>
-    <div class="msg">설정 › 단축어 연결에서 아이폰 단축어를 한 번 만들어 두면 매일 자동으로 들어와요.</div>
-    <p style="margin-top:12px"><a class="btn small" href="settings.php#shortcut">단축어 연결하기</a></p>
+    <div class="msg">아이폰 단축어를 한 번 만들어 두면 매일 자동으로 들어와요.</div>
+    <p style="margin-top:12px"><a class="btn small" href="shortcut.php">단축어 연결하기</a></p>
   <?php elseif (!$todayRow): ?>
     <div class="level">오늘 기록을 기다리는 중</div>
     <div class="msg">아이폰 단축어가 실행되면 바로 계산돼요.</div>
@@ -144,56 +193,30 @@ page_start('오늘', 'today');
 </section>
 <?php endif; ?>
 
-<section class="card">
-  <div class="card-head"><h2>오늘 몸 상태</h2><a class="more" href="health.php">자세히 ›</a></div>
-  <div class="grid2">
-    <div class="stat"><div class="k">걸음</div><div class="v"><?= num($todayRow['steps'] ?? null) ?></div></div>
-    <div class="stat"><div class="k">활동 에너지</div><div class="v"><?= num($todayRow['active_kcal'] ?? null) ?><small>kcal</small></div></div>
-    <div class="stat"><div class="k">지난밤 수면</div><div class="v"><?= isset($todayRow['sleep_min']) ? intdiv((int) $todayRow['sleep_min'], 60) . '<small>시간</small> ' . ((int) $todayRow['sleep_min'] % 60) . '<small>분</small>' : '-' ?></div></div>
-    <div class="stat"><div class="k">HRV · 안정 심박</div><div class="v"><?= num($todayRow['hrv'] ?? null) ?><small>ms</small> <?= num($todayRow['rhr'] ?? null) ?><small>bpm</small></div></div>
-  </div>
-  <?php foreach ($others as $o):
-      $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; ?>
-    <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 오늘 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>
-  <?php endforeach; ?>
-</section>
-
-<?php if ($meds): ?>
-<section class="card" id="meds">
-  <div class="card-head"><h2>💊 오늘 약</h2><a class="more" href="settings.php#meds">관리 ›</a></div>
-  <?php foreach ($meds as $med): ?>
-    <div class="person">
-      <span class="who" style="width:auto;flex:1"><?= h($med['name']) ?> <span class="small muted"><?= h($med['time']) ?> · 최근 7일 <?= medication_streak((int) $med['id']) ?>/7</span></span>
-      <?php if ($med['taken_at']): ?>
-        <span style="color:var(--accent);font-weight:700">✓ <?= date('H:i', strtotime($med['taken_at'])) ?></span>
-      <?php else: ?>
-        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="med_take"><input type="hidden" name="med" value="<?= (int) $med['id'] ?>"><button class="btn small primary">먹었어요</button></form>
-      <?php endif; ?>
-    </div>
-  <?php endforeach; ?>
-</section>
-<?php endif; ?>
-
 <section class="card tonight">
-  <div class="card-head"><h2>오늘 저녁 <?= h(dinner_time()) ?></h2><a class="more" href="table.php">식탁 ›</a></div>
-  <div class="dish"><?= $plan ? h($plan['dish']) : '<span class="muted" style="font-size:18px">아직 메뉴를 안 정했어요</span>' ?></div>
+  <div class="card-head"><h2>🍲 오늘 저녁 <span class="small muted"><?= h(dinner_time()) ?></span></h2><a class="more" href="table.php">식탁 ›</a></div>
+  <div class="dish"><?= $plan ? h($plan['dish']) : '<span class="muted" style="font-size:17px">아직 메뉴를 안 정했어요 · <a href="table.php">정하기</a></span>' ?></div>
   <?php foreach ($conflicts as $c): ?><p class="small" style="color:var(--orange)">⚠️ <?= h($c) ?></p><?php endforeach; ?>
-  <?php foreach (members() as $m): $a = $att[(int) $m['id']] ?? null; ?>
-    <div class="person"><span class="who"><?= h($m['emoji'] . ' ' . $m['name']) ?></span>
-      <span class="state"><?= $a ? h(ATTENDANCE[$a['status']][1]) . ($a['late_time'] ? ' (' . h($a['late_time']) . ')' : '') : ($m['role'] === 'child' ? '함께' : '아직 몰라요') ?></span></div>
-  <?php endforeach; ?>
-  <form method="post" class="btn-row" style="margin-top:10px">
-    <?= csrf_field() ?>
-    <button class="btn small" name="status" value="home">🏠 집에서</button>
-    <button class="btn small" name="status" value="late" onclick="var t=prompt('몇 시쯤 도착해요? (예: 20:30)','20:00'); if(t===null) return false; this.form.late_time.value=t;">🕗 늦어요</button>
-    <button class="btn small" name="status" value="out">🙅 따로</button>
-    <input type="hidden" name="late_time" value="">
-  </form>
+  <div class="attend">
+    <?php foreach (members() as $m): $a = $att[(int) $m['id']] ?? null; ?>
+      <span class="chip <?= $a ? 'st-' . h($a['status']) : '' ?>"><?= h($m['emoji'] . ' ' . $m['name']) ?> · <?= $a ? h(ATTENDANCE[$a['status']][1]) . ($a['late_time'] ? ' ' . h($a['late_time']) : '') : ($m['role'] === 'child' ? '함께' : '?') ?></span>
+    <?php endforeach; ?>
+  </div>
+  <?php if ($myAtt): ?>
+    <form method="post" class="btn-row" style="margin-top:10px">
+      <?= csrf_field() ?>
+      <span class="small muted" style="align-self:center">내 답 바꾸기</span>
+      <button class="btn small" name="status" value="home">🏠</button>
+      <button class="btn small" name="status" value="late" onclick="var t=prompt('몇 시쯤 도착해요? (예: 20:30)','20:00'); if(t===null) return false; this.form.late_time.value=t;">🕗</button>
+      <button class="btn small" name="status" value="out">🙅</button>
+      <input type="hidden" name="late_time" value="">
+    </form>
+  <?php endif; ?>
 </section>
 
 <section class="card">
-  <div class="card-head"><h2>오늘 일정</h2><a class="more" href="calendar.php">전체 ›</a></div>
-  <?php if (!$events): ?><div class="empty"><?= setting('icloud_user') ? '오늘은 일정이 없어요.' : '설정에서 iCloud 캘린더를 연결하면 여기에 보여요.' ?></div><?php endif; ?>
+  <div class="card-head"><h2>📅 오늘 일정</h2><a class="more" href="calendar.php">전체 ›</a></div>
+  <?php if (!$events): ?><div class="empty"><?= setting('icloud_user') ? '오늘은 일정이 없어요.' : '<a href="settings.php#calendar">iCloud 캘린더를 연결</a>하면 여기에 보여요.' ?></div><?php endif; ?>
   <ul class="list">
     <?php foreach ($events as $e): ?>
       <li><span class="dot" style="background:<?= h($e['color']) ?>"></span>
@@ -204,18 +227,22 @@ page_start('오늘', 'today');
 </section>
 
 <section class="card">
-  <div class="card-head"><h2>오늘 식단</h2><a class="more" href="meals.php">기록하기 ›</a></div>
-  <div class="macro"><span>칼로리</span><div class="meter orange"><i style="width:<?= min(100, $food['kcal'] / max(1, $me['kcal_target']) * 100) ?>%"></i></div><span class="n"><?= num($food['kcal']) ?> / <?= num($me['kcal_target']) ?></span></div>
-  <div class="macro"><span>단백질</span><div class="meter blue"><i style="width:<?= min(100, $food['protein'] / max(1, $me['protein_target']) * 100) ?>%"></i></div><span class="n"><?= num($food['protein']) ?> / <?= num($me['protein_target']) ?>g</span></div>
-  <p class="small muted" style="margin-top:8px"><?= (int) $food['meals'] ?>끼 기록</p>
+  <div class="card-head"><h2>📈 오늘 기록</h2><a class="more" href="health.php">건강 ›</a></div>
+  <div class="minis">
+    <div><span class="k">걸음</span><b><?= num($todayRow['steps'] ?? null) ?></b></div>
+    <div><span class="k">수면</span><b><?= isset($todayRow['sleep_min']) ? intdiv((int) $todayRow['sleep_min'], 60) . '<small>h</small>' . ((int) $todayRow['sleep_min'] % 60) . '<small>m</small>' : '-' ?></b></div>
+    <div><span class="k">HRV</span><b><?= num($todayRow['hrv'] ?? null) ?><small>ms</small></b></div>
+    <div><span class="k">심박</span><b><?= num($todayRow['rhr'] ?? null) ?><small>bpm</small></b></div>
+  </div>
+  <a class="mealline" href="meals.php">
+    <span>🍚 식단 <?= (int) $food['meals'] ?>끼</span>
+    <span class="meter orange"><i style="width:<?= min(100, $food['kcal'] / max(1, $me['kcal_target']) * 100) ?>%"></i></span>
+    <span class="small muted"><?= num($food['kcal']) ?> / <?= num($me['kcal_target']) ?> kcal ›</span>
+  </a>
+  <?php foreach ($others as $o): $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; ?>
+    <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>
+  <?php endforeach; ?>
 </section>
-
-<?php if ($pendingDiary): $pl = $pendingDiary[0]; ?>
-<a class="card memory" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">
-  <span style="font-size:30px">📔</span>
-  <span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pl['name']) ?></b> 잘 다녀오셨어요?<div class="small muted">사진 · 별점 남기고 나들이 일기 쓰기 ›</div></span>
-</a>
-<?php endif; ?>
 
 <?php if ($outing && $outing['picks']): $wd = ['일', '월', '화', '수', '목', '금', '토']; ?>
 <section class="card">
@@ -229,9 +256,5 @@ page_start('오늘', 'today');
 </section>
 <?php endif; ?>
 
-<section class="card">
-  <div class="card-head"><h2>날씨</h2></div>
-  <div data-weather='<?= h(json_encode(locations(), JSON_UNESCAPED_UNICODE)) ?>'><div class="empty">날씨를 불러오는 중…</div></div>
-</section>
-
-<?php page_end('today');
+</div>
+<?php page_end('home');

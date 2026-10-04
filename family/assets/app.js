@@ -194,6 +194,18 @@
       ]).then(function (res) { return { loc: loc, f: res[0], a: res[1] }; }).catch(function () { return null; });
     })).then(function (rows) {
       var tips = [];
+      if (box.hasAttribute('data-compact')) {
+        // 홈 인사 아래 한 줄: ☀️ 18° 맑음 · 12°/22° · 비 10% · 미세먼지 좋음
+        var row0 = rows.filter(Boolean)[0];
+        if (!row0) { box.innerHTML = ''; return; }
+        var c0 = row0.f.current, d0 = row0.f.daily, k0 = CODES[c0.weather_code] || ['-', '🌡', '🌡'];
+        var air0 = row0.a && row0.a.current ? airGrade(row0.a.current.pm10, row0.a.current.pm2_5) : null;
+        var rain0 = d0.precipitation_probability_max[0];
+        box.innerHTML = '<span class="wi">' + (c0.is_day ? k0[1] : k0[2]) + '</span><b>' + Math.round(c0.temperature_2m) + '°</b> ' + esc(k0[0]) +
+          '<span class="sep">·</span>' + Math.round(d0.temperature_2m_min[0]) + '°/' + Math.round(d0.temperature_2m_max[0]) + '°' +
+          '<span class="sep">·</span>' + (rain0 >= 50 ? '☂️ ' : '') + '비 ' + rain0 + '%' + (air0 ? '<span class="sep">·</span>미세먼지 ' + esc(air0) : '');
+        return;
+      }
       box.innerHTML = rows.filter(Boolean).map(function (row) {
         var c = row.f.current, d = row.f.daily;
         var code = CODES[c.weather_code] || ['-', '🌡', '🌡'];
@@ -207,7 +219,7 @@
           '<div><div class="t">' + Math.round(c.temperature_2m) + '°</div>' +
           '<div class="r">' + Math.round(d.temperature_2m_min[0]) + '° / ' + Math.round(d.temperature_2m_max[0]) + '°</div></div></div>';
       }).join('') + (tips.length ? '<div class="advice">' + esc(tips.join(' · ')) + '</div>' : '');
-      if (!rows.filter(Boolean).length) box.innerHTML = '<div class="empty">날씨를 불러오지 못했어요.</div>';
+      if (!rows.filter(Boolean).length) box.innerHTML = box.hasAttribute('data-compact') ? '' : '<div class="empty">날씨를 불러오지 못했어요.</div>';
     });
   });
 

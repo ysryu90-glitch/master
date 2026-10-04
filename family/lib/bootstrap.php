@@ -603,14 +603,33 @@ function check_csrf(): void
 
 // ───────── 화면 틀 ─────────
 
-const TABS = [
-    'today' => ['index.php', '오늘', '🏠'],
-    'health' => ['health.php', '건강', '❤️'],
-    'meals' => ['meals.php', '식단', '🍚'],
-    'table' => ['table.php', '식탁', '🍲'],
-    'calendar' => ['calendar.php', '일정', '📅'],
-    'family' => ['family.php', '가족', '👨‍👩‍👧'],
+/**
+ * 메뉴: 5개 묶음 (아래 탭 · 컴퓨터에서는 왼쪽 메뉴) + 묶음 안의 작은 탭
+ * [이름, 아이콘, 첫 화면, [[화면, 이름, 아이콘], ...]]
+ */
+const NAV = [
+    'home' => ['홈', '🏠', 'index.php', []],
+    'meal' => ['식사', '🍽', 'table.php', [['table.php', '오늘 저녁', '🍲'], ['meals.php', '식단 기록', '🍚']]],
+    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺'], ['diary_share.php', '공유', '🔗']]],
+    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '주간 리포트', '📊']]],
+    'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['calendar.php', '일정', '📅'], ['settings.php', '설정', '⚙︎']]],
 ];
+
+/** 화면 → [묶음, 작은 탭 화면] (일기 쓰기 화면은 '일기' 탭에 속하는 식) */
+const NAV_PAGES = [
+    'index.php' => ['home', 'index.php'],
+    'table.php' => ['meal', 'table.php'], 'meals.php' => ['meal', 'meals.php'], 'meal_edit.php' => ['meal', 'meals.php'],
+    'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
+    'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary_share.php'],
+    'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
+    'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['more', 'calendar.php'],
+    'settings.php' => ['more', 'settings.php'], 'shortcut.php' => ['more', 'settings.php'],
+];
+
+function nav_current(): array
+{
+    return NAV_PAGES[basename($_SERVER['SCRIPT_NAME'] ?? 'index.php')] ?? ['', ''];
+}
 
 /** 이 사이트의 주소 (예: https://mjys0307.synology.me/family) */
 function site_base(): string
@@ -657,28 +676,45 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <link rel="stylesheet" href="assets/app.css?v=<?= asset_version('assets/app.css') ?>">
 <title><?= h($title) ?> · 우리집 건강</title>
 </head>
-<body class="<?= $tab ? 'with-tabs' : '' ?>">
+<?php [$group, $sub] = nav_current(); $nav = $me && $group !== ''; ?>
+<body class="<?= $nav ? 'with-tabs with-nav' : '' ?>">
+<?php if ($nav): ?>
+<aside class="sidenav" aria-label="메뉴">
+  <a class="brand" href="index.php">💚 우리집 건강</a>
+  <?php foreach (NAV as $key => [$label, $icon, $href, $items]): ?>
+    <a class="g<?= $key === $group ? ' on' : '' ?>" href="<?= $href ?>"><span class="i"><?= $icon ?></span><?= $label ?></a>
+    <?php if (count($items) > 1): ?><div class="subs"><?php foreach ($items as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $il ?></a><?php endforeach; ?></div><?php endif; ?>
+  <?php endforeach; ?>
+  <a class="me" href="settings.php"><?= h($me['emoji'] . ' ' . $me['name']) ?> · 설정</a>
+</aside>
+<?php endif; ?>
+<div class="shell">
 <header class="topbar">
   <div class="topbar-title"><?= h($title) ?></div>
   <?php if ($me): ?>
   <a class="topbar-me" href="settings.php" aria-label="설정"><?= h($me['emoji']) ?> <span><?= h($me['name']) ?></span> ⚙︎</a>
   <?php endif; ?>
 </header>
-<main class="page">
+<?php if ($nav && count(NAV[$group][3]) > 1): ?>
+<nav class="subnav" aria-label="<?= h(NAV[$group][0]) ?> 메뉴">
+  <?php foreach (NAV[$group][3] as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $ii ?> <?= $il ?></a><?php endforeach; ?>
+</nav>
+<?php endif; ?>
+<main class="page<?= $options['class'] ?? '' ? ' ' . h($options['class']) : '' ?>">
 <?php if ($flash): ?><div class="flash"><?= h($flash) ?></div><?php endif; ?>
 <?php
 }
 
 function page_end(string $tab = ''): void
 {
-    if ($tab) {
-        echo '</main><nav class="tabbar">';
-        foreach (TABS as $key => [$href, $label, $icon]) {
-            echo '<a href="' . $href . '" class="' . ($key === $tab ? 'on' : '') . '"><span class="i">' . $icon . '</span>' . $label . '</a>';
+    [$group] = nav_current();
+    echo '</main></div>';
+    if (current_member() && $group !== '') {
+        echo '<nav class="tabbar" aria-label="메뉴">';
+        foreach (NAV as $key => [$label, $icon, $href]) {
+            echo '<a href="' . $href . '" class="' . ($key === $group ? 'on' : '') . '"' . ($key === $group ? ' aria-current="page"' : '') . '><span class="i">' . $icon . '</span>' . $label . '</a>';
         }
         echo '</nav>';
-    } else {
-        echo '</main>';
     }
     echo '<script src="assets/app.js?v=' . asset_version('assets/app.js') . '"></script></body></html>';
 }

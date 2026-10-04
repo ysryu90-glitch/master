@@ -74,17 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 $message = '알림 설정을 저장했어요.';
                 break;
-            case 'med_add':
-                if (post('med_name') !== '' && preg_match('/^\d{2}:\d{2}$/', post('med_time'))) {
-                    $pdo->prepare('INSERT INTO medications (member_id, name, time, created_at) VALUES (?, ?, ?, NOW())')
-                        ->execute([$me['id'], mb_substr(post('med_name'), 0, 60), post('med_time')]);
-                    $message = '약을 추가했어요. 매일 ' . post('med_time') . '에 알려 드려요.';
-                }
-                break;
-            case 'med_delete':
-                $pdo->prepare('UPDATE medications SET active = 0 WHERE id = ? AND member_id = ?')->execute([(int) post('id'), $me['id']]);
-                $message = '약을 목록에서 뺐어요.';
-                break;
             case 'discover_keys':
                 foreach (['tourapi_key', 'seoul_key'] as $k) {
                     if (post($k . '_clear')) set_setting($k, '');
@@ -117,7 +106,6 @@ $me = member((int) $me['id']);
 $kid = db()->query("SELECT * FROM members WHERE role = 'child' ORDER BY id LIMIT 1")->fetch() ?: null;
 $base = public_base();
 $prefs = notify_prefs((int) $me['id']);
-$myMeds = medications_of((int) $me['id']);
 $stmt = db()->prepare('SELECT received_at, body FROM health_raw WHERE member_id = ? ORDER BY id DESC LIMIT 1');
 $stmt->execute([$me['id']]);
 $last = $stmt->fetch();
@@ -130,18 +118,32 @@ page_start('설정');
 ?>
 <?php if ($error): ?><div class="flash" style="background:rgba(220,38,38,.1);color:var(--red)"><?= h($error) ?></div><?php endif; ?>
 
-<section class="card" id="shortcut">
-  <h2>📲 단축어 연결 (건강 기록)</h2>
-  <p class="small muted">아이폰 '단축어'가 애플워치·아이폰 건강 기록을 이 사이트로 보내요. 처음 한 번만 만들면 돼요.</p>
-  <div class="form">
-    <label><?= h($me['name']) ?> 전용 보낼 주소 (단축어에 붙여 넣기)<input readonly value="<?= h($base) ?>/api/health.php?token=<?= h($me['shortcut_token']) ?>" onclick="this.select()"></label>
-  </div>
-  <div class="btn-row">
-    <a class="btn primary" href="shortcut.php">단축어 만드는 방법 보기</a>
-    <form method="post" data-confirm="토큰을 새로 만들면 기존 단축어는 다시 설정해야 해요. 계속할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="token"><button class="btn">토큰 새로 만들기</button></form>
-  </div>
-  <p class="small muted" style="margin-top:10px">마지막으로 받은 기록: <?= $last ? h(date('n월 j일 H:i', strtotime($last['received_at']))) : '아직 없음' ?></p>
-  <?php if ($last): ?><details><summary class="small muted">받은 내용 보기 (문제 확인용)</summary><pre class="small" style="white-space:pre-wrap;word-break:break-all"><?= h($last['body']) ?></pre></details><?php endif; ?>
+<nav class="jump" aria-label="설정 바로가기">
+  <a href="#profile">🙂 내 정보</a><a href="#notify">🔔 알림</a><a href="#shortcut">📲 단축어</a><a href="#kid">👧 아이</a>
+  <a href="#home">🏠 우리집</a><a href="#calendar">📅 캘린더</a><a href="#discover">🧺 나들이 데이터</a><a href="#board">📺 전광판</a>
+</nav>
+<p class="small muted" style="margin:0 4px 12px">💊 약 관리는 <a href="meds.php">건강 › 약</a>으로 옮겼어요.</p>
+
+<section class="card" id="profile">
+  <h2>🙂 내 정보</h2>
+  <form method="post" class="form">
+    <?= csrf_field() ?><input type="hidden" name="action" value="profile">
+    <div class="grid2">
+      <label>이름<input name="name" value="<?= h($me['name']) ?>"></label>
+      <label>이모지<input name="emoji" value="<?= h($me['emoji']) ?>"></label>
+      <label>하루 칼로리 목표<input name="kcal" type="number" inputmode="numeric" value="<?= (int) $me['kcal_target'] ?>"></label>
+      <label>단백질 목표 (g)<input name="protein" type="number" inputmode="numeric" value="<?= (int) $me['protein_target'] ?>"></label>
+    </div>
+    <button class="btn primary">저장</button>
+  </form>
+  <details style="margin-top:12px"><summary class="small" style="color:var(--blue)">비밀번호 바꾸기</summary>
+    <form method="post" class="form" style="margin-top:10px">
+      <?= csrf_field() ?><input type="hidden" name="action" value="password">
+      <label>지금 비밀번호<input name="current" type="password" autocomplete="current-password"></label>
+      <label>새 비밀번호 (8자 이상)<input name="new" type="password" autocomplete="new-password"></label>
+      <button class="btn">바꾸기</button>
+    </form>
+  </details>
 </section>
 
 <section class="card" id="notify">
@@ -171,44 +173,21 @@ page_start('설정');
   </form>
 </section>
 
-<section class="card" id="meds">
-  <h2>💊 내 약</h2>
-  <?php foreach ($myMeds as $med): ?>
-    <div class="person"><span class="who" style="width:auto;flex:1"><?= h($med['name']) ?> <span class="small muted">매일 <?= h($med['time']) ?></span></span>
-      <form method="post" data-confirm="이 약을 목록에서 뺄까요?"><?= csrf_field() ?><input type="hidden" name="action" value="med_delete"><input type="hidden" name="id" value="<?= (int) $med['id'] ?>"><button class="btn small danger">빼기</button></form></div>
-  <?php endforeach; ?>
-  <form method="post" class="form inline" style="margin-top:10px">
-    <?= csrf_field() ?><input type="hidden" name="action" value="med_add">
-    <label>약 이름<input name="med_name" placeholder="예: 탈모약" value="<?= $myMeds ? '' : '탈모약' ?>"></label>
-    <label>시각<input name="med_time" type="time" value="21:00"></label>
-    <button class="btn primary">추가</button>
-  </form>
-  <p class="small muted">정한 시각에 알림이 오고, 1시간 뒤에도 안 먹었으면 한 번 더 알려요. '오늘' 화면에서 먹었어요를 누르면 돼요.</p>
+<section class="card" id="shortcut">
+  <h2>📲 단축어 연결 (건강 기록)</h2>
+  <p class="small muted">아이폰 '단축어'가 애플워치·아이폰 건강 기록을 이 사이트로 보내요. 처음 한 번만 만들면 돼요.</p>
+  <div class="form">
+    <label><?= h($me['name']) ?> 전용 보낼 주소 (단축어에 붙여 넣기)<input readonly value="<?= h($base) ?>/api/health.php?token=<?= h($me['shortcut_token']) ?>" onclick="this.select()"></label>
+  </div>
+  <div class="btn-row">
+    <a class="btn primary" href="shortcut.php">단축어 만드는 방법 보기</a>
+    <form method="post" data-confirm="토큰을 새로 만들면 기존 단축어는 다시 설정해야 해요. 계속할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="token"><button class="btn">토큰 새로 만들기</button></form>
+  </div>
+  <p class="small muted" style="margin-top:10px">마지막으로 받은 기록: <?= $last ? h(date('n월 j일 H:i', strtotime($last['received_at']))) : '아직 없음' ?></p>
+  <?php if ($last): ?><details><summary class="small muted">받은 내용 보기 (문제 확인용)</summary><pre class="small" style="white-space:pre-wrap;word-break:break-all"><?= h($last['body']) ?></pre></details><?php endif; ?>
 </section>
 
-<section class="card">
-  <h2>내 정보</h2>
-  <form method="post" class="form">
-    <?= csrf_field() ?><input type="hidden" name="action" value="profile">
-    <div class="grid2">
-      <label>이름<input name="name" value="<?= h($me['name']) ?>"></label>
-      <label>이모지<input name="emoji" value="<?= h($me['emoji']) ?>"></label>
-      <label>하루 칼로리 목표<input name="kcal" type="number" inputmode="numeric" value="<?= (int) $me['kcal_target'] ?>"></label>
-      <label>단백질 목표 (g)<input name="protein" type="number" inputmode="numeric" value="<?= (int) $me['protein_target'] ?>"></label>
-    </div>
-    <button class="btn primary">저장</button>
-  </form>
-  <details style="margin-top:12px"><summary class="small" style="color:var(--blue)">비밀번호 바꾸기</summary>
-    <form method="post" class="form" style="margin-top:10px">
-      <?= csrf_field() ?><input type="hidden" name="action" value="password">
-      <label>지금 비밀번호<input name="current" type="password" autocomplete="current-password"></label>
-      <label>새 비밀번호 (8자 이상)<input name="new" type="password" autocomplete="new-password"></label>
-      <button class="btn">바꾸기</button>
-    </form>
-  </details>
-</section>
-
-<section class="card">
+<section class="card" id="kid">
   <h2>👧 아이</h2>
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="kid">
@@ -219,6 +198,22 @@ page_start('설정');
     </div>
     <button class="btn primary">저장</button>
     <p class="small muted" style="margin-top:8px">만 5세 기준 하루 약 1,400kcal · 단백질 20g (한국인 영양소 섭취기준)</p>
+  </form>
+</section>
+
+<section class="card" id="home">
+  <h2>🏠 우리집</h2>
+  <form method="post" class="form">
+    <?= csrf_field() ?><input type="hidden" name="action" value="home">
+    <div class="grid3">
+      <?php foreach ($roles as $role => $title): ?>
+        <label><?= $title ?><select name="loc_<?= $role ?>">
+          <?php foreach ($presets as $key => $p): ?><option value="<?= $key ?>" <?= ($currentLocations[$role] ?? '') === $key ? 'selected' : '' ?>><?= h($p['name']) ?></option><?php endforeach; ?>
+        </select></label>
+      <?php endforeach; ?>
+    </div>
+    <label>저녁 시간<input type="time" name="dinner_time" value="<?= h(dinner_time_setting()) ?>"></label>
+    <button class="btn primary">저장</button>
   </form>
 </section>
 
@@ -244,22 +239,6 @@ page_start('설정');
   <?php endif; ?>
 </section>
 
-<section class="card">
-  <h2>🏠 우리집</h2>
-  <form method="post" class="form">
-    <?= csrf_field() ?><input type="hidden" name="action" value="home">
-    <div class="grid3">
-      <?php foreach ($roles as $role => $title): ?>
-        <label><?= $title ?><select name="loc_<?= $role ?>">
-          <?php foreach ($presets as $key => $p): ?><option value="<?= $key ?>" <?= ($currentLocations[$role] ?? '') === $key ? 'selected' : '' ?>><?= h($p['name']) ?></option><?php endforeach; ?>
-        </select></label>
-      <?php endforeach; ?>
-    </div>
-    <label>저녁 시간<input type="time" name="dinner_time" value="<?= h(dinner_time_setting()) ?>"></label>
-    <button class="btn primary">저장</button>
-  </form>
-</section>
-
 <section class="card" id="discover">
   <h2>🧺 나들이 데이터</h2>
   <p class="small muted">축제 · 행사와 새로 생긴 곳을 매일 새벽에 받아와 주말 나들이 추천에 넣어요. 둘 다 무료 인증키예요.</p>
@@ -276,7 +255,7 @@ page_start('설정');
   <?php endif; ?>
 </section>
 
-<section class="card">
+<section class="card" id="board">
   <h2>📺 전광판</h2>
   <p class="small muted">아이패드 사파리에서 이 주소를 열고 한 번 로그인한 뒤, 공유 › 홈 화면에 추가를 누르세요.</p>
   <div class="form"><label>전광판 주소<input readonly value="<?= h($base) ?>/board/" onclick="this.select()"></label></div>

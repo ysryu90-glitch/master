@@ -65,7 +65,7 @@ $stmt = db()->prepare('SELECT day, score FROM readiness_official WHERE member_id
 $stmt->execute([$view['id']]);
 $official = $stmt->fetchAll();
 
-page_start('건강', 'health');
+page_start('컨디션', 'health');
 ?>
 <div class="segmented">
   <?php foreach ($adults as $a): ?>
