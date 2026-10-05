@@ -65,17 +65,28 @@ function won(int $n, bool $short = false): string
  * 카드 결제 문자 읽기. 카드사마다 모양이 달라서 금액 · 날짜 · 시간 · 가게를 따로 찾는다.
  * 반환: ['ok' => bool, 'cancel' => bool, 'amount', 'day', 'time', 'merchant', 'card', 'error']
  */
-function parse_card_sms(string $text): array
+/** 오전 9:12 → 09:12, 오후 1:05 → 13:05 */
+function ledger_norm_time(string $t): string
+{
+    return preg_replace_callback('/(오전|오후)\s*(\d{1,2}):(\d{2})/u', function ($m) {
+        $h = (int) $m[2] % 12 + ($m[1] === '오후' ? 12 : 0);
+        return sprintf('%02d:%s', $h, $m[3]);
+    }, $t);
+}
+
+/** $relaxed: 화면 캡처처럼 '승인' 같은 말이 없어도 금액만 있으면 읽음 */
+function parse_card_sms(string $text, bool $relaxed = false): array
 {
     $t = str_replace(["\r", "\u{00A0}"], ["", ' '], $text);
     $t = preg_replace('/\[(Web|웹)발신\]/u', '', $t);
+    $t = ledger_norm_time($t);
     $cancel = (bool) preg_match('/취소/u', $t);
-    if (!$cancel && !preg_match('/승인|사용|결제|일시불|할부|출금/u', $t)) {
+    if (!$relaxed && !$cancel && !preg_match('/승인|사용|결제|일시불|할부|출금/u', $t)) {
         return ['ok' => false, 'error' => '카드 결제 문자가 아닌 것 같아요.'];
     }
     // 금액: '누적' · '잔액' · '한도' 뒤의 숫자는 빼고 처음 나오는 '숫자원'
     $amount = null;
-    if (preg_match_all('/(누적|잔액|한도|포인트)?[^\d\n]{0,6}?([\d]{1,3}(?:,\d{3})+|\d+)\s*원/u', $t, $mm, PREG_SET_ORDER)) {
+    if (preg_match_all('/(누적|잔액|한도|포인트|이용금액|합계|청구|총액)?[^\d\n]{0,6}?([\d]{1,3}(?:,\d{3})+|\d+)\s*원/u', $t, $mm, PREG_SET_ORDER)) {
         foreach ($mm as $m) {
             if ($m[1] !== '') continue;
             $amount = (int) str_replace(',', '', $m[2]);
@@ -84,8 +95,8 @@ function parse_card_sms(string $text): array
     }
     if (!$amount) return ['ok' => false, 'error' => '금액을 찾지 못했어요.'];
 
-    $day = today();
-    if (preg_match('/(?<!\d)(\d{1,2})[\/.\-](\d{1,2})(?!\d)/', $t, $dm)) {
+    $day = preg_match('/어제/u', $t) ? date('Y-m-d', strtotime(today() . ' -1 day')) : today();
+    if (preg_match('/(?<!\d)(\d{1,2})[\/.\-](\d{1,2})(?![\d,])/', $t, $dm)) {
         $y = (int) date('Y');
         $cand = sprintf('%04d-%02d-%02d', $y, $dm[1], $dm[2]);
         if (checkdate((int) $dm[1], (int) $dm[2], $y)) {
@@ -114,7 +125,14 @@ function parse_card_sms(string $text): array
             if (!preg_match($skip, $l) && !preg_match('/\d{1,2}[\/.]\d{1,2}|\d{1,2}:\d{2}/u', $l) && mb_strlen($l) >= 2) { $merchant = $l; break; }
         }
     }
+    // 목록 화면: '스타벅스   12,500원' 처럼 금액 앞에 가게 이름
+    if ($merchant === '' && preg_match('/^\s*(\D{2,}?)\s+(?:[\d]{1,3}(?:,\d{3})+|\d+)\s*원/um', $t, $pm) && !preg_match('/누적|잔액|한도|승인|결제|취소/u', $pm[1])) {
+        $merchant = trim($pm[1]);
+    }
+    if ($relaxed) $merchant = ledger_merchant_from_lines($lines) ?: $merchant; // 화면 캡처는 줄마다 정리해서 다시 찾음
+    $merchant = trim(preg_replace('/\s*(일시불|\d+개월|할부)\s*$/u', '', $merchant));
     $merchant = mb_substr(trim(preg_replace('/\s{2,}/u', ' ', $merchant)), 0, 100);
+    if (!preg_match('/[가-힣A-Za-z]/u', $merchant)) $merchant = '';
     return ['ok' => true, 'cancel' => $cancel, 'amount' => $amount, 'day' => $day, 'time' => $time, 'merchant' => $merchant, 'card' => $card, 'error' => ''];
 }
 
@@ -191,4 +209,81 @@ function diary_spent(array $diaryIds): array
 function ledger_budget(): int
 {
     return (int) setting('ledger_budget', 0);
+}
+
+/** 알림 머리줄 (앱 이름 + 지금 · 5분 전 · 어제 · 오후 1:22) */
+const LEDGER_HEADER_RE = '/^\S.{0,20}?\s(지금|방금|\d+\s*(초|분|시간|일)\s*전|어제|그저께)$/u';
+
+/** 줄들에서 가게 이름 찾기: 날짜 · 시간 · 금액 · 결제 방식을 지우고 남는 글자가 있는 첫 줄 */
+function ledger_merchant_from_lines(array $lines): string
+{
+    foreach ($lines as $l) {
+        if (preg_match(LEDGER_HEADER_RE, $l)) continue;
+        if (preg_match('/누적|잔액|한도|이용금액|이용내역|합계|청구|승인|취소|결제|카드|체크|\*|님$|^(페이북|paybook)|\d{1,2}월\s*\d{1,2}일|[월화수목금토일]요일/iu', $l)) continue;
+        $c = ledger_clean_merchant($l);
+        if ($c !== '') return $c;
+    }
+    // 한 줄짜리 알림: [BC카드] 김*희님 45,000원 승인(일시불) 서울어린이대공원 10/04 11:02
+    foreach ($lines as $l) {
+        if (!preg_match('/[\d,]+\s*원/u', $l) || preg_match('/누적|잔액|이용금액|합계/u', $l)) continue;
+        $c = ledger_clean_merchant(preg_replace(['/\[[^\]]*\]/u', '/\S*\*\S*/u', '/\S*카드\S*/u', '/승인|결제|취소|사용|님/u'], ' ', $l));
+        if ($c !== '') return $c;
+    }
+    return '';
+}
+
+/** 날짜 · 시간 · 금액 · 결제 방식 · 기호를 지우고 남는 가게 이름 (글자가 없으면 '') */
+function ledger_clean_merchant(string $l): string
+{
+    {
+        $c = preg_replace(['/\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}/u', '/\d{1,2}[.\-\/]\d{1,2}(?![\d,])/u', '/\d{1,2}:\d{2}/u',
+            '/[\d,]+\s*원/u', '/일시불|\d+\s*개월|할부|무이자/u', '/\([월화수목금토일]\)/u', '/[·|•\[\]()]/u'], ' ', $l);
+        $c = trim(preg_replace('/\s+/u', ' ', $c));
+        return mb_strlen($c) >= 2 && preg_match('/[가-힣A-Za-z]/u', $c) ? $c : '';
+    }
+}
+
+/**
+ * 화면 캡처 글자(알림 센터 · 페이북 이용내역 등)에 결제가 여러 개 있을 때 하나씩 나눠 읽기.
+ * 새 알림(앱 이름 줄)이나 새 금액이 나오면 다음 결제로 본다. 날짜만 있는 줄(10.05 (일))은 아래 결제들에 적용.
+ */
+function parse_card_blocks(string $text): array
+{
+    $t = ledger_norm_time(str_replace(["\r", "\u{00A0}"], ["", ' '], $text));
+    $lines = array_values(array_filter(array_map('trim', explode("\n", $t)), fn($l) => $l !== ''));
+    $amtRe = '/(?<!누적|잔액|한도|포인트)(?<![\d,])(?:[\d]{1,3}(?:,\d{3})+|\d{3,})\s*원/u';
+    $appRe = '/^(페이북|paybook|pay\s?book|bc\s?카드|비씨카드|isp)\b/iu';
+    $headRe = '/승인|결제|취소|카드/u';
+    $dateRe = '/^(?:\d{4}[.\-\/])?(\d{1,2})[.\-\/](\d{1,2})\.?\s*(\([월화수목금토일]\))?$/u';
+    $blocks = [];
+    $cur = [];
+    $curAmt = false;
+    $curDate = '';
+    $lastDate = '';
+    foreach ($lines as $l) {
+        if (preg_match($dateRe, $l)) { $lastDate = $l; if (!$curAmt) $curDate = $l; continue; } // 날짜 머리줄
+        $hasAmt = (bool) preg_match($amtRe, $l) && !preg_match('/누적|잔액|한도|이용금액|합계|청구|총액/u', $l);
+        $isApp = (preg_match($appRe, $l) || preg_match(LEDGER_HEADER_RE, $l)) && !$hasAmt;
+        if ($curAmt && ($isApp || $hasAmt)) {
+            $carry = [];
+            // 새 결제의 머리줄(BC카드 승인)은 다음 결제로 넘김. 새 금액에서 나뉠 때는 시간 없는 가게 이름 줄도 넘김 (이용내역 화면)
+            while ($cur && !preg_match($amtRe, end($cur)) && !preg_match('/\d{1,2}:\d{2}/', end($cur))
+                && (preg_match($headRe, end($cur)) || ($hasAmt && !$isApp && !preg_match(LEDGER_HEADER_RE, end($cur))))) array_unshift($carry, array_pop($cur));
+            $blocks[] = [$cur, $curDate];
+            $cur = $carry;
+            $curAmt = false;
+            $curDate = $lastDate;
+        }
+        $cur[] = $l;
+        if ($hasAmt) $curAmt = true;
+    }
+    if ($cur) $blocks[] = [$cur, $curDate];
+    $out = [];
+    foreach ($blocks as [$blk, $date]) {
+        $body = implode("\n", $blk);
+        if (!preg_match('/\d{1,2}[\/.\-]\d{1,2}(?![\d,])/', $body) && $date !== '') $body = $date . "\n" . $body;
+        $p = parse_card_sms($body, true);
+        if ($p['ok']) $out[] = $p;
+    }
+    return $out;
 }
