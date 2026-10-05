@@ -27,6 +27,7 @@ $raw = mb_convert_encoding($raw, 'UTF-8', 'UTF-8');
 $data = json_decode($raw, true);
 if (!is_array($data)) $data = $_POST;
 if (!$data && $raw !== '') $data = ['text' => $raw]; // 본문에 글자만 그대로 보낸 경우
+if (!$data && isset($_GET['text'])) $data = ['text' => (string) $_GET['text']]; // 우회: 글자를 주소에 담아 GET으로 보낸 경우
 $opt = fn(string $k) => !empty($data[$k]) || !empty($_GET[$k]);
 $plain = $opt('plain');
 $screen = ($data['mode'] ?? $_GET['mode'] ?? '') === 'screen';
