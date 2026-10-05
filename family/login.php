@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 page_start('로그인');
 ?>
 <section class="card login">
-  <div class="login-logo">💚</div>
+  <div class="login-logo"><img src="assets/icon.png" alt="" width="72" height="72" style="border-radius:17px;display:block;margin:0 auto"></div>
   <h2>우리집</h2>
   <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
   <form method="post" class="form">

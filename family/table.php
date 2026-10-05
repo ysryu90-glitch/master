@@ -111,7 +111,7 @@ page_start('오늘 저녁 · 식탁', 'table');
 <div class="week" style="margin-bottom:14px">
   <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("$weekStart +$i day")); $p = $plans[$d] ?? null; ?>
     <a href="table.php?day=<?= $d ?>" class="<?= $d === $today ? 'today' : '' ?> <?= $d === $day ? 'sel' : '' ?>">
-      <div class="d"><?= $i === 0 ? '오늘' : weekday_short($d) ?></div>
+      <div class="d"><?= $i === 0 ? '오늘' : weekday_short($d) . ' ' . (int) substr($d, 8) ?></div>
       <div class="m <?= $p ? '' : 'none' ?>"><?= $p ? h(preg_split('/\s*[·,]\s*/u', $p['dish'])[0]) : '·' ?></div>
     </a>
   <?php endfor; ?>

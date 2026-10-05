@@ -545,3 +545,24 @@
     document.querySelectorAll('.sheet:not([hidden]):not(#form)').forEach(close);
   });
 })();
+
+/* 홈 화면 앱은 새로고침 버튼이 없어서: 10분 넘게 다른 앱에 있다가 돌아오면 최신 내용으로 다시 불러오기
+   (쓰던 글 · 열린 창이 있으면 그대로 둠) */
+(function () {
+  var standalone = window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (!standalone) return;
+  var hiddenAt = 0, dirty = false;
+  document.addEventListener('input', function () { dirty = true; }, true);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (!hiddenAt || Date.now() - hiddenAt < 10 * 60 * 1000) return;
+    if (dirty || document.querySelector('.sheet:not([hidden]), .cardmodal, .lightbox')) return;
+    location.reload();
+  });
+})();
+
+/* 서비스 워커는 모든 화면에서 등록 (알림 + 연결이 끊겼을 때 안내 화면) */
+(function () {
+  if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+})();

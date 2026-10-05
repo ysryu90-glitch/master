@@ -228,7 +228,7 @@ page_start('가계부', 'ledger');
 
 <?php elseif ($view === 'list'): ?>
 <?php if ($sum['byCat']): ?>
-  <div class="chips" style="margin:0 2px 10px">
+  <div class="chips scrollx" style="margin:0 -16px 10px;padding:0 16px">
     <a class="chip<?= $cat ? '' : ' on' ?>" href="<?= h($q(['c' => ''])) ?>">전체</a>
     <?php foreach ($sum['byCat'] as $k => $v): if ($v <= 0) continue; [$cn, $ci] = ledger_cat($k); ?>
       <a class="chip<?= $cat === $k ? ' on' : '' ?>" href="<?= h($q(['c' => $k])) ?>"><?= $ci ?> <?= h($cn) ?></a>

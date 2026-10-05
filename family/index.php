@@ -188,7 +188,7 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
   </details>
 </section>
 <?php else: ?>
-<section class="readiness none">
+<section class="readiness none<?= $counted > 0 ? " slim" : "" ?>">
   <div class="label">오늘의 준비 점수</div>
   <?php if ($counted === 0): ?>
     <div class="level">아직 건강 기록이 없어요</div>
