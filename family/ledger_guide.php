@@ -52,7 +52,7 @@ function guide_steps(string $title, array $lines): void
     foreach ($lines as $line) echo '<li>' . $line . '</li>';
     echo '</ol></details></section>';
 }
-page_start('예산 · 자동 입력', 'ledger');
+page_start('가계부 설정', 'ledger');
 ?>
 <style>
   .steps { padding-left: 20px; line-height: 1.85; margin: 0; }

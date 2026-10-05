@@ -16,7 +16,7 @@ $groups = [
         ['settings.php#home', '🏠', '우리집', '저녁 시간 · 위치'],
         ['settings.php#calendar', '📅', 'iCloud 캘린더', '연결 · 볼 캘린더 고르기'],
         ['settings.php#discover', '🧺', '나들이 데이터', '축제 · 행사 받아오기 키'],
-        ['ledger_guide.php', '💰', '가계부 설정', '예산 · 카드 결제 자동 입력'],
+        ['ledger_guide.php', '💰', '가계부 설정', '예산 · 고정 지출 · 카드 자동 입력'],
     ],
     '도움' => [
         ['check.php', '🩺', '설치 점검', 'DB · 정기 작업 · 알림 서버 상태'],

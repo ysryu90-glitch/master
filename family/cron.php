@@ -100,6 +100,20 @@ foreach (members('adult') as $m) {
     }
 }
 
+// 💰 이번 달 예산 80% · 100% 넘으면 한 번씩 알려 주기 (낮 시간에만)
+$budget = ledger_budget();
+if ($budget && (int) date('G') >= 9 && (int) date('G') < 21) {
+    $spent = expenses_summary(date('Y-m'))['out'];
+    $level = $spent >= $budget ? 100 : ($spent >= $budget * 0.8 ? 80 : 0);
+    if ($level) foreach (members('adult') as $m) {
+        if (!has_push((int) $m['id']) || !notify_once((int) $m['id'], 'budget', date('Y-m') . ':' . $level)) continue;
+        $daysLeft = (int) date('t') - (int) date('j') + 1;
+        $body = $level === 100 ? '이번 달 예산 ' . won($budget, true) . '을 ' . won($spent - $budget, true) . ' 넘었어요.'
+            : '이번 달 ' . won($spent, true) . ' 썼어요 (예산의 ' . floor($spent / $budget * 100) . '%). 남은 ' . $daysLeft . '일 동안 ' . won($budget - $spent, true) . '이에요.';
+        $log[] = "$m[name] 예산 {$level}% → " . push_to_member((int) $m['id'], $level === 100 ? '💸 예산을 넘었어요' : '💰 예산의 80%를 썼어요', $body, 'ledger.php?v=stats', 'budget');
+    }
+}
+
 // 🧺 나들이 데이터 (하루 한 번, 새벽 5시 이후)
 try {
     if ($r = discover_daily()) $log[] = "나들이 데이터 → 축제·행사 {$r['festival']} · 서울 {$r['seoul']} · 새 장소 {$r['new']}" . ($r['errors'] ? ' (오류 ' . count($r['errors']) . ')' : '');

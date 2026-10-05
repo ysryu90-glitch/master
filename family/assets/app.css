@@ -703,3 +703,6 @@ main.page:has(> .lfab) { padding-bottom: 84px; }
 .photo-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; margin-top: 10px; padding: 18px; border: 2px dashed var(--line); border-radius: 16px; font-weight: 800; font-size: 16px; color: var(--text); cursor: pointer; }
 .photo-add span { font-size: 12.5px; font-weight: 600; color: var(--sub); }
 .photo-add:active { background: var(--card-2); }
+html { touch-action: manipulation; }
+.lrow:active, .todo-row:active, .tile:active, .lcal .grid a:active, .quickgrid a:active { opacity: 0.7; }
+.lrow, .todo-row, .tile, .lcal .grid a { transition: opacity 0.1s; }
