@@ -55,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect($back);
 }
 
+ledger_recurring_fill(); // 고정 지출 (매달 같은 날)
 $edit = null;
 if (!empty($_GET['edit'])) {
     $stmt = db()->prepare('SELECT * FROM expenses WHERE id = ?');
@@ -96,6 +97,13 @@ $stmt = db()->prepare('SELECT day, MIN(id) id FROM diary_entries WHERE day BETWE
 $stmt->execute([$ym . '-01', $ym . '-01']);
 $diaryDays = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
 $maxDay = $dayOut ? max(max($dayOut), 1) : 1;
+// 아직 안 온 고정 지출 (달력에 「예정」으로)
+$dayPlan = [];
+if ($ym >= date('Y-m')) foreach (ledger_recurring() as $r) {
+    $pd = ledger_recurring_day($r, $ym);
+    if ($pd > today() && $pd >= $r['start_day'] && $r['kind'] === 'out') $dayPlan[$pd][] = $r;
+}
+$planLeft = array_sum(array_map(fn($rs) => array_sum(array_column($rs, 'amount')), $dayPlan));
 
 // 통계: 최근 6개월 지출 · 낸 사람별
 $six = [];
@@ -139,8 +147,8 @@ page_start('가계부', 'ledger');
       $daysLeft = $isNow ? (int) date('t') - (int) date('j') + 1 : 0; ?>
     <div class="meter <?= $pct >= 100 ? 'red' : ($pct >= 80 ? 'orange' : '') ?>" style="margin-top:10px;height:8px"><i style="width:<?= $pct ?>%"></i></div>
     <div class="small" style="margin-top:5px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <span class="muted">예산 <?= won($budget, true) ?> 중 <?= round($sum['out'] / $budget * 100) ?>%</span>
-      <span style="font-weight:700;color:<?= $left < 0 ? 'var(--red)' : 'var(--text)' ?>"><?= $left < 0 ? won(-$left, true) . ' 넘었어요' : '남은 돈 ' . won($left, true) . ($daysLeft ? ' · 하루 ' . won((int) floor($left / $daysLeft), true) : '') ?></span>
+      <span class="muted">예산 <?= won($budget, true) ?> 중 <?= round($sum['out'] / $budget * 100) ?>%<?= $planLeft ? ' · 고정 예정 ' . won($planLeft, true) : '' ?></span>
+      <span style="font-weight:700;color:<?= $left < 0 ? 'var(--red)' : 'var(--text)' ?>"><?= $left < 0 ? won(-$left, true) . ' 넘었어요' : '남은 돈 ' . won($left, true) . ($daysLeft ? ' · 하루 ' . won((int) max(0, floor(($left - $planLeft) / $daysLeft)), true) : '') ?></span>
     </div>
   <?php endif; ?>
 </section>
@@ -186,7 +194,7 @@ page_start('가계부', 'ledger');
         $cls = trim(($d === $selDay ? 'sel ' : '') . ($d === today() ? 'today ' : '') . ($d > today() ? 'future ' : '') . ($w === 0 || isset(HOLIDAYS[$d]) ? 'sun ' : ($w === 6 ? 'sat ' : ''))); ?>
       <a class="<?= $cls ?>" href="<?= h($q(['d' => $d])) ?>#day"<?= $heat ? ' style="--heat:' . round($heat, 3) . '"' : '' ?>>
         <span class="n"><?= $dn ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기 쓴 날"></i>' : '' ?></span>
-        <span class="amts"><?php if ($in): ?><span class="pin">+<?= cell_won($in) ?></span><?php endif; ?><?php if ($o): ?><span class="pout">-<?= cell_won($o) ?></span><?php endif; ?></span>
+        <span class="amts"><?php if (!empty($dayPlan[$d])): ?><span class="pplan">-<?= cell_won(array_sum(array_column($dayPlan[$d], 'amount'))) ?></span><?php endif; ?><?php if ($in): ?><span class="pin">+<?= cell_won($in) ?></span><?php endif; ?><?php if ($o): ?><span class="pout">-<?= cell_won($o) ?></span><?php endif; ?></span>
       </a>
     <?php endfor; ?>
   </div>
@@ -207,15 +215,18 @@ page_start('가계부', 'ledger');
             <span class="ic"><?= $ci ?></span>
             <span class="grow">
               <span class="t"><?= h($x['merchant'] ?: $x['memo'] ?: $cn) ?></span>
-              <span class="s"><?= h($cn) ?><?= $x['at_time'] ? ' · ' . substr($x['at_time'], 0, 5) : '' ?><?= $payer ? ' · ' . h($payer['emoji']) : '' ?><?= $x['source'] !== 'manual' ? ' · 📲' : '' ?><?= $x['memo'] && $x['merchant'] ? ' · ' . h($x['memo']) : '' ?><?= $x['diary_id'] ? ' · 📔' : '' ?></span>
+              <span class="s"><?= h($cn) ?><?= $x['at_time'] ? ' · ' . substr($x['at_time'], 0, 5) : '' ?><?= $payer ? ' · ' . h($payer['emoji']) : '' ?><?= ['manual' => '', 'fixed' => ' · 🔁'][$x['source']] ?? ' · 📲' ?><?= $x['memo'] && $x['merchant'] ? ' · ' . h($x['memo']) : '' ?><?= $x['diary_id'] ? ' · 📔' : '' ?></span>
             </span>
             <span class="amt <?= $x['kind'] === 'in' ? 'in' : '' ?>"><?= $x['kind'] === 'in' ? '+' : '' ?><?= won((int) $x['amount']) ?></span>
           </a>
         <?php endforeach; ?>
       </div>
-    <?php else: ?>
+    <?php elseif (empty($dayPlan[$selDay])): ?>
       <p class="small muted" style="margin:0">이날 기록이 없어요.</p>
     <?php endif; ?>
+    <?php foreach ($dayPlan[$selDay] ?? [] as $r): [$cn, $ci] = ledger_cat($r['category']); ?>
+      <a class="lrow plan" href="ledger_guide.php#fixed"><span class="ic"><?= $ci ?></span><span class="grow"><span class="t"><?= h($r['merchant']) ?></span><span class="s">🔁 고정 · 이날 들어갈 예정</span></span><span class="amt"><?= won((int) $r['amount']) ?></span></a>
+    <?php endforeach; ?>
     <div class="btn-row" style="margin-top:10px">
       <?php if ($selDay <= today()): ?><a class="btn small primary" href="<?= h($q(['d' => $selDay, 'add' => 1])) ?>#form" data-sheet="<?= h($selDay) ?>">＋ 이날 쓴 돈 적기</a><?php endif; ?>
       <?php if (isset($diaryDays[$selDay])): ?><a class="btn small" href="diary_view.php?id=<?= (int) $diaryDays[$selDay] ?>">📔 이날 일기</a>
@@ -246,7 +257,7 @@ page_start('가계부', 'ledger');
         <span class="ic"><?= $ci ?></span>
         <span class="grow">
           <span class="t"><?= h($x['merchant'] ?: $x['memo'] ?: $cn) ?></span>
-          <span class="s"><?= h($cn) ?><?= $x['at_time'] ? ' · ' . substr($x['at_time'], 0, 5) : '' ?><?= $payer ? ' · ' . h($payer['emoji']) : '' ?><?= $x['source'] !== 'manual' ? ' · 📲' . ($x['card'] ? ' ' . h($x['card']) : '') : '' ?><?= $x['memo'] && $x['merchant'] ? ' · ' . h($x['memo']) : '' ?><?= $x['diary_id'] && isset($diaryTitle[(int) $x['diary_id']]) ? ' · 📔 ' . h($diaryTitle[(int) $x['diary_id']]) : '' ?></span>
+          <span class="s"><?= h($cn) ?><?= $x['at_time'] ? ' · ' . substr($x['at_time'], 0, 5) : '' ?><?= $payer ? ' · ' . h($payer['emoji']) : '' ?><?= $x['source'] === 'fixed' ? ' · 🔁 고정' : ($x['source'] !== 'manual' ? ' · 📲' . ($x['card'] ? ' ' . h($x['card']) : '') : '') ?><?= $x['memo'] && $x['merchant'] ? ' · ' . h($x['memo']) : '' ?><?= $x['diary_id'] && isset($diaryTitle[(int) $x['diary_id']]) ? ' · 📔 ' . h($diaryTitle[(int) $x['diary_id']]) : '' ?></span>
         </span>
         <span class="amt <?= $x['kind'] === 'in' ? 'in' : '' ?>"><?= $x['kind'] === 'in' ? '+' : '' ?><?= won((int) $x['amount']) ?></span>
       </a>

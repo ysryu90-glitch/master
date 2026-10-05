@@ -349,3 +349,40 @@ function parse_card_detail(array $lines): ?array
     if (!$time || $merchant === '') return null;
     return ['ok' => true, 'cancel' => $cancel, 'amount' => $amount, 'day' => $day, 'time' => $time, 'merchant' => mb_substr($merchant, 0, 100), 'card' => mb_substr($card, 0, 40), 'error' => ''];
 }
+
+/** 고정 지출 목록 */
+function ledger_recurring(): array
+{
+    return db()->query('SELECT * FROM ledger_recurring WHERE active = 1 ORDER BY dom, id')->fetchAll();
+}
+
+/** 이 달에 그 규칙이 들어갈 날짜 (31일인데 30일까지인 달은 말일) */
+function ledger_recurring_day(array $r, string $ym): string
+{
+    $last = (int) date('t', strtotime($ym . '-01'));
+    $dom = (int) $r['dom'] <= 0 ? $last : min((int) $r['dom'], $last);
+    return sprintf('%s-%02d', $ym, $dom);
+}
+
+/** 오늘까지 들어갔어야 할 고정 지출을 채우기 (달마다 한 번만 · 지운 건 다시 넣지 않음). 들어간 건수 */
+function ledger_recurring_fill(): int
+{
+    $n = 0;
+    $today = today();
+    foreach (ledger_recurring() as $r) {
+        // 마지막으로 넣은 다음 달부터 이번 달까지 (최대 3달만 거슬러)
+        $from = $r['last_ym'] !== '' ? date('Y-m', strtotime($r['last_ym'] . '-01 +1 month')) : substr($r['start_day'], 0, 7);
+        $ym = max($from, date('Y-m', strtotime(date('Y-m-01') . ' -2 month')));
+        for (; $ym <= date('Y-m'); $ym = date('Y-m', strtotime($ym . '-01 +1 month'))) {
+            $day = ledger_recurring_day($r, $ym);
+            if ($day > $today) break;
+            if ($day >= $r['start_day']) {
+                $id = expense_add(['day' => $day, 'kind' => $r['kind'], 'amount' => (int) $r['amount'], 'category' => $r['category'], 'merchant' => $r['merchant'],
+                    'memo' => '고정', 'member_id' => $r['member_id'] ?: null, 'source' => 'fixed', 'raw_hash' => sha1('rec|' . $r['id'] . '|' . $ym)]);
+                if ($id) $n++;
+            }
+            db()->prepare('UPDATE ledger_recurring SET last_ym = ? WHERE id = ?')->execute([$ym, $r['id']]);
+        }
+    }
+    return $n;
+}

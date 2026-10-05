@@ -10,6 +10,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_setting('ledger_budget', max(0, (int) preg_replace('/[^\d]/', '', (string) post('budget'))));
             flash(ledger_budget() ? '한 달 예산을 ' . won(ledger_budget(), true) . '으로 정했어요.' : '예산을 껐어요.');
             redirect('ledger_guide.php');
+        case 'fixed_add':
+            $amount = (int) preg_replace('/[^\d]/', '', (string) post('amount'));
+            if ($amount <= 0 || trim(post('merchant')) === '') { flash('이름과 금액을 넣어 주세요.'); redirect('ledger_guide.php#fixed'); }
+            $kind = post('kind') === 'in' ? 'in' : 'out';
+            $dom = max(0, min(31, (int) post('dom')));
+            db()->prepare('INSERT INTO ledger_recurring (dom, kind, amount, category, merchant, member_id, start_day, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())')
+                ->execute([$dom, $kind, $amount, $kind === 'in' ? 'income' : (isset(LEDGER_CATEGORIES[post('category')]) ? post('category') : 'etc'),
+                    mb_substr(trim(post('merchant')), 0, 100), (int) post('member') ?: null, post('now') ? date('Y-m-01') : today()]);
+            $added = ledger_recurring_fill();
+            flash('고정 ' . ($kind === 'in' ? '수입' : '지출') . '을 등록했어요. 매달 ' . ($dom ? $dom . '일' : '말일') . '에 저절로 들어가요.' . ($added ? " (이번 달 것 {$added}건 넣음)" : ''));
+            redirect('ledger_guide.php#fixed');
+        case 'fixed_del':
+            db()->prepare('UPDATE ledger_recurring SET active = 0 WHERE id = ?')->execute([(int) post('id')]);
+            flash('고정 항목을 멈췄어요. 이미 들어간 기록은 그대로 있어요.');
+            redirect('ledger_guide.php#fixed');
         case 'delete_many':
             $ids = array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])));
             if ($ids) db()->exec('DELETE FROM expenses WHERE id IN (' . implode(',', $ids) . ')');
@@ -20,7 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 $budget = ledger_budget();
 // 최근 3일 자동 입력 기록 (잘못 들어간 것을 한꺼번에 지우는 곳)
-$autoRecent = db()->query("SELECT * FROM expenses WHERE source <> 'manual' AND created_at >= DATE_SUB(NOW(), INTERVAL 3 DAY) ORDER BY id DESC LIMIT 100")->fetchAll();
+$fixed = ledger_recurring();
+$adults = members('adult');
+$autoRecent = db()->query("SELECT * FROM expenses WHERE source NOT IN ('manual', 'fixed') AND created_at >= DATE_SUB(NOW(), INTERVAL 3 DAY) ORDER BY id DESC LIMIT 100")->fetchAll();
 $url = public_base() . '/api/expense.php?token=' . $me['shortcut_token'];
 
 function human_ago(string $at): string
@@ -50,6 +67,47 @@ page_start('예산 · 자동 입력', 'ledger');
     <button class="btn primary">저장</button>
   </form>
   <p class="small muted" style="margin:8px 0 0">정해 두면 가계부 위쪽에 남은 돈 · 하루에 쓸 수 있는 돈이 보여요.</p>
+</section>
+
+<section class="card" id="fixed">
+  <h2>🔁 고정 지출 · 수입</h2>
+  <p class="small muted" style="margin-top:-4px">통신비 · 보험 · 유치원비 · 월급처럼 매달 같은 날 나가고 들어오는 돈을 한 번만 적어 두면, 그날 가계부에 저절로 들어가요.</p>
+  <?php if ($fixed): ?>
+    <div class="lrows flat" style="margin-bottom:10px">
+      <?php foreach ($fixed as $r): [$cn, $ci] = ledger_cat($r['category']); ?>
+        <div class="lrow">
+          <span class="ic"><?= $ci ?></span>
+          <span class="grow"><span class="t"><?= h($r['merchant']) ?></span><span class="s">매달 <?= (int) $r['dom'] ? (int) $r['dom'] . '일' : '말일' ?> · <?= h($cn) ?></span></span>
+          <span class="amt <?= $r['kind'] === 'in' ? 'in' : '' ?>"><?= $r['kind'] === 'in' ? '+' : '' ?><?= won((int) $r['amount']) ?></span>
+          <form method="post" data-confirm="<?= h($r['merchant']) ?> 고정 항목을 멈출까요? (이미 들어간 기록은 남아요)"><?= csrf_field() ?><input type="hidden" name="action" value="fixed_del"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>"><button class="btn small icon" aria-label="멈추기" title="멈추기">✕</button></form>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <p class="small" style="margin:0 0 6px"><b>한 달 고정 지출 <?= won(array_sum(array_map(fn($r) => $r['kind'] === 'out' ? (int) $r['amount'] : 0, $fixed))) ?></b></p>
+  <?php endif; ?>
+  <details class="fold"<?= $fixed ? '' : ' open' ?>>
+    <summary>＋ 고정 항목 추가</summary>
+    <form method="post" class="form" style="margin-top:8px">
+      <?= csrf_field() ?><input type="hidden" name="action" value="fixed_add">
+      <div class="segmented">
+        <label><input type="radio" name="kind" value="out" checked><span>💸 지출</span></label>
+        <label><input type="radio" name="kind" value="in"><span>💵 수입</span></label>
+      </div>
+      <div class="grid2">
+        <label>이름<input name="merchant" placeholder="예: 휴대폰 요금" required></label>
+        <label>금액<input name="amount" inputmode="numeric" placeholder="예: 55,000" required oninput="var n=this.value.replace(/[^\d]/g,'');this.value=n?Number(n).toLocaleString('ko-KR'):''"></label>
+      </div>
+      <div class="grid2">
+        <label>매달 며칠<select name="dom"><?php for ($i = 1; $i <= 31; $i++): ?><option value="<?= $i ?>"<?= $i === (int) date('j') ? ' selected' : '' ?>><?= $i ?>일</option><?php endfor; ?><option value="0">말일</option></select></label>
+        <label>항목<select name="category"><?php foreach (LEDGER_CATEGORIES as $k => [$cn, $ci]): ?><option value="<?= $k ?>"<?= $k === 'bill' ? ' selected' : '' ?>><?= $ci ?> <?= h($cn) ?></option><?php endforeach; ?></select></label>
+      </div>
+      <div class="grid2">
+        <label>낸 사람<select name="member"><?php foreach ($adults as $a): ?><option value="<?= (int) $a['id'] ?>"<?= (int) $a['id'] === (int) $me['id'] ? ' selected' : '' ?>><?= h($a['emoji'] . ' ' . $a['name']) ?></option><?php endforeach; ?><option value="0">같이 · 모름</option></select></label>
+        <label style="align-self:end;display:flex;gap:8px;align-items:center;padding:12px 0;font-weight:600"><input type="checkbox" name="now" value="1" style="width:20px;height:20px"> 이번 달 것도 넣기</label>
+      </div>
+      <button class="btn primary wide">등록</button>
+    </form>
+  </details>
 </section>
 
 <?php if ($autoRecent): ?>

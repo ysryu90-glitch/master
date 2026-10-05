@@ -15,6 +15,8 @@ if (!hash_equals((string) (cfg()['secret'] ?? ''), (string) ($_GET['key'] ?? '')
     exit;
 }
 calendar_refresh_if_stale();
+require_once __DIR__ . '/lib/ledger.php';
+if (($fixed = ledger_recurring_fill()) > 0) echo "가계부 고정 지출 {$fixed}건\n";
 
 $now = time();
 $today = today();

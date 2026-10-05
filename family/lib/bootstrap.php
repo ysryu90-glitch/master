@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -401,6 +401,20 @@ function migrate(PDO $pdo): void
             updated_at DATETIME NOT NULL,
             KEY day (day),
             KEY diary (diary_id)
+        )",
+        // 가계부 고정 지출 · 수입 (매달 같은 날 저절로 들어감: 통신비, 보험, 유치원비, 월급 …)
+        "CREATE TABLE IF NOT EXISTS ledger_recurring (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            dom TINYINT NOT NULL,
+            kind VARCHAR(3) NOT NULL DEFAULT 'out',
+            amount INT NOT NULL,
+            category VARCHAR(12) NOT NULL DEFAULT 'etc',
+            merchant VARCHAR(100) NOT NULL DEFAULT '',
+            member_id INT NULL,
+            active TINYINT NOT NULL DEFAULT 1,
+            start_day DATE NOT NULL,
+            last_ym CHAR(7) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL
         )",
     ];
     foreach ($tables as $sql) {

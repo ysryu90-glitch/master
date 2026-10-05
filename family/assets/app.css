@@ -693,3 +693,8 @@ main.page:has(> .lfab) { padding-bottom: 84px; }
 .chips.scrollx .chip { flex: none; white-space: nowrap; }
 @media (min-width: 960px) { main.home > .lfab { display: none; } }
 .dlist { align-items: start; }
+.lcal .grid a .pplan { font-size: 10.5px; font-weight: 700; text-align: right; color: var(--dim); white-space: nowrap; }
+.lcal .grid a.future { opacity: 1; }
+.lcal .grid a.future .n { opacity: 0.45; }
+.lrow.plan { opacity: 0.6; }
+.lrow.plan .amt { color: var(--sub); }
