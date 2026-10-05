@@ -537,3 +537,48 @@ details.fold > summary::-webkit-details-marker { display: none; }
 details.fold > summary::before { content: '▸ '; }
 details.fold[open] > summary::before { content: '▾ '; }
 details.fold[open] > summary { margin-bottom: 8px; }
+
+/* ───────── 가계부 ───────── */
+.monthnav { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 12px; }
+.monthnav b { font-size: 18px; }
+.lsum .k { font-size: 13px; font-weight: 700; color: var(--sub); }
+.lsum .big { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin: 2px 0 2px; }
+.meter.red i { background: var(--red); }
+.catbars { display: grid; gap: 6px; margin-top: 14px; }
+.catbars a { display: grid; grid-template-columns: 112px 1fr auto; align-items: center; gap: 8px; color: var(--text); text-decoration: none; font-size: 13px; border-radius: 8px; padding: 2px 4px; }
+.catbars a.on { background: var(--accent-soft); }
+.catbars .n { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catbars .bar { height: 8px; background: var(--card-2); border-radius: 4px; overflow: hidden; }
+.catbars .bar i { display: block; height: 100%; background: var(--orange); border-radius: 4px; }
+.catbars .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+.form .amount { font-size: 26px; font-weight: 800; text-align: right; letter-spacing: -0.3px; }
+.catpick { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.form .catpick label { margin: 0; color: var(--text); font-weight: 600; }
+.catpick input { position: absolute; opacity: 0; pointer-events: none; width: 1px !important; }
+.catpick span { display: inline-block; padding: 7px 11px; border-radius: 999px; background: var(--card-2); font-size: 14px; cursor: pointer; }
+.catpick input:checked + span { background: var(--text); color: var(--bg); }
+.catpick[hidden] { display: none; }
+.lday { display: flex; justify-content: space-between; margin: 16px 6px 6px; font-size: 14px; }
+.lrows { padding: 4px 14px; }
+.lrow { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.lrow:last-child { border-bottom: none; }
+.lrow .ic { font-size: 22px; width: 28px; text-align: center; }
+.lrow .grow { min-width: 0; }
+.lrow .t { display: block; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .s { display: block; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .amt { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lrow .amt.in { color: var(--accent); }
+.lrow.cancel .amt { color: var(--red); }
+.rv { padding: 10px 0; border-top: 1px solid var(--line); }
+.rv .chip { font-size: 12px; padding: 4px 9px; }
+.money { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--card-2); }
+.money .row { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; padding: 3px 0; }
+.money .tot { font-weight: 800; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+.spentrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.form .spentrow label { margin: 0; display: flex; align-items: center; gap: 8px; flex: 1; color: var(--text); font-weight: 600; font-size: 14px; }
+.form .spentrow input[type=checkbox] { width: auto; margin: 0; display: inline; }
+.addspend { display: grid; grid-template-columns: 1fr 110px; gap: 6px; margin-top: 8px; }
+.form .addspend select, .form .addspend input { margin-top: 0; }
+.dcard .st .spent { color: var(--text); font-size: 12px; font-weight: 700; letter-spacing: 0; margin-left: 4px; }
+.mealline .grow { flex: 1; }
+.lrow .grow { flex: 1; }

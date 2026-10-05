@@ -2,6 +2,7 @@
 // 가족 일기 목록: 일상 · 나들이를 달마다 모아 보기
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/places.php';
+require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 $years = array_map('intval', db()->query('SELECT DISTINCT YEAR(day) y FROM diary_entries ORDER BY y DESC')->fetchAll(PDO::FETCH_COLUMN));
@@ -9,6 +10,7 @@ $year = (int) ($_GET['y'] ?? 0);
 if ($year && !in_array($year, $years, true)) $year = 0;
 $cat = isset(DIARY_CATEGORIES[$_GET['c'] ?? '']) ? $_GET['c'] : '';
 $entries = diary_entries($year ?: null, 500, $cat ?: null);
+$spentBy = diary_spent(array_column($entries, 'id'));
 $q = fn(array $p) => 'diary.php' . (($p = array_filter($p + ['c' => $cat, 'y' => $year ?: ''])) ? '?' . http_build_query($p) : '');
 $catCount = [];
 foreach (db()->query('SELECT category, COUNT(*) n FROM diary_entries GROUP BY category') as $r) $catCount[$r['category']] = (int) $r['n'];
@@ -87,7 +89,7 @@ page_start('일기', 'family');
           <div class="small muted"><?php if (!$cat): ?><span class="dbadge <?= h($e['category']) ?>"><?= implode(' ', array_reverse(DIARY_CATEGORIES[$e['category']] ?? ['일기', '📔'])) ?></span> <?php endif; ?><?= date('n/j', strtotime($e['day'])) ?> (<?= weekday_short($e['day']) ?>)<?= $e['weather'] ? ' · ' . h($e['weather']) : '' ?></div>
           <div class="t"><?= h($e['title'] ?: $e['place_name']) ?></div>
           <?php if ($e['title'] && $e['place_name']): ?><div class="small muted">📍 <?= h($e['place_name']) ?></div><?php endif; ?>
-          <?php if (($e['avg'] !== null || $e['again'])): ?><div class="st"><?= stars_text($e['avg']) ?><?= $e['again'] ? ' 💛' : '' ?></div><?php endif; ?>
+          <?php if (($e['avg'] !== null || $e['again'] || isset($spentBy[(int) $e['id']]))): ?><div class="st"><?= stars_text($e['avg']) ?><?= $e['again'] ? ' 💛' : '' ?><?php if (isset($spentBy[(int) $e['id']])): ?> <span class="spent">💰 <?= won($spentBy[(int) $e['id']], true) ?></span><?php endif; ?></div><?php endif; ?>
           <?php if ($e['kid_said']): ?><div class="small kid">👧 “<?= h(mb_strimwidth(trim($e['kid_said'], " \"“”"), 0, 60, '…')) ?>”</div>
           <?php elseif (trim((string) $e['body']) !== ''): ?><div class="small muted"><?= h(mb_strimwidth(preg_replace('/\s+/u', ' ', $e['body']), 0, 70, '…')) ?></div><?php endif; ?>
         </div>

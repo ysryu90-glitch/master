@@ -7,6 +7,7 @@ require __DIR__ . '/lib/care.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
 require __DIR__ . '/lib/discover.php';
+require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 check_csrf();
@@ -101,6 +102,9 @@ $myAtt = $att[(int) $me['id']] ?? null;
 $todoMeds = array_values(array_filter($meds, fn($m) => !$m['taken_at']));
 $doneMeds = count($meds) - count($todoMeds);
 $homeLoc = array_values(array_filter(locations(), fn($l) => $l['role'] === 'home'));
+$monthSpent = expenses_summary(date('Y-m'))['out'];
+$budget = ledger_budget();
+$toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')->fetchColumn();
 ?>
 <section class="hello">
   <div class="d"><?= date('n월 j일') ?> <?= ['일', '월', '화', '수', '목', '금', '토'][(int) date('w')] ?>요일<?= isset(HOLIDAYS[$today]) ? ' · ' . h(HOLIDAYS[$today]) : '' ?></div>
@@ -150,7 +154,12 @@ $homeLoc = array_values(array_filter(locations(), fn($l) => $l['role'] === 'home
       <span class="ic">📔</span><span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pl['name']) ?></b> 일기 쓰기<div class="small muted">사진 · 별점 남기기</div></span><span class="more">›</span>
     </a>
   <?php endif; ?>
-  <?php if (!$todoMeds && $myAtt && !$pendingDiary): ?>
+  <?php if ($toReview): ?>
+    <a class="todo-row" href="ledger.php#review">
+      <span class="ic">📲</span><span class="grow"><b>카드 기록 <?= $toReview ?>건</b> 항목 확인<div class="small muted">자동으로 들어왔는데 항목을 못 정했어요</div></span><span class="more">›</span>
+    </a>
+  <?php endif; ?>
+  <?php if (!$todoMeds && $myAtt && !$pendingDiary && !$toReview): ?>
     <p class="done">🎉 오늘 할 일을 다 했어요<?= $doneMeds ? ' · 💊 약 ' . $doneMeds . '개 먹음' : '' ?></p>
   <?php elseif ($doneMeds): ?>
     <p class="small muted" style="margin:8px 0 0">💊 오늘 약 <?= $doneMeds ?>개 먹음 · <a href="meds.php">약 기록 ›</a></p>
@@ -238,6 +247,12 @@ $homeLoc = array_values(array_filter(locations(), fn($l) => $l['role'] === 'home
     <span>🍚 식단 <?= (int) $food['meals'] ?>끼</span>
     <span class="meter orange"><i style="width:<?= min(100, $food['kcal'] / max(1, $me['kcal_target']) * 100) ?>%"></i></span>
     <span class="small muted"><?= num($food['kcal']) ?> / <?= num($me['kcal_target']) ?> kcal ›</span>
+  </a>
+  <a class="mealline" href="ledger.php">
+    <span>💰 이번 달 <?= won($monthSpent, true) ?></span>
+    <?php if ($budget): ?><span class="meter <?= $monthSpent >= $budget ? 'red' : ($monthSpent >= $budget * 0.8 ? 'orange' : '') ?>"><i style="width:<?= min(100, $monthSpent / $budget * 100) ?>%"></i></span>
+      <span class="small muted">예산 <?= won($budget, true) ?> ›</span>
+    <?php else: ?><span class="grow"></span><span class="small muted">가계부 ›</span><?php endif; ?>
   </a>
   <?php foreach ($others as $o): $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; ?>
     <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>

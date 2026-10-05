@@ -4,6 +4,7 @@ require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/care.php';
+require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 $monday = date('Y-m-d', strtotime('monday this week', strtotime(valid_day($_GET['w'] ?? null))));
@@ -121,6 +122,20 @@ page_start('주간 리포트', 'family');
 <section class="card">
   <h2>🧺 다녀온 곳</h2>
   <?php foreach ($visits as $v): ?><p><?= h($placeNames[$v['place_id']] ?? $v['place_id']) ?> <?= $v['rating'] ? str_repeat('⭐', (int) $v['rating']) : '' ?> <span class="small muted"><?= h($v['memo']) ?></span></p><?php endforeach; ?>
+</section>
+<?php endif; ?>
+
+<?php
+// 이번 주 쓴 돈
+$stmt = db()->prepare("SELECT category, SUM(amount) s FROM expenses WHERE kind = 'out' AND day BETWEEN ? AND ? GROUP BY category ORDER BY s DESC");
+$stmt->execute([$monday, $sunday]);
+$weekSpend = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+$weekTotal = array_sum($weekSpend);
+?>
+<?php if ($weekTotal): ?>
+<section class="card">
+  <div class="card-head"><h2>💰 이번 주 쓴 돈 <?= won((int) $weekTotal, true) ?></h2><a class="more" href="ledger.php?m=<?= substr($monday, 0, 7) ?>">가계부 ›</a></div>
+  <div class="chips"><?php foreach (array_slice($weekSpend, 0, 5, true) as $k => $v): [$cn, $ci] = ledger_cat($k); ?><span class="chip"><?= $ci ?> <?= h($cn) ?> <?= won((int) $v, true) ?></span><?php endforeach; ?></div>
 </section>
 <?php endif; ?>
 

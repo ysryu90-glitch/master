@@ -3,6 +3,7 @@
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
+require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 $ajax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
@@ -81,6 +82,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($cover = (int) post('cover')) {
         $pdo->prepare('UPDATE diary_photos SET sort = 0 WHERE id = ? AND entry_id = ?')->execute([$cover, $id]);
         $pdo->prepare('UPDATE diary_photos SET sort = GREATEST(sort, 1) WHERE id <> ? AND entry_id = ?')->execute([$cover, $id]);
+    }
+    // 💰 이날 쓴 돈: 고른 지출만 이 일기에 연결, 새로 적은 줄은 가계부에 추가
+    $link = array_map('intval', (array) ($_POST['link_exp'] ?? []));
+    $pdo->prepare('UPDATE expenses SET diary_id = NULL WHERE diary_id = ?' . ($link ? ' AND id NOT IN (' . implode(',', $link) . ')' : ''))->execute([$id]);
+    if ($link) $pdo->prepare('UPDATE expenses SET diary_id = ? WHERE id IN (' . implode(',', $link) . ') AND (diary_id IS NULL OR diary_id = ?)')->execute([$id, $id]);
+    foreach ((array) ($_POST['new_amt'] ?? []) as $i => $amt) {
+        $amt = (int) preg_replace('/[^\d]/', '', (string) $amt);
+        if ($amt <= 0) continue;
+        expense_add(['day' => $day, 'amount' => $amt, 'category' => (string) ($_POST['new_cat'][$i] ?? 'etc'), 'merchant' => mb_substr((string) ($_POST['new_memo'][$i] ?? ''), 0, 100) ?: $placeName,
+            'member_id' => (int) $me['id'], 'diary_id' => $id, 'created_by' => (int) $me['id']]);
     }
     $pdo->commit();
     diary_sync_visit($id);
@@ -194,6 +205,34 @@ page_start($entry ? '일기 고치기' : '일기 쓰기', 'family');
     <h2>✍️ 오늘의 이야기</h2>
     <label>일기<textarea name="body" rows="7" placeholder="<?= $tt('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>"<?= $t('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>><?= h($e['body']) ?></textarea></label>
     <label>👧 아이가 한 말<input name="kid_said" value="<?= h($e['kid_said']) ?>" maxlength="300" placeholder="<?= $tt('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>"<?= $t('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>></label>
+  </section>
+
+  <?php
+  $dayExp = expenses_of_day($e['day']);
+  $catOrder = array_unique(array_merge(LEDGER_OUTING_CATS, array_keys(LEDGER_CATEGORIES)));
+  ?>
+  <section class="card" id="spend">
+    <div class="card-head"><h2>💰 이날 쓴 돈</h2><a class="more" href="ledger.php?m=<?= substr($e['day'], 0, 7) ?>">가계부 ›</a></div>
+    <?php if ($dayExp): ?>
+      <p class="small muted" style="margin-top:-4px">가계부에 있는 <?= date('n/j', strtotime($e['day'])) ?> 기록이에요. 이 일기에 넣을 것을 골라 주세요.</p>
+      <?php foreach ($dayExp as $x): [$cn, $ci] = ledger_cat($x['category']); $other = $x['diary_id'] && (int) $x['diary_id'] !== (int) $e['id'];
+          $checked = (int) $x['diary_id'] === (int) $e['id'] && $e['id'] || (!$e['id'] && !$x['diary_id'] && in_array($x['category'], LEDGER_OUTING_CATS, true) && $cat === 'outing'); ?>
+        <div class="spentrow">
+          <label><input type="checkbox" name="link_exp[]" value="<?= (int) $x['id'] ?>" <?= $checked ? 'checked' : '' ?> <?= $other ? 'disabled' : '' ?>> <?= $ci ?> <?= h($x['merchant'] ?: $x['memo'] ?: $cn) ?><?= $other ? ' <span class="small muted">(다른 일기)</span>' : '' ?></label>
+          <b><?= won((int) $x['amount']) ?></b>
+        </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <p class="small muted" style="margin-top:-4px">이날 가계부 기록이 없어요. 아래에 적으면 가계부에도 같이 들어가요.</p>
+    <?php endif; ?>
+    <div id="spend-new">
+      <div class="addspend">
+        <select name="new_cat[]" aria-label="항목"><?php foreach ($catOrder as $k): [$cn, $ci] = ledger_cat($k); ?><option value="<?= $k ?>"><?= $ci ?> <?= h($cn) ?></option><?php endforeach; ?></select>
+        <input name="new_amt[]" inputmode="numeric" placeholder="금액" aria-label="금액">
+        <input name="new_memo[]" placeholder="어디서 (예: 입장료, 점심)" aria-label="어디서" style="grid-column:1 / -1">
+      </div>
+    </div>
+    <button type="button" class="btn small" id="spend-more" style="margin-top:8px">＋ 한 줄 더</button>
   </section>
 
   <p id="diary-status" class="small" style="margin:0 4px 10px"></p>

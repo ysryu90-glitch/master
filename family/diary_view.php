@@ -2,6 +2,7 @@
 // 일기 한 편 (일상 · 나들이)
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/diary.php';
+require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 $e = diary_entry((int) ($_GET['id'] ?? 0));
@@ -68,11 +69,19 @@ page_start($catLabel . ' 일기', 'family');
 
   <?php if ($e['kid_said']): ?><blockquote class="kidsaid">👧 “<?= h(trim($e['kid_said'], " \"“”")) ?>”</blockquote><?php endif; ?>
   <?php if (trim((string) $e['body']) !== ''): ?><div class="dbody"><?= nl2br(h($e['body'])) ?></div><?php endif; ?>
+  <?php $spent = expenses_of_diary((int) $e['id']); if ($spent): ?>
+    <div class="money">
+      <?php $byCat = []; foreach ($spent as $x) $byCat[$x['category']] = ($byCat[$x['category']] ?? 0) + (int) $x['amount']; arsort($byCat); ?>
+      <?php foreach ($byCat as $k => $v): [$cn, $ci] = ledger_cat($k); ?><div class="row"><span><?= $ci ?> <?= h($cn) ?></span><span><?= won($v) ?></span></div><?php endforeach; ?>
+      <div class="row tot"><span>💰 이날 쓴 돈</span><span><?= won(array_sum($byCat)) ?></span></div>
+    </div>
+  <?php endif; ?>
 
   <div class="acts" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
     <a class="btn small primary" href="diary_share.php?entry=<?= (int) $e['id'] ?>">🔗 가족에게 공유<?= $activeShares ? ' (' . $activeShares . ')' : '' ?></a>
     <button type="button" class="btn small" data-card='<?= h(json_encode($card, JSON_UNESCAPED_UNICODE)) ?>'>🖼 사진 카드</button>
     <a class="btn small" href="diary_edit.php?id=<?= (int) $e['id'] ?>">✏️ 고치기 · 사진 추가</a>
+    <?php if (!$spent): ?><a class="btn small" href="diary_edit.php?id=<?= (int) $e['id'] ?>#spend">💰 쓴 돈 적기</a><?php endif; ?>
     <?php if ($e['place_name']): ?><a class="btn small" href="https://map.naver.com/p/search/<?= rawurlencode($e['place_name']) ?>" target="_blank" rel="noopener">🗺 지도</a><?php endif; ?>
   </div>
   <?php if ($same): ?>

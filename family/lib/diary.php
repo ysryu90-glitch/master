@@ -109,6 +109,7 @@ function diary_delete(int $id): void
     $e = diary_entry($id);
     if (!$e) return;
     if ($e['visit_log_id']) db()->prepare("DELETE FROM outing_logs WHERE id = ? AND kind = 'visit'")->execute([$e['visit_log_id']]);
+    db()->prepare('UPDATE expenses SET diary_id = NULL WHERE diary_id = ?')->execute([$id]); // 가계부 기록은 남김
     db()->prepare('DELETE FROM diary_photos WHERE entry_id = ?')->execute([$id]);
     db()->prepare('DELETE FROM diary_ratings WHERE entry_id = ?')->execute([$id]);
     db()->prepare('DELETE FROM diary_share_entries WHERE entry_id = ?')->execute([$id]);

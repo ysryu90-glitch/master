@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -380,6 +380,28 @@ function migrate(PDO $pdo): void
             entry_id INT NOT NULL,
             PRIMARY KEY (share_id, entry_id)
         )",
+        // 가계부: 지출 · 수입 (직접 입력 · 카드 문자 · 애플페이 자동 입력), 일기와 연결 가능
+        "CREATE TABLE IF NOT EXISTS expenses (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            day DATE NOT NULL,
+            at_time TIME NULL,
+            kind VARCHAR(3) NOT NULL DEFAULT 'out',
+            amount INT NOT NULL,
+            category VARCHAR(12) NOT NULL DEFAULT 'etc',
+            merchant VARCHAR(100) NOT NULL DEFAULT '',
+            memo VARCHAR(200) NOT NULL DEFAULT '',
+            member_id INT NULL,
+            card VARCHAR(40) NOT NULL DEFAULT '',
+            source VARCHAR(8) NOT NULL DEFAULT 'manual',
+            checked TINYINT NOT NULL DEFAULT 1,
+            diary_id INT NULL,
+            raw_hash CHAR(40) NULL UNIQUE,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            KEY day (day),
+            KEY diary (diary_id)
+        )",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql . ' DEFAULT CHARSET = utf8mb4');
@@ -610,7 +632,7 @@ function check_csrf(): void
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
     'meal' => ['식사', '🍽', 'table.php', [['table.php', '오늘 저녁', '🍲'], ['meals.php', '식단 기록', '🍚']]],
-    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺'], ['diary_share.php', '공유', '🔗']]],
+    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['ledger.php', '가계부', '💰'], ['outing.php', '나들이 추천', '🧺'], ['diary_share.php', '공유', '🔗']]],
     'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '주간 리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['calendar.php', '일정', '📅'], ['settings.php', '설정', '⚙︎']]],
 ];
@@ -621,6 +643,7 @@ const NAV_PAGES = [
     'table.php' => ['meal', 'table.php'], 'meals.php' => ['meal', 'meals.php'], 'meal_edit.php' => ['meal', 'meals.php'],
     'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
     'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary_share.php'],
+    'ledger.php' => ['diary', 'ledger.php'], 'ledger_guide.php' => ['diary', 'ledger.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['more', 'calendar.php'],
     'settings.php' => ['more', 'settings.php'], 'shortcut.php' => ['more', 'settings.php'],
