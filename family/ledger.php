@@ -306,6 +306,13 @@ page_start('가계부', 'ledger');
   <?php endforeach; ?>
 </section>
 <?php endif; ?>
+<section class="card">
+  <h2>📥 엑셀로 내려받기</h2>
+  <div class="btn-row">
+    <a class="btn small" href="ledger_export.php?m=<?= $ym ?>" data-no-busy><?= (int) substr($ym, 5) ?>월 내역</a>
+    <a class="btn small" href="ledger_export.php?y=<?= substr($ym, 0, 4) ?>" data-no-busy><?= substr($ym, 0, 4) ?>년 전체</a>
+  </div>
+</section>
 <?php endif; ?>
 
 <div class="sheet" id="form"<?= $edit || isset($_GET['add']) ? '' : ' hidden' ?> role="dialog" aria-modal="true" aria-labelledby="form-title">
