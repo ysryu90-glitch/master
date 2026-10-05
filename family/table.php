@@ -123,9 +123,13 @@ page_start('오늘 저녁 · 식탁', 'table');
   <?php if ($plan && $plan['ingredients']): ?><p class="small muted">재료: <?= h($plan['ingredients']) ?></p><?php endif; ?>
   <?php if ($plan && $plan['note']): ?><p class="small muted">📝 <?= h($plan['note']) ?></p><?php endif; ?>
   <?php foreach ($conflicts as $c): ?><p class="small" style="color:var(--orange)">⚠️ <?= h($c) ?></p><?php endforeach; ?>
-  <details style="margin-top:8px">
-    <summary class="small" style="color:var(--blue)"><?= $plan ? '메뉴 바꾸기' : '메뉴 정하기' ?></summary>
+  <?php $pastDishes = db()->query("SELECT dish FROM dinner_plans WHERE dish <> '' AND day > DATE_SUB(CURDATE(), INTERVAL 90 DAY) GROUP BY dish ORDER BY COUNT(*) DESC, MAX(day) DESC LIMIT 12")->fetchAll(PDO::FETCH_COLUMN); ?>
+  <details class="fold" style="margin-top:8px"<?= $plan ? '' : ' open' ?>>
+    <summary><?= $plan ? '메뉴 바꾸기' : '메뉴 정하기' ?></summary>
     <form method="post" class="form" style="margin-top:10px">
+      <?php if ($pastDishes): ?>
+        <div class="chips scrollx" style="margin:0 -16px 4px;padding:0 16px"><span class="small muted" style="flex:none;align-self:center">자주:</span><?php foreach ($pastDishes as $pd): ?><button type="button" class="chip" onclick="this.form.dish.value=this.textContent"><?= h($pd) ?></button><?php endforeach; ?></div>
+      <?php endif; ?>
       <?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="day" value="<?= $day ?>">
       <label>메뉴 (여러 개면 · 로 구분)<input name="dish" value="<?= h($plan['dish'] ?? '') ?>" placeholder="예: 된장찌개 · 계란말이"></label>
       <label>재료 (쉼표로 구분)<input name="ingredients" value="<?= h($plan['ingredients'] ?? '') ?>" placeholder="예: 두부, 애호박, 계란"></label>
