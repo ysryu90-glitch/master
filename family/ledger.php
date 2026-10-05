@@ -213,17 +213,19 @@ page_start('가계부', 'ledger');
 </section>
 
 <section class="card" id="day">
-  <?php if ($selDay):
-      $rows = $byDay[$selDay] ?? [];
-      $sOut = $dayOut[$selDay] ?? 0; $sIn = $dayIn[$selDay] ?? 0; ?>
+  <?php for ($dn = 1; $dn <= $nDays; $dn++): $pd = sprintf('%s-%02d', $ym, $dn); ?>
+    <div class="daypane" data-day="<?= $pd ?>"<?= $pd === $selDay ? '' : ' hidden' ?>>
+    <?php
+      $rows = $byDay[$pd] ?? [];
+      $sOut = $dayOut[$pd] ?? 0; $sIn = $dayIn[$pd] ?? 0; ?>
     <div class="dayhead">
-      <h2><?= date('n월 j일', strtotime($selDay)) ?> (<?= weekday_short($selDay) ?>)<?= $selDay === today() ? ' <span class="small muted">오늘</span>' : '' ?></h2>
+      <h2><?= date('n월 j일', strtotime($pd)) ?> (<?= weekday_short($pd) ?>)<?= $pd === today() ? ' <span class="small muted">오늘</span>' : '' ?></h2>
       <span class="tot"><?= $sIn ? '<b class="in">+' . won($sIn) . '</b>' : '' ?><?= $sOut ? '<b class="out">-' . won($sOut) . '</b>' : '' ?></span>
     </div>
     <?php if ($rows): ?>
       <div class="lrows flat">
         <?php foreach ($rows as $x): [$cn, $ci] = ledger_cat($x['category']); $payer = $names[(int) $x['member_id']] ?? null; ?>
-          <a class="lrow<?= (int) $x['amount'] < 0 ? ' cancel' : '' ?>" href="<?= h($q(['d' => $selDay, 'edit' => $x['id']])) ?>#form">
+          <a class="lrow<?= (int) $x['amount'] < 0 ? ' cancel' : '' ?>" href="<?= h($q(['d' => $pd, 'edit' => $x['id']])) ?>#form">
             <span class="ic"><?= $ci ?></span>
             <span class="grow">
               <span class="t"><?= h($x['merchant'] ?: $x['memo'] ?: $cn) ?></span>
@@ -233,21 +235,44 @@ page_start('가계부', 'ledger');
           </a>
         <?php endforeach; ?>
       </div>
-    <?php elseif (empty($dayPlan[$selDay])): ?>
+    <?php elseif (empty($dayPlan[$pd])): ?>
       <p class="small muted" style="margin:0">이날 기록이 없어요.</p>
     <?php endif; ?>
-    <?php foreach ($dayPlan[$selDay] ?? [] as $r): [$cn, $ci] = ledger_cat($r['category']); ?>
+    <?php foreach ($dayPlan[$pd] ?? [] as $r): [$cn, $ci] = ledger_cat($r['category']); ?>
       <a class="lrow plan" href="ledger_guide.php#fixed"><span class="ic"><?= $ci ?></span><span class="grow"><span class="t"><?= h($r['merchant']) ?></span><span class="s">🔁 고정 · 이날 들어갈 예정</span></span><span class="amt"><?= won((int) $r['amount']) ?></span></a>
     <?php endforeach; ?>
     <div class="btn-row" style="margin-top:10px">
-      <?php if ($selDay <= today()): ?><a class="btn small primary" href="<?= h($q(['d' => $selDay, 'add' => 1])) ?>#form" data-sheet="<?= h($selDay) ?>">＋ 이날 쓴 돈 적기</a><?php endif; ?>
-      <?php if (isset($diaryDays[$selDay])): ?><a class="btn small" href="diary_view.php?id=<?= (int) $diaryDays[$selDay] ?>">📔 이날 일기</a>
-      <?php elseif ($selDay <= today()): ?><a class="btn small" href="diary_edit.php?day=<?= h($selDay) ?>">📔 일기 쓰기</a><?php endif; ?>
+      <?php if ($pd <= today()): ?><a class="btn small primary" href="<?= h($q(['d' => $pd, 'add' => 1])) ?>#form" data-sheet="<?= h($pd) ?>">＋ 이날 쓴 돈 적기</a><?php endif; ?>
+      <?php if (isset($diaryDays[$pd])): ?><a class="btn small" href="diary_view.php?id=<?= (int) $diaryDays[$pd] ?>">📔 이날 일기</a>
+      <?php elseif ($pd <= today()): ?><a class="btn small" href="diary_edit.php?day=<?= h($pd) ?>">📔 일기 쓰기</a><?php endif; ?>
     </div>
-  <?php else: ?>
-    <p class="small muted" style="margin:0">날짜를 누르면 그날 쓴 돈이 보여요.</p>
-  <?php endif; ?>
+    </div>
+  <?php endfor; ?>
+  <p class="small muted dayhint" style="margin:0"<?= $selDay ? ' hidden' : '' ?>>날짜를 누르면 그날 쓴 돈이 보여요.</p>
 </section>
+<script>
+(function () {
+  // 날짜를 누르면 새로 불러오지 않고 바로 그날 목록으로
+  var panel = document.getElementById('day');
+  document.querySelectorAll('.lcal .grid a').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var day = (a.getAttribute('href').match(/d=(\d{4}-\d{2}-\d{2})/) || [])[1];
+      var pane = day && panel.querySelector('.daypane[data-day="' + day + '"]');
+      if (!pane) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      document.querySelectorAll('.lcal .grid a.sel').forEach(function (x) { x.classList.remove('sel'); });
+      a.classList.add('sel');
+      panel.querySelectorAll('.daypane').forEach(function (p) { p.hidden = p !== pane; });
+      panel.querySelector('.dayhint').hidden = true;
+      var fab = document.querySelector('.lfab');
+      if (fab && day <= <?= json_encode(today()) ?>) fab.setAttribute('data-sheet', day);
+      try { history.replaceState(null, '', a.getAttribute('href').replace(/#.*/, '')); } catch (x) {}
+      var r = panel.getBoundingClientRect();
+      if (r.top > window.innerHeight - 140) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, true);
+  });
+})();
+</script>
 
 <?php elseif ($view === 'list'): ?>
 <form method="get" class="lsearch" role="search">
