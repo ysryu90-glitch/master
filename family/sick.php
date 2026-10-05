@@ -56,6 +56,9 @@ foreach (array_reverse($recent) as $l) {
 }
 $lastDose = null;
 foreach ($logs as $l) if ($l['kind'] === 'med') { $lastDose = $l; break; }
+// 한 번에 다시 기록: 약마다 지난번 양 그대로
+$lastByMed = [];
+foreach ($logs as $l) if ($l['kind'] === 'med' && isset(FEVER_MEDS[$l['med']]) && !isset($lastByMed[$l['med']])) $lastByMed[$l['med']] = $l;
 
 page_start('아플 때', 'family');
 ?>
@@ -67,6 +70,8 @@ page_start('아플 때', 'family');
   .next .ok, .next .wait { white-space: nowrap; margin-left: 10px; }
   .next .ok { color: var(--accent); font-weight: 800; }
   .next .wait { color: var(--orange); font-weight: 800; }
+  .quickdose { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .quickdose form { margin: 0; }
   .medpick label { margin: 0 !important; }
   .medpick input { display: none; }
   .medpick span { display: block; background: var(--card-2); border-radius: 12px; padding: 10px; color: var(--text); font-size: 14px; font-weight: 700; }
@@ -95,6 +100,18 @@ page_start('아플 때', 'family');
       <span class="<?= $ok ? 'ok' : 'wait' ?>"><?= $ok ? '지금 가능' : date('H:i', $n['at']) . '부터' ?></span>
     </div>
   <?php endforeach; ?>
+  <?php if ($lastByMed): ?>
+    <div class="quickdose">
+      <?php foreach ($lastByMed as $mk => $l): $grp = FEVER_MEDS[$mk][2]; $wait = $grp !== null && isset($next[$grp]) && $next[$grp]['at'] > time(); ?>
+        <form method="post"<?= $wait ? ' data-confirm="' . h(FEVER_MEDS[$mk][0]) . '은 ' . date('H:i', $next[$grp]['at']) . '부터예요. 그래도 지금 먹였다고 기록할까요?"' : '' ?>>
+          <?= csrf_field() ?><input type="hidden" name="action" value="med"><input type="hidden" name="m" value="<?= (int) $kid['id'] ?>">
+          <input type="hidden" name="med" value="<?= h($mk) ?>"><input type="hidden" name="dose" value="<?= h($l['dose']) ?>">
+          <button class="btn <?= $wait ? '' : 'primary' ?> wide">💊 <?= h(FEVER_MEDS[$mk][0]) ?> 방금 먹였어요<?= $l['dose'] !== '' ? ' · ' . h($l['dose']) : '' ?></button>
+        </form>
+      <?php endforeach; ?>
+      <p class="small muted" style="margin:0">지난번과 같은 양으로 지금 시각에 기록해요. 양이 다르면 아래에서 적어 주세요.</p>
+    </div>
+  <?php endif; ?>
 </section>
 
 <section class="card">
