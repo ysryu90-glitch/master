@@ -23,7 +23,7 @@ const LEDGER_OUTING_CATS = ['outing', 'eatout', 'cafe', 'car', 'shopping', 'etc'
 /** 가게 이름 → 항목 추측 (앞에 있을수록 먼저) */
 const LEDGER_GUESS = [
     'eatout' => ['배달의민족', '배민', '요기요', '쿠팡이츠', '맥도날드', '버거킹', '롯데리아', 'KFC', '맘스터치', '김밥', '치킨', '피자', '식당', '분식', '국밥', '갈비', '돈까스', '냉면', '칼국수', '초밥', '스시', '레스토랑', '아웃백', '빕스', '애슐리', '푸드코트', '한식', '중식', '반점', '일식',
-        '순대', '국수', '찌개', '감자탕', '해장', '곱창', '삼겹', '고깃집', '숯불', '포차', '횟집', '수산', '짜장', '짬뽕', '떡볶이', '도시락', '샐러드', '샌드위치', '서브웨이', '버거', '쌀국수', '마라', '돈부리', '우동', '라멘', '보쌈', '족발', '닭갈비', '샤브', '뷔페'],
+        '순대', '국수', '찌개', '감자탕', '해장', '곱창', '삼겹', '고깃집', '숯불', '포차', '횟집', '수산', '짜장', '짬뽕', '떡볶이', '도시락', '샐러드', '샌드위치', '서브웨이', '버거', '쌀국수', '마라', '돈부리', '우동', '라멘', '보쌈', '족발', '닭갈비', '샤브', '뷔페', '휴게소'],
     'cafe' => ['스타벅스', '투썸', '이디야', '메가', '컴포즈', '빽다방', '할리스', '폴바셋', '커피', '카페', '배스킨', '베스킨', '던킨', '파리바게뜨', '파리바게트', '뚜레쥬르', '베이커리', '설빙', '공차', '아이스크림', '편의점', 'GS25', '이마트24', '세븐일레븐', '미니스톱', 'CU', '씨유'],
     'outing' => ['키즈카페', '키즈', '놀이', '박물관', '미술관', '과학관', '동물원', '수목원', '아쿠아', '에버랜드', '롯데월드', '서울랜드', '테마파크', '입장', '체험', '공원', '관광', '레일바이크', '캠핑', '리조트', '호텔', '펜션', 'CGV', '메가박스', '롯데시네마', '영화'],
     'car' => ['주유', '칼텍스', 'GS칼텍스', 'SK에너지', 'S-OIL', '에쓰오일', '현대오일뱅크', '알뜰주유', '충전', '주차', '파킹', '하이패스', '도로공사', '통행료', '택시', '카카오T', '카카오모빌리티', '티머니', '코레일', 'SRT', '버스', '세차'],
@@ -98,7 +98,10 @@ function parse_card_sms(string $text, bool $relaxed = false): array
     if (!$amount) return ['ok' => false, 'error' => '금액을 찾지 못했어요.'];
 
     $day = preg_match('/어제/u', $t) ? date('Y-m-d', strtotime(today() . ' -1 day')) : today();
-    if (preg_match('/(?<!\d)(\d{1,2})[\/.\-](\d{1,2})(?![\d,])/', $t, $dm)) {
+    if (preg_match('/(\d{4})(?:년 ?(\d{1,2})월 ?(\d{1,2})일|[.\-\/](\d{1,2})[.\-\/](\d{1,2}))/u', $t, $ym)
+        && ($ym = [$ym[0], $ym[1], $ym[2] !== '' ? $ym[2] : $ym[4], $ym[3] !== '' ? $ym[3] : $ym[5]]) && checkdate((int) $ym[2], (int) $ym[3], (int) $ym[1])) {
+        $day = sprintf('%04d-%02d-%02d', $ym[1], $ym[2], $ym[3]);
+    } elseif (preg_match('/(?<!\d)(\d{1,2})[\/.\-](\d{1,2})(?![\d,])/', $t, $dm)) {
         $y = (int) date('Y');
         $cand = sprintf('%04d-%02d-%02d', $y, $dm[1], $dm[2]);
         if (checkdate((int) $dm[1], (int) $dm[2], $y)) {
@@ -213,6 +216,9 @@ function ledger_budget(): int
     return (int) setting('ledger_budget', 0);
 }
 
+/** 결제가 아닌 요약 금액 줄 (페이북 상세 화면 아래 '이번 달 소비 금액' 등) */
+const LEDGER_NOT_PAYMENT = '/남은\s*한도|한도|총\s*이용|이용\s*금액|이번\s*달|지난\s*달|업종|소비\s*금액|누적|잔액|청구|결제\s*예정|포인트|혜택|할인\s*금액|적립|목표\s*금액|합계|총액|평균/u';
+
 /** 알림 머리줄 (앱 이름 + 지금 · 5분 전 · 어제 · 오후 1:22) */
 const LEDGER_HEADER_RE = '/^\S.{0,20}?\s(지금|방금|\d+\s*(초|분|시간|일)\s*전|어제|그저께)$/u';
 
@@ -239,7 +245,7 @@ function ledger_clean_merchant(string $l): string
 {
     {
         $c = preg_replace(['/\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}/u', '/\d{1,2}[.\-\/]\d{1,2}(?![\d,])/u', '/\d{1,2}:\d{2}/u',
-            '/[\d,]+\s*원/u', '/일시불|\d+\s*개월|할부|무이자/u', '/\([월화수목금토일]\)/u', '/[·|•\[\]()]/u'], ' ', $l);
+            '/[\d,]+\s*원/u', '/일시불|\d+\s*개월|할부|무이자/u', '/\([월화수목금토일]\)/u', '/[·|•\[\]]/u', '/\(\s*\)/u'], ' ', $l);
         $c = trim(preg_replace('/\s+/u', ' ', $c));
         return mb_strlen($c) >= 2 && preg_match('/[가-힣A-Za-z]/u', $c) ? $c : '';
     }
@@ -253,6 +259,21 @@ function parse_card_blocks(string $text): array
 {
     $t = ledger_norm_time(str_replace(["\r", "\u{00A0}"], ["", ' '], $text));
     $lines = array_values(array_filter(array_map('trim', explode("\n", $t)), fn($l) => $l !== ''));
+    // 이 사이트(가계부 · 단축어 편집) 화면을 캡처한 경우는 결제가 아님
+    if (preg_match('/이번\s*달\s*쓴\s*돈|쓴\s*돈\s*적기|가계부에\s*넣기|가계부에넣기|expense\.php/u', $t)) return [];
+    // 맨 위 상태 표시줄(시계 · 통신 · 배터리) 줄은 결제 시각으로 쓰지 않음
+    for ($i = 0; $i < min(3, count($lines)); $i++) {
+        if (preg_match('/^\d{1,2}:\d{2}(\s|$)/u', $lines[$i]) && mb_strlen($lines[$i]) <= 20) { $lines[$i] = ''; }
+    }
+    $lines = array_values(array_filter($lines, fn($l) => $l !== ''));
+    $t = implode("\n", $lines);
+    // 페이북 등 '이용내역 상세' 화면: 그 결제 한 건만
+    if (preg_match('/결제\s*시간|승인\s*번호|승인\s*상태|이용\s*내역\s*상세/u', $t)) {
+        $d = parse_card_detail($lines);
+        return $d ? [$d] : [];
+    }
+    // 요약 금액 줄(남은한도 · 총 이용 금액 · 업종 · 이번 달 …)은 처음부터 뺌
+    $lines = array_values(array_filter($lines, fn($l) => !preg_match(LEDGER_NOT_PAYMENT, $l)));
     $amtRe = '/(?<!누적|잔액|한도|포인트)(?<![\d,])(?:[\d]{1,3}(?:,\d{3})+|\d{3,})\s*원/u';
     $appRe = '/^(페이북|paybook|pay\s?book|bc\s?카드|비씨카드|isp)\b/iu';
     $headRe = '/승인|결제|취소|카드/u';
@@ -285,7 +306,46 @@ function parse_card_blocks(string $text): array
         $body = implode("\n", $blk);
         if (!preg_match('/\d{1,2}[\/.\-]\d{1,2}(?![\d,])/', $body) && $date !== '') $body = $date . "\n" . $body;
         $p = parse_card_sms($body, true);
-        if ($p['ok']) $out[] = $p;
+        // 화면 캡처는 결제 시각이 있는 것만 결제로 인정 (요약 · 광고 금액 걸러냄)
+        if ($p['ok'] && $p['time'] && $p['merchant'] !== '' && $p['amount'] < 10000000) $out[] = $p;
     }
     return $out;
+}
+
+/**
+ * '이용내역 상세' 화면 한 장 → 결제 한 건. 줄 순서가 [라벨들 → 값들]로 섞여 나와도 읽힘.
+ * 가게 이름 = 금액 바로 위 줄, 시각 = 'YYYY년 M월 D일 HH:MM', 카드 = '…카드(1234)', 승인상태에 '취소'면 취소
+ */
+function parse_card_detail(array $lines): ?array
+{
+    $amtIdx = null;
+    foreach ($lines as $i => $l) {
+        if (preg_match(LEDGER_NOT_PAYMENT, $l)) continue;
+        if (preg_match('/^-?\s*(?:[\d]{1,3}(?:,\d{3})+|\d+)\s*원$/u', $l)) { $amtIdx = $i; break; } // 금액만 있는 줄
+    }
+    if ($amtIdx === null) {
+        foreach ($lines as $i => $l) if (!preg_match(LEDGER_NOT_PAYMENT, $l) && preg_match('/[\d,]+\s*원/u', $l)) { $amtIdx = $i; break; }
+    }
+    if ($amtIdx === null || !preg_match('/((?:[\d]{1,3}(?:,\d{3})+|\d+))\s*원/u', $lines[$amtIdx], $am)) return null;
+    $amount = (int) str_replace(',', '', $am[1]);
+    if ($amount <= 0 || $amount >= 10000000) return null;
+
+    // 가게 이름: 금액 줄 앞부분 또는 바로 위 줄 (안내 · 광고 줄은 건너뜀)
+    $merchant = ledger_clean_merchant(preg_replace('/[\d,]+\s*원.*$/u', '', $lines[$amtIdx]));
+    for ($i = $amtIdx - 1; $merchant === '' && $i >= 0; $i--) {
+        $l = $lines[$i];
+        if (preg_match('/\?|이용\s*내역|상세|전자\s*영수증|^\d{1,2}:\d{2}$|←|메모/u', $l)) continue;
+        $merchant = ledger_clean_merchant($l);
+    }
+    $all = implode("\n", $lines);
+    $day = today();
+    $time = null;
+    if (preg_match('/(\d{4})(?:년 ?|[.\-\/])(\d{1,2})(?:월 ?|[.\-\/])(\d{1,2})일? *(\d{1,2}):(\d{2})/u', $all, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+        $day = sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+        $time = sprintf('%02d:%02d', $m[4], $m[5]);
+    }
+    $card = preg_match('/([A-Za-z0-9가-힣][A-Za-z0-9가-힣 ]{0,30}카드)\s*\(\d{3,4}\)/u', $all, $cm) ? trim(preg_replace('/^카드\s+/u', '', $cm[1])) : '';
+    $cancel = (bool) preg_match('/승인\s*취소|취소\s*승인|매입\s*취소|결제\s*취소/u', $all);
+    if (!$time || $merchant === '') return null;
+    return ['ok' => true, 'cancel' => $cancel, 'amount' => $amount, 'day' => $day, 'time' => $time, 'merchant' => mb_substr($merchant, 0, 100), 'card' => mb_substr($card, 0, 40), 'error' => ''];
 }

@@ -48,6 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare('DELETE FROM expenses WHERE id = ?')->execute([$id]);
             flash('지웠어요.');
             redirect($back);
+        case 'delete_many':
+            $ids = array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])));
+            if ($ids) $pdo->exec('DELETE FROM expenses WHERE id IN (' . implode(',', $ids) . ')');
+            flash($ids ? count($ids) . '건을 지웠어요.' : '지울 기록을 골라 주세요.');
+            redirect($back . '#auto');
         case 'budget':
             set_setting('ledger_budget', max(0, (int) preg_replace('/[^\d]/', '', (string) post('budget'))));
             flash(ledger_budget() ? '한 달 예산을 ' . won(ledger_budget(), true) . '으로 정했어요.' : '예산을 껐어요.');
@@ -65,6 +70,8 @@ if (!empty($_GET['edit'])) {
 $sum = expenses_summary($ym);
 $list = expenses_month($ym, $cat ?: null);
 $review = db()->query('SELECT * FROM expenses WHERE checked = 0 ORDER BY day DESC, id DESC LIMIT 20')->fetchAll();
+// 최근 3일 자동 입력 기록 (잘못 들어간 것을 한꺼번에 지우는 곳)
+$autoRecent = db()->query("SELECT * FROM expenses WHERE source <> 'manual' AND created_at >= DATE_SUB(NOW(), INTERVAL 3 DAY) ORDER BY id DESC LIMIT 100")->fetchAll();
 $budget = ledger_budget();
 $isNow = $ym === date('Y-m');
 $prev = date('Y-m', strtotime($ym . '-01 -1 month'));
@@ -173,6 +180,7 @@ page_start('가계부', 'diary');
       <form method="post" class="chips" style="margin-top:6px"><?= csrf_field() ?><input type="hidden" name="action" value="recat"><input type="hidden" name="id" value="<?= (int) $x['id'] ?>">
         <?php foreach (LEDGER_CATEGORIES as $k => [$cn, $ci]): ?><button class="chip" name="category" value="<?= $k ?>"><?= $ci ?> <?= h($cn) ?></button><?php endforeach; ?>
       </form>
+      <form method="post" data-confirm="이 기록을 지울까요?" style="margin-top:4px"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $x['id'] ?>"><button class="btn small danger">🗑 결제가 아니에요 (지우기)</button></form>
     </div>
   <?php endforeach; ?>
 </section>
@@ -196,6 +204,26 @@ page_start('가계부', 'diary');
     <?php endforeach; ?>
   </div>
 <?php endforeach; ?>
+
+<?php if ($autoRecent): ?>
+<section class="card" id="auto">
+  <details class="fold">
+    <summary>📲 최근 3일 자동 입력 기록 <?= count($autoRecent) ?>건 · 잘못 들어간 것 지우기</summary>
+    <form method="post" data-confirm="고른 기록을 지울까요?">
+      <?= csrf_field() ?><input type="hidden" name="action" value="delete_many">
+      <?php foreach ($autoRecent as $x): [$cn, $ci] = ledger_cat($x['category']); ?>
+        <label class="autorow"><input type="checkbox" name="ids[]" value="<?= (int) $x['id'] ?>">
+          <span class="grow"><b><?= h($x['merchant'] ?: $cn) ?></b><span class="small muted"> · <?= date('n/j', strtotime($x['day'])) ?><?= $x['at_time'] ? ' ' . substr($x['at_time'], 0, 5) : '' ?> · <?= $ci ?> <?= h($cn) ?> · <?= ['sms' => '문자', 'screen' => '화면 캡처', 'wallet' => '애플페이'][$x['source']] ?? $x['source'] ?></span></span>
+          <b><?= won((int) $x['amount']) ?></b></label>
+      <?php endforeach; ?>
+      <div class="btn-row" style="margin-top:10px">
+        <button type="button" class="btn small" onclick="this.form.querySelectorAll('input[type=checkbox]').forEach(function(c){c.checked=!c.checked})">전체 선택 / 해제</button>
+        <button class="btn small danger">🗑 고른 기록 지우기</button>
+      </div>
+    </form>
+  </details>
+</section>
+<?php endif; ?>
 
 <section class="card">
   <h2>⚙︎ 가계부 설정</h2>

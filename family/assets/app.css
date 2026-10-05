@@ -582,3 +582,7 @@ details.fold[open] > summary { margin-bottom: 8px; }
 .dcard .st .spent { color: var(--text); font-size: 12px; font-weight: 700; letter-spacing: 0; margin-left: 4px; }
 .mealline .grow { flex: 1; }
 .lrow .grow { flex: 1; }
+.autorow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.autorow input { width: 18px; height: 18px; flex: none; }
+.autorow .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.autorow b:last-child { white-space: nowrap; }
