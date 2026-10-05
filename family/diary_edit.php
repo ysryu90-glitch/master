@@ -141,13 +141,33 @@ page_start($entry ? '일기 고치기' : '일기 쓰기', 'family', ['back' => $
   <?= csrf_field() ?>
   <input type="hidden" name="id" value="<?= (int) $e['id'] ?>">
 
+  <div class="segmented" id="cat-seg" style="margin:0 0 12px">
+    <?php foreach (DIARY_CATEGORIES as $key => [$label, $icon]): ?>
+      <label><input type="radio" name="category" value="<?= $key ?>" <?= $key === $cat ? 'checked' : '' ?>><span><?= $icon ?> <?= $label ?></span></label>
+    <?php endforeach; ?>
+  </div>
+
   <section class="card">
-    <h2>📔 어떤 일기예요?</h2>
-    <div class="segmented" id="cat-seg" style="margin-bottom:0">
-      <?php foreach (DIARY_CATEGORIES as $key => [$label, $icon]): ?>
-        <label><input type="radio" name="category" value="<?= $key ?>" <?= $key === $cat ? 'checked' : '' ?>><span><?= $icon ?> <?= $label ?></span></label>
+    <h2>📸 사진</h2>
+    <div class="dphotos" id="photo-grid">
+      <?php foreach ($e['photos'] as $i => $pid): ?>
+        <div class="dph" data-id="<?= $pid ?>">
+          <img src="diary_photo.php?id=<?= $pid ?>&t=1" alt="" loading="lazy">
+          <label class="cover" title="대표 사진"><input type="radio" name="cover" value="<?= $pid ?>" <?= $i === 0 ? 'checked' : '' ?>><span>대표</span></label>
+          <label class="rm" title="지우기"><input type="checkbox" name="remove_photo[]" value="<?= $pid ?>"><span>✕</span></label>
+        </div>
       <?php endforeach; ?>
     </div>
+    <label class="photo-add">📷 사진 추가 <span>여러 장 한꺼번에 골라도 돼요</span>
+      <input type="file" id="photo-input" accept="image/*" multiple style="display:none">
+    </label>
+    <p class="small muted" style="margin:8px 0 0">휴대폰에서 알맞은 크기로 줄여서 올려요. 첫 번째 사진이 대표 사진이 돼요.</p>
+  </section>
+
+  <section class="card">
+    <h2>✍️ 오늘의 이야기</h2>
+    <label>일기<textarea name="body" rows="7" placeholder="<?= $tt('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>"<?= $t('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>><?= h($e['body']) ?></textarea></label>
+    <label>👧 아이가 한 말<input name="kid_said" value="<?= h($e['kid_said']) ?>" maxlength="300" placeholder="<?= $tt('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>"<?= $t('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>></label>
   </section>
 
   <section class="card">
@@ -169,23 +189,6 @@ page_start($entry ? '일기 고치기' : '일기 쓰기', 'family', ['back' => $
   </section>
 
   <section class="card">
-    <h2>📸 사진</h2>
-    <div class="dphotos" id="photo-grid">
-      <?php foreach ($e['photos'] as $i => $pid): ?>
-        <div class="dph" data-id="<?= $pid ?>">
-          <img src="diary_photo.php?id=<?= $pid ?>&t=1" alt="" loading="lazy">
-          <label class="cover" title="대표 사진"><input type="radio" name="cover" value="<?= $pid ?>" <?= $i === 0 ? 'checked' : '' ?>><span>대표</span></label>
-          <label class="rm" title="지우기"><input type="checkbox" name="remove_photo[]" value="<?= $pid ?>"><span>✕</span></label>
-        </div>
-      <?php endforeach; ?>
-    </div>
-    <label class="btn" style="margin-top:10px">📷 사진 추가 (여러 장 가능)
-      <input type="file" id="photo-input" accept="image/*" multiple style="display:none">
-    </label>
-    <p class="small muted" style="margin:8px 0 0">휴대폰에서 알맞은 크기로 줄여서 올려요. 첫 번째 사진이 대표 사진이 돼요.</p>
-  </section>
-
-  <section class="card">
     <h2<?= $t('😊 오늘 하루 별점', '⭐ 가족 별점') ?>><?= $tt('😊 오늘 하루 별점', '⭐ 가족 별점') ?></h2>
     <?php foreach (members() as $m): $isKid = $m['role'] === 'child'; $cur = (int) ($e['ratings'][(int) $m['id']] ?? 0); ?>
       <div class="rate-row">
@@ -199,12 +202,6 @@ page_start($entry ? '일기 고치기' : '일기 쓰기', 'family', ['back' => $
       </div>
     <?php endforeach; ?>
     <label class="dagain<?= $isOuting ? '' : ' hidden' ?>" data-only="outing"><input type="checkbox" name="again" value="1" <?= $e['again'] ? 'checked' : '' ?>> 💛 또 가고 싶어요 (나들이 추천에 다시 올려요)</label>
-  </section>
-
-  <section class="card">
-    <h2>✍️ 오늘의 이야기</h2>
-    <label>일기<textarea name="body" rows="7" placeholder="<?= $tt('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>"<?= $t('오늘 있었던 일, 웃겼던 일, 기억하고 싶은 순간…', '무엇을 했는지, 뭐가 좋았는지, 다음에 갈 때 챙길 것…') ?>><?= h($e['body']) ?></textarea></label>
-    <label>👧 아이가 한 말<input name="kid_said" value="<?= h($e['kid_said']) ?>" maxlength="300" placeholder="<?= $tt('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>"<?= $t('예: "나 이제 혼자 할 수 있어!"', '예: "사슴 또 보러 오자!"') ?>></label>
   </section>
 
   <?php

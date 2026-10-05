@@ -700,3 +700,6 @@ main.page:has(> .lfab) { padding-bottom: 84px; }
 .lrow.plan .amt { color: var(--sub); }
 .recentm .chip { background: none; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; }
 .sheet .panel { box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25); border-top: 1px solid var(--line); }
+.photo-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; margin-top: 10px; padding: 18px; border: 2px dashed var(--line); border-radius: 16px; font-weight: 800; font-size: 16px; color: var(--text); cursor: pointer; }
+.photo-add span { font-size: 12.5px; font-weight: 600; color: var(--sub); }
+.photo-add:active { background: var(--card-2); }
