@@ -710,3 +710,7 @@ html { touch-action: manipulation; }
 .jump.settabs::-webkit-scrollbar { display: none; }
 .jump.settabs a { flex: none; white-space: nowrap; }
 .jump.settabs a.on { background: var(--text); color: var(--bg); }
+.lsearch { position: relative; margin: 0 0 10px; }
+.lsearch input { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 11px 40px 11px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--text); -webkit-appearance: none; }
+.lsearch input:focus { outline: none; border-color: var(--accent); }
+.lsearch .x { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%; background: var(--card-2); color: var(--sub); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 13px; }

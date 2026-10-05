@@ -63,7 +63,16 @@ if (!empty($_GET['edit'])) {
     $edit = $stmt->fetch() ?: null;
 }
 $sum = expenses_summary($ym);
-$list = expenses_month($ym, $cat ?: null);
+$search = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 40);
+if ($search !== '' && $view === 'list') {
+    // 찾기: 최근 1년에서 가게 이름 · 메모로
+    $stmt = db()->prepare("SELECT * FROM expenses WHERE (merchant LIKE ? OR memo LIKE ?) AND day > DATE_SUB(CURDATE(), INTERVAL 1 YEAR) ORDER BY day DESC, at_time DESC, id DESC LIMIT 300");
+    $like = '%' . addcslashes($search, '%_\\') . '%';
+    $stmt->execute([$like, $like]);
+    $list = $stmt->fetchAll();
+} else {
+    $list = expenses_month($ym, $cat ?: null);
+}
 $review = db()->query('SELECT * FROM expenses WHERE checked = 0 ORDER BY day DESC, id DESC LIMIT 20')->fetchAll();
 $budget = ledger_budget();
 $isNow = $ym === date('Y-m');
@@ -241,7 +250,15 @@ page_start('가계부', 'ledger');
 </section>
 
 <?php elseif ($view === 'list'): ?>
-<?php if ($sum['byCat']): ?>
+<form method="get" class="lsearch" role="search">
+  <input type="hidden" name="v" value="list"><input type="hidden" name="m" value="<?= h($ym) ?>">
+  <input type="search" name="q" value="<?= h($search) ?>" placeholder="🔍 가게 · 메모 찾기 (최근 1년)" enterkeyhint="search" aria-label="찾기">
+  <?php if ($search !== ''): ?><a class="x" href="<?= h($q(['q' => null])) ?>" aria-label="찾기 지우기">✕</a><?php endif; ?>
+</form>
+<?php if ($search !== ''):
+    $sOut = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, $list)); ?>
+  <p class="small" style="margin:0 4px 10px">「<?= h($search) ?>」 최근 1년 <b><?= count($list) ?>번</b> · 합계 <b><?= won($sOut) ?></b><?= count($list) ? ' · 한 번에 평균 ' . won((int) round($sOut / max(1, count(array_filter($list, fn($x) => $x['kind'] === 'out'))))) : '' ?></p>
+<?php elseif ($sum['byCat']): ?>
   <div class="chips scrollx" style="margin:0 -16px 10px;padding:0 16px">
     <a class="chip<?= $cat ? '' : ' on' ?>" href="<?= h($q(['c' => ''])) ?>">전체</a>
     <?php foreach ($sum['byCat'] as $k => $v): if ($v <= 0) continue; [$cn, $ci] = ledger_cat($k); ?>
@@ -250,7 +267,7 @@ page_start('가계부', 'ledger');
   </div>
 <?php endif; ?>
 <?php if (!$list): ?>
-  <section class="card"><p class="muted" style="margin:0"><?= $cat ? '이 항목의 기록이 없어요.' : '이번 달 기록이 아직 없어요. ＋를 눌러 적거나, 카드 결제를 자동으로 받아 보세요.' ?></p></section>
+  <section class="card"><p class="muted" style="margin:0"><?= $search !== '' ? '찾은 기록이 없어요.' : ($cat ? '이 항목의 기록이 없어요.' : '이번 달 기록이 아직 없어요. ＋를 눌러 적거나, 카드 결제를 자동으로 받아 보세요.') ?></p></section>
 <?php endif; ?>
 <?php foreach ($byDay as $day => $rows): $dOut = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, $rows)); ?>
   <h3 class="lday"><span><?= date('n월 j일', strtotime($day)) ?> (<?= weekday_short($day) ?>)<?= $day === today() ? ' · 오늘' : '' ?></span><span><?= $dOut ? '-' . won($dOut) : '' ?></span></h3>
