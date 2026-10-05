@@ -566,3 +566,33 @@
   if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
 })();
+
+/* 홈 화면 앱(아이폰)에는 당겨서 새로고침이 없어서: 맨 위에서 아래로 당기면 새로고침 */
+(function () {
+  var standalone = window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (!standalone || !('ontouchstart' in window)) return;
+  var ind = document.createElement('div');
+  ind.className = 'ptr'; ind.innerHTML = '<span>↓</span>';
+  document.body.appendChild(ind);
+  var y0 = null, dy = 0, LIMIT = 80;
+  function blocked(t) { return document.querySelector('.sheet:not([hidden]), .cardmodal, .lightbox') || (t.closest && t.closest('input, textarea, select, .lcal, .daytabs, .subnav, .scrollx, .dphotos')); }
+  document.addEventListener('touchstart', function (e) {
+    y0 = (window.scrollY <= 0 && e.touches.length === 1 && !blocked(e.target)) ? e.touches[0].clientY : null; dy = 0;
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (y0 === null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || window.scrollY > 0) { ind.style.opacity = 0; return; }
+    var p = Math.min(dy / LIMIT, 1);
+    ind.style.opacity = p; ind.style.transform = 'translate(-50%,' + Math.min(dy * 0.5, 50) + 'px) rotate(' + (p * 180) + 'deg)';
+    ind.classList.toggle('ready', p >= 1);
+  }, { passive: true });
+  document.addEventListener('touchend', function () {
+    if (y0 !== null && dy >= LIMIT && window.scrollY <= 0) {
+      ind.classList.add('spin'); ind.innerHTML = '<span>⟳</span>';
+      if (window.Busy) Busy.start('새로 불러오는 중이에요…', { delay: 0 });
+      location.reload();
+    } else { ind.style.opacity = 0; ind.style.transform = 'translate(-50%,0)'; }
+    y0 = null; dy = 0;
+  }, { passive: true });
+})();
