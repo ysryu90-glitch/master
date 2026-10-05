@@ -57,6 +57,11 @@ $text = $data['text'] ?? $data['message'] ?? '';
 if (is_array($text)) $text = implode("\n", array_map('strval', $text)); // 여러 줄이 목록으로 올 때
 $text = trim(mb_convert_encoding((string) $text, 'UTF-8', 'UTF-8'));
 
+// 화면 캡처인데 글자가 비어 왔으면 (캡처에서 글자를 못 뽑음)
+if ($screen && $text === '') {
+    reply(['ok' => false, 'error' => '캡처에서 글자를 못 읽었어요', 'message' => '⚠️ 캡처에서 글자를 하나도 못 읽었어요. 결제 알림이나 페이북 이용내역이 보이는 화면에서 다시 톡톡 해 주세요.'], $plain);
+}
+
 // 읽은 결제 목록
 if ($text !== '') {
     if ($screen) {
