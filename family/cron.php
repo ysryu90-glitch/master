@@ -106,7 +106,7 @@ if ($budget && (int) date('G') >= 9 && (int) date('G') < 21) {
     $spent = expenses_summary(date('Y-m'))['out'];
     $level = $spent >= $budget ? 100 : ($spent >= $budget * 0.8 ? 80 : 0);
     if ($level) foreach (members('adult') as $m) {
-        if (!has_push((int) $m['id']) || !notify_once((int) $m['id'], 'budget', date('Y-m') . ':' . $level)) continue;
+        if (!has_push((int) $m['id']) || !notify_prefs((int) $m['id'])['budget'] || !notify_once((int) $m['id'], 'budget', date('Y-m') . ':' . $level)) continue;
         $daysLeft = (int) date('t') - (int) date('j') + 1;
         $body = $level === 100 ? '이번 달 예산 ' . won($budget, true) . '을 ' . won($spent - $budget, true) . ' 넘었어요.'
             : '이번 달 ' . won($spent, true) . ' 썼어요 (예산의 ' . floor($spent / $budget * 100) . '%). 남은 ' . $daysLeft . '일 동안 ' . won($budget - $spent, true) . '이에요.';

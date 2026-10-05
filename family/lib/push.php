@@ -213,6 +213,7 @@ function notify_prefs(int $memberId): array
         'stale' => true,        // 건강 기록 끊김
         'weekly' => true,       // 일요일 저녁 주간 리포트
         'sick' => true,         // 아이 해열제 다음 복용 가능
+        'budget' => true,       // 가계부 예산 80% · 100%
     ];
 }
 
