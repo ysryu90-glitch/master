@@ -720,3 +720,4 @@ html { touch-action: manipulation; }
 .ptr.ready { color: var(--accent); }
 .ptr.spin span { display: inline-block; animation: ptr-spin 0.8s linear infinite; }
 @keyframes ptr-spin { to { transform: rotate(360deg); } }
+.tabbar a .i { position: relative; } .tabbar a .dot { position: absolute; top: 0; right: -6px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); border: 2px solid var(--card); }

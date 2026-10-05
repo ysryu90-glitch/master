@@ -752,8 +752,13 @@ function page_end(string $tab = ''): void
     echo '</main></div>';
     if (current_member() && $group !== '' && empty($GLOBALS['page_back'])) {
         echo '<nav class="tabbar" aria-label="메뉴">';
+        // 확인할 것이 있으면 탭에 빨간 점 (가계부: 항목을 못 정한 자동 기록)
+        $dots = [];
+        try { $dots['ledger'] = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')->fetchColumn() > 0; } catch (Throwable $e) {}
         foreach (TABBAR as $key) {
-            [$label, $icon, $href] = NAV[$key];
+            [$label, $icon] = NAV[$key];
+            $href = $key === 'ledger' && !empty($dots['ledger']) ? 'ledger.php?review=1#review' : NAV[$key][2];
+            if (!empty($dots[$key])) $icon .= '<i class="dot"></i>';
             echo '<a href="' . $href . '" class="' . ($key === $group ? 'on' : '') . '"' . ($key === $group ? ' aria-current="page"' : '') . '><span class="i">' . $icon . '</span>' . $label . '</a>';
         }
         echo '</nav>';

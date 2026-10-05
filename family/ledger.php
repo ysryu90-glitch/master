@@ -123,6 +123,9 @@ foreach ($stmt as $r) if (isset($six[$r['m']])) $six[$r['m']] = (int) $r['s'];
 $stmt = db()->prepare("SELECT member_id, SUM(amount) s FROM expenses WHERE kind = 'out' AND day BETWEEN ? AND LAST_DAY(?) GROUP BY member_id ORDER BY s DESC");
 $stmt->execute([$ym . '-01', $ym . '-01']);
 $byPayer = $stmt->fetchAll();
+$stmt = db()->prepare("SELECT card, SUM(amount) s, COUNT(*) n FROM expenses WHERE kind = 'out' AND card <> '' AND day BETWEEN ? AND LAST_DAY(?) GROUP BY card ORDER BY s DESC");
+$stmt->execute([$ym . '-01', $ym . '-01']);
+$byCard = $stmt->fetchAll();
 
 /** 달력 칸에 들어갈 짧은 금액: 3,800 / 1.3만 / 150만 */
 function cell_won(int $n): string
@@ -357,6 +360,16 @@ page_start('가계부', 'ledger');
   <?php endforeach; ?>
 </section>
 <?php endif; ?>
+<?php if ($byCard): ?>
+<section class="card">
+  <h2>💳 카드별</h2>
+  <?php foreach ($byCard as $r): ?>
+    <div class="row-between"><span><?= h($r['card']) ?> <span class="small muted"><?= (int) $r['n'] ?>번</span></span><b><?= won((int) $r['s']) ?></b></div>
+  <?php endforeach; ?>
+  <p class="small muted" style="margin:6px 0 0">카드 문자 · 캡처로 들어온 기록만 카드 이름이 있어요.</p>
+</section>
+<?php endif; ?>
+
 <section class="card">
   <h2>📥 엑셀로 내려받기</h2>
   <div class="btn-row">
