@@ -35,13 +35,17 @@ foreach ($entries as $e) $byMonth[substr($e['day'], 0, 7)][] = $e;
 
 page_start('일기', 'family');
 ?>
-<?php foreach ($pending as $pl): $pp = place($pl['place_id']); if (!$pp) continue; ?>
-  <section class="card" style="display:flex;gap:12px;align-items:center">
-    <span style="font-size:28px">📌</span>
-    <span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pp['name']) ?></b><div class="small muted">다녀오셨나요? 사진이랑 별점을 남겨 두세요.</div></span>
-    <a class="btn small primary" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">일기 쓰기</a>
+<?php $pendingPlaces = array_filter(array_map(fn($pl) => ($pp = place($pl['place_id'])) ? $pl + ['name' => $pp['name']] : null, $pending)); ?>
+<?php if ($pendingPlaces): ?>
+  <section class="card todo">
+    <div class="card-head"><h2>📌 다녀오셨나요?</h2><span class="small muted">사진 · 별점 남기기</span></div>
+    <?php foreach ($pendingPlaces as $pl): ?>
+      <a class="todo-row" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">
+        <span class="ic">🧺</span><span class="grow"><b><?= h($pl['name']) ?></b><div class="small muted"><?= date('n/j', strtotime($pl['day'])) ?> (<?= weekday_short($pl['day']) ?>)</div></span><span class="more" style="white-space:nowrap">일기 쓰기 ›</span>
+      </a>
+    <?php endforeach; ?>
   </section>
-<?php endforeach; ?>
+<?php endif; ?>
 
 <?php foreach ($memories as $mem): ?>
   <a class="card memory" href="diary_view.php?id=<?= (int) $mem['id'] ?>">

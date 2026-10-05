@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 page_start('처음 설정');
 ?>
 <section class="card">
-  <h2>우리집 건강 시작하기</h2>
+  <h2>우리집 시작하기</h2>
   <p class="muted">부부가 각자 로그인할 계정을 만들어요. 아이는 로그인 없이 식탁 기록에만 쓰여요.</p>
   <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
   <form method="post" class="form">

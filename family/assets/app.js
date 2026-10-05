@@ -1,4 +1,4 @@
-/* 우리집 건강 — 화면 공통 스크립트 */
+/* 우리집 — 화면 공통 스크립트 */
 (function () {
   'use strict';
 
@@ -340,7 +340,7 @@
       }
       var perm = Notification.permission;
       items.push([perm === 'granted', perm === 'granted' ? '알림이 허용돼 있어요' : (perm === 'denied' ? '알림이 차단돼 있어요' : '아직 알림을 허용하지 않았어요'),
-        perm === 'denied' ? (ios ? '아이폰 설정 앱 › 알림 › 「우리집 건강」에서 알림 허용을 켜 주세요.' : '주소창의 자물쇠 › 알림 › 허용으로 바꿔 주세요.') : (perm === 'default' ? '아래 「이 기기에서 알림 받기」를 눌러 주세요.' : '')]);
+        perm === 'denied' ? (ios ? '아이폰 설정 앱 › 알림 › 「우리집」에서 알림 허용을 켜 주세요.' : '주소창의 자물쇠 › 알림 › 허용으로 바꿔 주세요.') : (perm === 'default' ? '아래 「이 기기에서 알림 받기」를 눌러 주세요.' : '')]);
       return navigator.serviceWorker.register('sw.js').then(function (r) {
         reg = r;
         return Promise.all([r.pushManager.getSubscription(), null]);
@@ -371,7 +371,7 @@
 
     function subscribeFresh(forceNew) {
       return Notification.requestPermission().then(function (perm) {
-        if (perm !== 'granted') throw new Error(ios ? '알림이 허용되지 않았어요. 아이폰 설정 앱 › 알림 › 「우리집 건강」에서 허용해 주세요.' : '알림이 허용되지 않았어요. 브라우저 설정에서 허용해 주세요.');
+        if (perm !== 'granted') throw new Error(ios ? '알림이 허용되지 않았어요. 아이폰 설정 앱 › 알림 › 「우리집」에서 허용해 주세요.' : '알림이 허용되지 않았어요. 브라우저 설정에서 허용해 주세요.');
         return Promise.all([navigator.serviceWorker.ready, api({ action: 'key' })]);
       }).then(function (r) {
         var pm = r[0].pushManager, key = r[1].key;

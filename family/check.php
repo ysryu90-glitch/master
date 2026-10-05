@@ -59,6 +59,6 @@ $add('접속 방식', true, (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 
 ?>
 <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>설치 점검</title>
 <style>body{font-family:-apple-system,sans-serif;margin:20px;background:#f6f7f9}table{border-collapse:collapse;background:#fff;width:100%;max-width:820px}td{border-bottom:1px solid #e5e7eb;padding:10px}.ok{color:#0a8f4f;font-weight:700}.bad{color:#d33;font-weight:700}</style>
-<h2>우리집 건강 · 설치 점검</h2><table>
+<h2>우리집 · 설치 점검</h2><table>
 <?php foreach ($rows as [$n, $ok, $d]): ?><tr><td><?= htmlspecialchars($n) ?></td><td class="<?= $ok ? 'ok' : 'bad' ?>"><?= $ok ? '✓' : '✗' ?></td><td><?= htmlspecialchars($d) ?></td></tr><?php endforeach; ?>
 </table><p><a href="index.php">사이트로 가기 →</a></p>

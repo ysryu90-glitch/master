@@ -103,6 +103,7 @@ $todoMeds = array_values(array_filter($meds, fn($m) => !$m['taken_at']));
 $doneMeds = count($meds) - count($todoMeds);
 $homeLoc = array_values(array_filter(locations(), fn($l) => $l['role'] === 'home'));
 $monthSpent = expenses_summary(date('Y-m'))['out'];
+$todaySpent = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, expenses_of_day($today)));
 $budget = ledger_budget();
 $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')->fetchColumn();
 ?>
@@ -155,7 +156,7 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
     </a>
   <?php endif; ?>
   <?php if ($toReview): ?>
-    <a class="todo-row" href="ledger.php#review">
+    <a class="todo-row" href="ledger.php?review=1#review">
       <span class="ic">📲</span><span class="grow"><b>카드 기록 <?= $toReview ?>건</b> 항목 확인<div class="small muted">자동으로 들어왔는데 항목을 못 정했어요</div></span><span class="more">›</span>
     </a>
   <?php endif; ?>
@@ -236,7 +237,7 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
 </section>
 
 <section class="card">
-  <div class="card-head"><h2>📈 오늘 기록</h2><a class="more" href="health.php">건강 ›</a></div>
+  <div class="card-head"><h2>❤️ 오늘 건강</h2><a class="more" href="health.php">건강 ›</a></div>
   <div class="minis">
     <div><span class="k">걸음</span><b><?= num($todayRow['steps'] ?? null) ?></b></div>
     <div><span class="k">수면</span><b><?= isset($todayRow['sleep_min']) ? intdiv((int) $todayRow['sleep_min'], 60) . '<small>h</small>' . ((int) $todayRow['sleep_min'] % 60) . '<small>m</small>' : '-' ?></b></div>
@@ -248,15 +249,22 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
     <span class="meter orange"><i style="width:<?= min(100, $food['kcal'] / max(1, $me['kcal_target']) * 100) ?>%"></i></span>
     <span class="small muted"><?= num($food['kcal']) ?> / <?= num($me['kcal_target']) ?> kcal ›</span>
   </a>
-  <a class="mealline" href="ledger.php">
-    <span>💰 이번 달 <?= won($monthSpent, true) ?></span>
-    <?php if ($budget): ?><span class="meter <?= $monthSpent >= $budget ? 'red' : ($monthSpent >= $budget * 0.8 ? 'orange' : '') ?>"><i style="width:<?= min(100, $monthSpent / $budget * 100) ?>%"></i></span>
-      <span class="small muted">예산 <?= won($budget, true) ?> ›</span>
-    <?php else: ?><span class="grow"></span><span class="small muted">가계부 ›</span><?php endif; ?>
-  </a>
   <?php foreach ($others as $o): $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; ?>
     <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>
   <?php endforeach; ?>
+</section>
+
+<section class="card homeledger">
+  <div class="card-head"><h2>💰 이번 달 가계부</h2><a class="more" href="ledger.php">달력 ›</a></div>
+  <div class="hl-row">
+    <a href="ledger.php" class="hl-sum"><span class="k">이번 달 쓴 돈</span><b><?= won($monthSpent) ?></b>
+      <span class="small muted">오늘 <?= $todaySpent ? won($todaySpent) : '0원' ?></span></a>
+    <a class="btn primary" href="ledger.php?add=1#form">＋ 적기</a>
+  </div>
+  <?php if ($budget): $left = $budget - $monthSpent; ?>
+    <div class="meter <?= $monthSpent >= $budget ? 'red' : ($monthSpent >= $budget * 0.8 ? 'orange' : '') ?>" style="height:8px;margin-top:12px"><i style="width:<?= min(100, $monthSpent / $budget * 100) ?>%"></i></div>
+    <p class="small muted" style="margin:6px 0 0">예산 <?= won($budget, true) ?> · <?= $left >= 0 ? '남은 돈 <b style="color:var(--text)">' . won($left, true) . '</b>' : '<b style="color:var(--red)">' . won(-$left, true) . ' 넘었어요</b>' ?></p>
+  <?php endif; ?>
 </section>
 
 <?php if ($outing && $outing['picks']): $wd = ['일', '월', '화', '수', '목', '금', '토']; ?>

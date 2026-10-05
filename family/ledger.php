@@ -43,22 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset(LEDGER_CATEGORIES[post('category')])) {
                 $pdo->prepare('UPDATE expenses SET category = ?, checked = 1, updated_at = NOW() WHERE id = ?')->execute([post('category'), $id]);
             }
-            redirect($back . '#review');
+            redirect($back . '&review=1#review');
         case 'check_all':
             $pdo->exec('UPDATE expenses SET checked = 1 WHERE checked = 0');
             redirect($back);
         case 'delete':
             $pdo->prepare('DELETE FROM expenses WHERE id = ?')->execute([$id]);
             flash('지웠어요.');
-            redirect($back);
-        case 'delete_many':
-            $ids = array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])));
-            if ($ids) $pdo->exec('DELETE FROM expenses WHERE id IN (' . implode(',', $ids) . ')');
-            flash($ids ? count($ids) . '건을 지웠어요.' : '지울 기록을 골라 주세요.');
-            redirect($back . '#auto');
-        case 'budget':
-            set_setting('ledger_budget', max(0, (int) preg_replace('/[^\d]/', '', (string) post('budget'))));
-            flash(ledger_budget() ? '한 달 예산을 ' . won(ledger_budget(), true) . '으로 정했어요.' : '예산을 껐어요.');
             redirect($back);
     }
     redirect($back);
@@ -73,8 +64,6 @@ if (!empty($_GET['edit'])) {
 $sum = expenses_summary($ym);
 $list = expenses_month($ym, $cat ?: null);
 $review = db()->query('SELECT * FROM expenses WHERE checked = 0 ORDER BY day DESC, id DESC LIMIT 20')->fetchAll();
-// 최근 3일 자동 입력 기록 (잘못 들어간 것을 한꺼번에 지우는 곳)
-$autoRecent = db()->query("SELECT * FROM expenses WHERE source <> 'manual' AND created_at >= DATE_SUB(NOW(), INTERVAL 3 DAY) ORDER BY id DESC LIMIT 100")->fetchAll();
 $budget = ledger_budget();
 $isNow = $ym === date('Y-m');
 $prev = date('Y-m', strtotime($ym . '-01 -1 month'));
@@ -132,7 +121,7 @@ $q = fn(array $p) => 'ledger.php?' . http_build_query(array_filter($p + ['m' => 
 $f = $edit ?? ['id' => 0, 'kind' => 'out', 'amount' => '', 'category' => $cat && $cat !== 'income' ? $cat : '', 'merchant' => '', 'memo' => '',
     'day' => isset($_GET['day']) ? valid_day($_GET['day']) : ($selDay && $selDay <= today() ? $selDay : today()), 'member_id' => $me['id'], 'diary_id' => (int) ($_GET['diary'] ?? 0) ?: null];
 
-page_start('가계부', 'diary');
+page_start('가계부', 'ledger');
 ?>
 <nav class="monthnav">
   <a class="btn small" href="<?= h($q(['m' => $prev, 'd' => null])) ?>" aria-label="지난달">‹</a>
@@ -156,6 +145,25 @@ page_start('가계부', 'diary');
   <?php endif; ?>
 </section>
 
+<?php if ($review): ?>
+<section class="card review" id="review">
+  <details class="fold"<?= isset($_GET['review']) ? ' open' : '' ?>>
+  <summary>📲 항목을 골라 주세요 <span class="badge"><?= count($review) ?></span></summary>
+  <p class="small muted" style="margin:6px 0 0">자동으로 들어왔는데 항목을 못 정한 기록이에요. 결제가 아니면 지워 주세요.</p>
+  <?php foreach ($review as $x): ?>
+    <div class="rv">
+      <div><b><?= h($x['merchant'] ?: '결제') ?></b> <span class="small muted"><?= date('n/j', strtotime($x['day'])) ?><?= $x['card'] ? ' · ' . h($x['card']) : '' ?></span> <b style="float:right"><?= won((int) $x['amount']) ?></b></div>
+      <form method="post" class="chips" style="margin-top:6px"><?= csrf_field() ?><input type="hidden" name="action" value="recat"><input type="hidden" name="id" value="<?= (int) $x['id'] ?>">
+        <?php foreach (LEDGER_CATEGORIES as $k => [$cn, $ci]): ?><button class="chip" name="category" value="<?= $k ?>"><?= $ci ?> <?= h($cn) ?></button><?php endforeach; ?>
+      </form>
+      <form method="post" data-confirm="이 기록을 지울까요?" style="margin-top:4px"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $x['id'] ?>"><button class="btn small danger">🗑 결제가 아니에요 (지우기)</button></form>
+    </div>
+  <?php endforeach; ?>
+  <form method="post" style="margin-top:10px"><?= csrf_field() ?><input type="hidden" name="action" value="check_all"><button class="btn small">모두 이대로 둘게요</button></form>
+  </details>
+</section>
+<?php endif; ?>
+
 <nav class="segmented ltabs">
   <a class="<?= $view === 'cal' ? 'on' : '' ?>" href="<?= h($q(['v' => 'cal', 'c' => ''])) ?>">📅 달력</a>
   <a class="<?= $view === 'list' ? 'on' : '' ?>" href="<?= h($q(['v' => 'list'])) ?>">📋 내역</a>
@@ -177,7 +185,7 @@ page_start('가계부', 'diary');
         $heat = $o > 0 ? min(0.28, 0.06 + 0.22 * $o / $maxDay) : 0;
         $cls = trim(($d === $selDay ? 'sel ' : '') . ($d === today() ? 'today ' : '') . ($d > today() ? 'future ' : '') . ($w === 0 || isset(HOLIDAYS[$d]) ? 'sun ' : ($w === 6 ? 'sat ' : ''))); ?>
       <a class="<?= $cls ?>" href="<?= h($q(['d' => $d])) ?>#day"<?= $heat ? ' style="--heat:' . round($heat, 3) . '"' : '' ?>>
-        <span class="n"><?= $dn ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기">📔</i>' : '' ?></span>
+        <span class="n"><?= $dn ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기 쓴 날"></i>' : '' ?></span>
         <span class="amts"><?php if ($in): ?><span class="pin">+<?= cell_won($in) ?></span><?php endif; ?><?php if ($o): ?><span class="pout">-<?= cell_won($o) ?></span><?php endif; ?></span>
       </a>
     <?php endfor; ?>
@@ -188,9 +196,9 @@ page_start('가계부', 'diary');
   <?php if ($selDay):
       $rows = $byDay[$selDay] ?? [];
       $sOut = $dayOut[$selDay] ?? 0; $sIn = $dayIn[$selDay] ?? 0; ?>
-    <div class="card-head">
+    <div class="dayhead">
       <h2><?= date('n월 j일', strtotime($selDay)) ?> (<?= weekday_short($selDay) ?>)<?= $selDay === today() ? ' <span class="small muted">오늘</span>' : '' ?></h2>
-      <span class="small"><?= $sIn ? '<b class="in">+' . won($sIn) . '</b> ' : '' ?><?= $sOut ? '<b class="out">-' . won($sOut) . '</b>' : '' ?></span>
+      <span class="tot"><?= $sIn ? '<b class="in">+' . won($sIn) . '</b>' : '' ?><?= $sOut ? '<b class="out">-' . won($sOut) . '</b>' : '' ?></span>
     </div>
     <?php if ($rows): ?>
       <div class="lrows flat">
@@ -209,7 +217,7 @@ page_start('가계부', 'diary');
       <p class="small muted" style="margin:0">이날 기록이 없어요.</p>
     <?php endif; ?>
     <div class="btn-row" style="margin-top:10px">
-      <?php if ($selDay <= today()): ?><a class="btn small primary" href="<?= h($q(['d' => $selDay, 'add' => 1])) ?>#form">＋ 이날 쓴 돈 적기</a><?php endif; ?>
+      <?php if ($selDay <= today()): ?><a class="btn small primary" href="<?= h($q(['d' => $selDay, 'add' => 1])) ?>#form" data-sheet="<?= h($selDay) ?>">＋ 이날 쓴 돈 적기</a><?php endif; ?>
       <?php if (isset($diaryDays[$selDay])): ?><a class="btn small" href="diary_view.php?id=<?= (int) $diaryDays[$selDay] ?>">📔 이날 일기</a>
       <?php elseif ($selDay <= today()): ?><a class="btn small" href="diary_edit.php?day=<?= h($selDay) ?>">📔 일기 쓰기</a><?php endif; ?>
     </div>
@@ -286,9 +294,9 @@ page_start('가계부', 'diary');
 <?php endif; ?>
 <?php endif; ?>
 
-<section class="card" id="form">
-  <details class="fold lform"<?= $edit || isset($_GET['add']) ? ' open' : '' ?>>
-  <summary><?= $edit ? '✏️ 기록 고치기' : '➕ 쓴 돈 · 들어온 돈 적기' ?></summary>
+<div class="sheet" id="form"<?= $edit || isset($_GET['add']) ? '' : ' hidden' ?> role="dialog" aria-modal="true" aria-labelledby="form-title">
+  <div class="panel">
+  <div class="sheet-head"><h2 id="form-title"><?= $edit ? '기록 고치기' : '쓴 돈 · 들어온 돈 적기' ?></h2><a class="x" href="<?= h($back) ?>" data-sheet-close aria-label="닫기">✕</a></div>
   <form method="post" class="form" data-busy="저장하는 중이에요…">
     <?= csrf_field() ?><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= (int) $f['id'] ?>">
     <div class="segmented" id="kind-seg">
@@ -319,64 +327,37 @@ page_start('가계부', 'diary');
   </form>
   <?php if ($edit): ?>
     <div class="btn-row" style="margin-top:8px">
-      <a class="btn small" href="<?= h($back) ?>">고치기 취소</a>
       <form method="post" data-confirm="이 기록을 지울까요?"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $edit['id'] ?>"><button class="btn small danger">🗑 지우기</button></form>
     </div>
   <?php endif; ?>
-  </details>
-</section>
-<a class="lfab" href="<?= h($q(['d' => $selDay ?: null, 'add' => 1])) ?>#form" aria-label="쓴 돈 적기">＋</a>
+  </div>
+</div>
+<a class="lfab" href="<?= h($q(['d' => $selDay ?: null, 'add' => 1])) ?>#form" data-sheet="<?= h($selDay && $selDay <= today() ? $selDay : today()) ?>" aria-label="쓴 돈 적기">＋</a>
 
-<?php if ($review): ?>
-<section class="card" id="review">
-  <div class="card-head"><h2>📲 자동으로 들어온 기록 확인</h2>
-    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="check_all"><button class="btn small">모두 확인</button></form></div>
-  <p class="small muted" style="margin-top:-4px">카드 문자로 들어왔는데 항목을 못 정한 기록이에요. 맞는 항목을 눌러 주세요.</p>
-  <?php foreach ($review as $x): ?>
-    <div class="rv">
-      <div><b><?= h($x['merchant'] ?: '결제') ?></b> <span class="small muted"><?= date('n/j', strtotime($x['day'])) ?><?= $x['card'] ? ' · ' . h($x['card']) : '' ?></span> <b style="float:right"><?= won((int) $x['amount']) ?></b></div>
-      <form method="post" class="chips" style="margin-top:6px"><?= csrf_field() ?><input type="hidden" name="action" value="recat"><input type="hidden" name="id" value="<?= (int) $x['id'] ?>">
-        <?php foreach (LEDGER_CATEGORIES as $k => [$cn, $ci]): ?><button class="chip" name="category" value="<?= $k ?>"><?= $ci ?> <?= h($cn) ?></button><?php endforeach; ?>
-      </form>
-      <form method="post" data-confirm="이 기록을 지울까요?" style="margin-top:4px"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $x['id'] ?>"><button class="btn small danger">🗑 결제가 아니에요 (지우기)</button></form>
-    </div>
-  <?php endforeach; ?>
-</section>
-<?php endif; ?>
-
-<?php if ($autoRecent): ?>
-<section class="card" id="auto">
-  <details class="fold">
-    <summary>📲 최근 3일 자동 입력 기록 <?= count($autoRecent) ?>건 · 잘못 들어간 것 지우기</summary>
-    <form method="post" data-confirm="고른 기록을 지울까요?">
-      <?= csrf_field() ?><input type="hidden" name="action" value="delete_many">
-      <?php foreach ($autoRecent as $x): [$cn, $ci] = ledger_cat($x['category']); ?>
-        <label class="autorow"><input type="checkbox" name="ids[]" value="<?= (int) $x['id'] ?>">
-          <span class="grow"><b><?= h($x['merchant'] ?: $cn) ?></b><span class="small muted"> · <?= date('n/j', strtotime($x['day'])) ?><?= $x['at_time'] ? ' ' . substr($x['at_time'], 0, 5) : '' ?> · <?= $ci ?> <?= h($cn) ?> · <?= ['sms' => '문자', 'screen' => '화면 캡처', 'wallet' => '애플페이'][$x['source']] ?? $x['source'] ?></span></span>
-          <b><?= won((int) $x['amount']) ?></b></label>
-      <?php endforeach; ?>
-      <div class="btn-row" style="margin-top:10px">
-        <button type="button" class="btn small" onclick="this.form.querySelectorAll('input[type=checkbox]').forEach(function(c){c.checked=!c.checked})">전체 선택 / 해제</button>
-        <button class="btn small danger">🗑 고른 기록 지우기</button>
-      </div>
-    </form>
-  </details>
-</section>
-<?php endif; ?>
-
-<section class="card">
-  <h2>⚙︎ 가계부 설정</h2>
-  <a class="btn" href="ledger_guide.php">📲 카드 결제 자동으로 받기</a>
-  <form method="post" class="form inline" style="margin-top:12px">
-    <?= csrf_field() ?><input type="hidden" name="action" value="budget">
-    <label>한 달 예산 (0이면 끔)<input name="budget" inputmode="numeric" value="<?= $budget ? number_format($budget) : '' ?>" placeholder="예: 1,500,000"></label>
-    <button class="btn">저장</button>
-  </form>
-</section>
 
 <script>
 (function () {
   // 금액에 쉼표 넣기 · 지출/수입 바꾸기 · 가게 이름으로 항목 추측
+  var sheet = document.getElementById('form');
+  var editing = <?= $edit ? 'true' : 'false' ?>;
+  function openSheet(day) {
+    if (!editing && day) { var d = sheet.querySelector('[name=day]'); if (d) d.value = day; }
+    sheet.hidden = false; document.body.classList.add('noscroll');
+    setTimeout(function () { var a = sheet.querySelector('.amount'); if (a && !a.value) a.focus(); }, 50);
+  }
+  function closeSheet() { sheet.hidden = true; document.body.classList.remove('noscroll'); }
+  if (!sheet.hidden) document.body.classList.add('noscroll');
+  document.querySelectorAll('[data-sheet]').forEach(function (a) {
+    if (editing) return; // 고치는 중이면 주소로 이동 (새 기록 창으로)
+    a.addEventListener('click', function (e) { e.preventDefault(); e.stopImmediatePropagation(); openSheet(a.getAttribute('data-sheet')); }, true);
+  });
+  sheet.addEventListener('click', function (e) {
+    if (e.target === sheet) { e.preventDefault(); editing ? location.href = <?= json_encode($back) ?> : closeSheet(); }
+  });
+  sheet.querySelector('[data-sheet-close]').addEventListener('click', function (e) {
+    if (!editing) { e.preventDefault(); e.stopImmediatePropagation(); closeSheet(); }
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) (editing ? location.href = <?= json_encode($back) ?> : closeSheet()); });
   var amt = document.querySelector('.amount');
   if (amt) amt.addEventListener('input', function () {
     var n = amt.value.replace(/[^\d]/g, '');
@@ -397,4 +378,4 @@ page_start('가계부', 'diary');
   });
 })();
 </script>
-<?php page_end('diary');
+<?php page_end('ledger');

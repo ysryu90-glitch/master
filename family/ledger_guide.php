@@ -1,7 +1,26 @@
 <?php
-// 가계부 › 카드 결제 자동으로 받기 (아이폰 단축어 자동화)
+// 가계부 › 예산 · 카드 결제 자동으로 받기 (아이폰 단축어 자동화) · 잘못 들어간 자동 기록 지우기
 require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/ledger.php';
 $me = require_login();
+check_csrf();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    switch (post('action')) {
+        case 'budget':
+            set_setting('ledger_budget', max(0, (int) preg_replace('/[^\d]/', '', (string) post('budget'))));
+            flash(ledger_budget() ? '한 달 예산을 ' . won(ledger_budget(), true) . '으로 정했어요.' : '예산을 껐어요.');
+            redirect('ledger_guide.php');
+        case 'delete_many':
+            $ids = array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])));
+            if ($ids) db()->exec('DELETE FROM expenses WHERE id IN (' . implode(',', $ids) . ')');
+            flash($ids ? count($ids) . '건을 지웠어요.' : '지울 기록을 골라 주세요.');
+            redirect('ledger_guide.php#auto');
+    }
+    redirect('ledger_guide.php');
+}
+$budget = ledger_budget();
+// 최근 3일 자동 입력 기록 (잘못 들어간 것을 한꺼번에 지우는 곳)
+$autoRecent = db()->query("SELECT * FROM expenses WHERE source <> 'manual' AND created_at >= DATE_SUB(NOW(), INTERVAL 3 DAY) ORDER BY id DESC LIMIT 100")->fetchAll();
 $url = public_base() . '/api/expense.php?token=' . $me['shortcut_token'];
 
 function human_ago(string $at): string
@@ -12,18 +31,48 @@ function human_ago(string $at): string
 
 function guide_steps(string $title, array $lines): void
 {
-    echo '<section class="card"><h2>' . h($title) . '</h2><ol class="small steps">';
+    echo '<section class="card"><details class="fold"><summary class="h2">' . h($title) . '</summary><ol class="small steps" style="margin-top:10px">';
     foreach ($lines as $line) echo '<li>' . $line . '</li>';
-    echo '</ol></section>';
+    echo '</ol></details></section>';
 }
-page_start('카드 자동 입력', 'diary');
+page_start('예산 · 자동 입력', 'ledger');
 ?>
 <style>
   .steps { padding-left: 20px; line-height: 1.85; margin: 0; }
   .tag { display: inline-block; background: var(--card-2); border-radius: 6px; padding: 0 6px; font-weight: 700; }
   .var { display: inline-block; background: var(--blue-soft); color: var(--blue); border-radius: 6px; padding: 0 6px; font-weight: 700; }
 </style>
-<p style="margin:0 4px 10px"><a href="ledger.php">‹ 가계부</a></p>
+<section class="card">
+  <h2>💰 한 달 예산</h2>
+  <form method="post" class="form inline">
+    <?= csrf_field() ?><input type="hidden" name="action" value="budget">
+    <label>금액 (비우면 예산 끔)<input name="budget" inputmode="numeric" value="<?= $budget ? number_format($budget) : '' ?>" placeholder="예: 1,500,000"></label>
+    <button class="btn primary">저장</button>
+  </form>
+  <p class="small muted" style="margin:8px 0 0">정해 두면 가계부 위쪽에 남은 돈 · 하루에 쓸 수 있는 돈이 보여요.</p>
+</section>
+
+<?php if ($autoRecent): ?>
+<section class="card" id="auto">
+  <details class="fold">
+    <summary>🧹 최근 3일 자동 입력 <?= count($autoRecent) ?>건 · 잘못 들어간 것 지우기</summary>
+    <form method="post" data-confirm="고른 기록을 지울까요?">
+      <?= csrf_field() ?><input type="hidden" name="action" value="delete_many">
+      <?php foreach ($autoRecent as $x): [$cn, $ci] = ledger_cat($x['category']); ?>
+        <label class="autorow"><input type="checkbox" name="ids[]" value="<?= (int) $x['id'] ?>">
+          <span class="grow"><b><?= h($x['merchant'] ?: $cn) ?></b><span class="small muted"> · <?= date('n/j', strtotime($x['day'])) ?><?= $x['at_time'] ? ' ' . substr($x['at_time'], 0, 5) : '' ?> · <?= $ci ?> <?= h($cn) ?> · <?= ['sms' => '문자', 'screen' => '화면 캡처', 'wallet' => '애플페이'][$x['source']] ?? $x['source'] ?></span></span>
+          <b><?= won((int) $x['amount']) ?></b></label>
+      <?php endforeach; ?>
+      <div class="btn-row" style="margin-top:10px">
+        <button type="button" class="btn small" onclick="this.form.querySelectorAll('input[type=checkbox]').forEach(function(c){c.checked=!c.checked})">전체 선택 / 해제</button>
+        <button class="btn small danger">🗑 고른 기록 지우기</button>
+      </div>
+    </form>
+  </details>
+</section>
+<?php endif; ?>
+
+<h3 class="dmonth" style="margin-top:6px">📲 카드 결제 자동으로 받기</h3>
 
 <section class="card">
   <h2>📲 어떻게 들어오나요?</h2>
@@ -119,4 +168,4 @@ document.getElementById('try').addEventListener('click', function () {
 });
 </script>
 <script src="assets/card.js?v=<?= asset_version('assets/card.js') ?>"></script>
-<?php page_end('diary');
+<?php page_end('ledger');

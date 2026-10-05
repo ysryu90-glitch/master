@@ -1,8 +1,8 @@
 // 알림을 받아 보여주는 서비스 워커 (홈 화면에 추가한 사이트에서 동작)
 self.addEventListener('push', function (event) {
   var data = {};
-  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { title: '우리집 건강', body: event.data ? event.data.text() : '' }; }
-  event.waitUntil(self.registration.showNotification(data.title || '우리집 건강', {
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { title: '우리집', body: event.data ? event.data.text() : '' }; }
+  event.waitUntil(self.registration.showNotification(data.title || '우리집', {
     body: data.body || '',
     icon: 'assets/icon.png',
     badge: 'assets/icon.png',

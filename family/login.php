@@ -28,7 +28,7 @@ page_start('로그인');
 ?>
 <section class="card login">
   <div class="login-logo">💚</div>
-  <h2>우리집 건강</h2>
+  <h2>우리집</h2>
   <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
   <form method="post" class="form">
     <input type="hidden" name="next" value="<?= h($next) ?>">

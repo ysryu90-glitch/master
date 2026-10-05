@@ -49,7 +49,7 @@ function share_head(string $title, string $desc = '', string $image = ''): void
 <?php if ($image): ?><meta property="og:image" content="<?= h($image) ?>"><?php endif; ?>
 <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="assets/icon.png">
+<link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/icon.png">
 <link rel="stylesheet" href="assets/app.css?v=<?= asset_version('assets/app.css') ?>">
 <title><?= h($title) ?></title>

@@ -634,3 +634,39 @@ details.fold[open] > summary { margin-bottom: 8px; }
 .row-between { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .row-between:last-child { border-bottom: none; }
 .catbars .v small { font-weight: 600; }
+
+/* ───────── 가계부 정리: 날짜 머리 · 일기 점 · 아래에서 올라오는 적기 창 ───────── */
+.dayhead { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.dayhead h2 { margin: 0; }
+.dayhead .tot { display: flex; gap: 8px; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dayhead .in, .lsum2 .in { color: var(--blue); }
+.dayhead .out, .lsum2 .out { color: var(--red); }
+.lcal .grid a .dd { width: 6px; height: 6px; border-radius: 50%; background: var(--pink); display: inline-block; margin-right: 2px; }
+.lcal .grid a.sel .dd { background: var(--bg); }
+.review { padding: 12px 16px; border: 1px solid var(--orange-soft); }
+.review > details > summary { font-weight: 700; color: var(--text); }
+.badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--orange); color: #fff; font-size: 12px; line-height: 20px; text-align: center; margin-left: 4px; }
+.sheet { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgba(10, 12, 16, 0.45); animation: sheet-fade 0.18s ease-out; }
+.sheet[hidden] { display: none; }
+.sheet .panel { width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; background: var(--card); border-radius: 22px 22px 0 0;
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom)); animation: sheet-up 0.22s ease-out; overscroll-behavior: contain; }
+.sheet .panel::before { content: ''; display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sheet-head h2 { margin: 0; }
+.sheet-head .x { width: 32px; height: 32px; border-radius: 50%; background: var(--card-2); color: var(--sub); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 15px; }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+@keyframes sheet-fade { from { background: rgba(10, 12, 16, 0); } }
+@media (min-width: 960px) { .sheet { align-items: center; } .sheet .panel { border-radius: 22px; padding-bottom: 22px; } .sheet .panel::before { display: none; } }
+body.noscroll { overflow: hidden; }
+.topbar-me { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+.topbar-me .hb { font-size: 15px; color: var(--text); margin-left: 2px; }
+.topbar-me.on { background: var(--text); color: var(--bg); }
+.topbar-me.on .hb { color: var(--bg); }
+.sidenav .brand { display: flex; align-items: center; gap: 8px; }
+.sidenav .brand img { border-radius: 7px; }
+.homeledger .hl-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.homeledger .hl-sum { display: flex; flex-direction: column; text-decoration: none; color: var(--text); }
+.homeledger .hl-sum .k { font-size: 13px; color: var(--sub); font-weight: 700; }
+.homeledger .hl-sum b { font-size: 26px; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+details.fold > summary.h2 { font-size: 17px; color: var(--text); }
+details.fold[open] > summary::before { content: '▾ '; }
