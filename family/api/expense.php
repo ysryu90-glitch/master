@@ -55,7 +55,9 @@ if (!$member) reply(['ok' => false, 'error' => '토큰이 맞지 않아요.', 'm
 
 $text = $data['text'] ?? $data['message'] ?? '';
 if (is_array($text)) $text = implode("\n", array_map('strval', $text)); // 여러 줄이 목록으로 올 때
-$text = trim(mb_convert_encoding((string) $text, 'UTF-8', 'UTF-8'));
+$text = mb_convert_encoding((string) $text, 'UTF-8', 'UTF-8');
+// 줄바꿈을 ⏎ 로 바꿔 보낸 경우 되돌림 (줄바꿈이 든 본문을 NAS가 거절할 때 쓰는 방법)
+$text = trim(str_replace(['⏎', '\\n'], "\n", $text));
 
 // 화면 캡처인데 글자가 비어 왔으면 (캡처에서 글자를 못 뽑음)
 if ($screen && $text === '') {
