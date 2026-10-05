@@ -3,13 +3,16 @@
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/diary.php';
 require __DIR__ . '/lib/ledger.php';
+require __DIR__ . '/lib/weather.php'; // 공휴일 (달력 빨간 날)
 
 $me = require_login();
 check_csrf();
 
 $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['m'] ?? '')) ? $_GET['m'] : date('Y-m');
 $cat = isset(LEDGER_CATEGORIES[$_GET['c'] ?? '']) || ($_GET['c'] ?? '') === 'income' ? $_GET['c'] : '';
-$back = 'ledger.php?m=' . $ym . ($cat ? '&c=' . $cat : '');
+$view = in_array($_GET['v'] ?? '', ['cal', 'list', 'stats'], true) ? $_GET['v'] : 'cal';
+$selDay = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['d'] ?? '')) && str_starts_with($_GET['d'], $ym) ? $_GET['d'] : ($ym === date('Y-m') ? today() : '');
+$back = 'ledger.php?m=' . $ym . '&v=' . $view . ($cat ? '&c=' . $cat : '') . ($selDay && $view === 'cal' ? '&d=' . $selDay : '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo = db();
@@ -35,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'merchant' => post('merchant'), 'memo' => post('memo'), 'member_id' => $payer, 'diary_id' => $diary, 'created_by' => (int) $me['id']]);
                 flash(ledger_cat($category)[1] . ' ' . won($amount) . ' 기록했어요.');
             }
-            redirect('ledger.php?m=' . substr($day, 0, 7) . ($cat ? '&c=' . $cat : ''));
+            redirect('ledger.php?m=' . substr($day, 0, 7) . '&v=' . $view . ($view === 'cal' ? '&d=' . $day : '') . ($cat ? '&c=' . $cat : '') . ($view === 'cal' ? '#day' : ''));
         case 'recat':
             if (isset(LEDGER_CATEGORIES[post('category')])) {
                 $pdo->prepare('UPDATE expenses SET category = ?, checked = 1, updated_at = NOW() WHERE id = ?')->execute([post('category'), $id]);
@@ -95,44 +98,197 @@ foreach ($diaries as $d) $diaryTitle[(int) $d['id']] = date('n/j', strtotime($d[
 $byDay = [];
 foreach ($list as $x) $byDay[$x['day']][] = $x;
 
+// 달력: 날짜별 지출 · 수입 합계와 일기 있는 날
+$dayOut = $dayIn = [];
+$stmt = db()->prepare("SELECT day, kind, SUM(amount) s FROM expenses WHERE day BETWEEN ? AND LAST_DAY(?) GROUP BY day, kind");
+$stmt->execute([$ym . '-01', $ym . '-01']);
+foreach ($stmt as $r) { if ($r['kind'] === 'in') $dayIn[$r['day']] = (int) $r['s']; else $dayOut[$r['day']] = (int) $r['s']; }
+$stmt = db()->prepare('SELECT day, MIN(id) id FROM diary_entries WHERE day BETWEEN ? AND LAST_DAY(?) GROUP BY day');
+$stmt->execute([$ym . '-01', $ym . '-01']);
+$diaryDays = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+$maxDay = $dayOut ? max(max($dayOut), 1) : 1;
+
+// 통계: 최근 6개월 지출 · 낸 사람별
+$six = [];
+for ($i = 5; $i >= 0; $i--) $six[date('Y-m', strtotime($ym . "-01 -$i month"))] = 0;
+$stmt = db()->prepare("SELECT DATE_FORMAT(day, '%Y-%m') m, SUM(amount) s FROM expenses WHERE kind = 'out' AND day BETWEEN ? AND LAST_DAY(?) GROUP BY m");
+$stmt->execute([array_key_first($six) . '-01', $ym . '-01']);
+foreach ($stmt as $r) if (isset($six[$r['m']])) $six[$r['m']] = (int) $r['s'];
+$stmt = db()->prepare("SELECT member_id, SUM(amount) s FROM expenses WHERE kind = 'out' AND day BETWEEN ? AND LAST_DAY(?) GROUP BY member_id ORDER BY s DESC");
+$stmt->execute([$ym . '-01', $ym . '-01']);
+$byPayer = $stmt->fetchAll();
+
+/** 달력 칸에 들어갈 짧은 금액: 3,800 / 1.3만 / 150만 */
+function cell_won(int $n): string
+{
+    $a = abs($n);
+    if ($a < 10000) return number_format($n);
+    $v = $n / 10000;
+    $t = number_format($v, abs($v) >= 100 ? 0 : 1);
+    return (str_contains($t, '.') ? rtrim(rtrim($t, '0'), '.') : $t) . '만';
+}
+$q = fn(array $p) => 'ledger.php?' . http_build_query(array_filter($p + ['m' => $ym, 'v' => $view, 'c' => $cat], fn($v) => $v !== '' && $v !== null));
+
 $f = $edit ?? ['id' => 0, 'kind' => 'out', 'amount' => '', 'category' => $cat && $cat !== 'income' ? $cat : '', 'merchant' => '', 'memo' => '',
-    'day' => isset($_GET['day']) ? valid_day($_GET['day']) : today(), 'member_id' => $me['id'], 'diary_id' => (int) ($_GET['diary'] ?? 0) ?: null];
+    'day' => isset($_GET['day']) ? valid_day($_GET['day']) : ($selDay && $selDay <= today() ? $selDay : today()), 'member_id' => $me['id'], 'diary_id' => (int) ($_GET['diary'] ?? 0) ?: null];
 
 page_start('가계부', 'diary');
 ?>
 <nav class="monthnav">
-  <a class="btn small" href="ledger.php?m=<?= $prev ?><?= $cat ? '&c=' . $cat : '' ?>" aria-label="지난달">‹</a>
+  <a class="btn small" href="<?= h($q(['m' => $prev, 'd' => null])) ?>" aria-label="지난달">‹</a>
   <b><?= (int) substr($ym, 0, 4) ?>년 <?= (int) substr($ym, 5) ?>월</b>
-  <a class="btn small" href="ledger.php?m=<?= $next ?><?= $cat ? '&c=' . $cat : '' ?>" aria-label="다음 달"<?= $isNow ? ' style="visibility:hidden"' : '' ?>>›</a>
+  <a class="btn small" href="<?= h($q(['m' => $next, 'd' => null])) ?>" aria-label="다음 달"<?= $isNow ? ' style="visibility:hidden"' : '' ?>>›</a>
 </nav>
 
-<section class="card lsum">
-  <div class="k">이번 달 쓴 돈</div>
-  <div class="big"><?= won($sum['out']) ?></div>
-  <?php if ($sum['in']): ?><div class="small muted">수입 <?= won($sum['in']) ?> · 남은 돈 <b><?= won($sum['in'] - $sum['out']) ?></b></div><?php endif; ?>
-  <?php if ($compare !== null && ($compare !== 0)): ?><div class="small" style="margin-top:4px;color:<?= $compare > 0 ? 'var(--orange)' : 'var(--accent)' ?>">지난달 같은 기간보다 <?= won(abs($compare), true) ?> <?= $compare > 0 ? '더 썼어요' : '덜 썼어요' ?></div><?php endif; ?>
+<section class="card lsum2">
+  <div class="cols">
+    <div><span class="k">수입</span><b class="in"><?= $sum['in'] ? '+' . won($sum['in']) : '0원' ?></b></div>
+    <div><span class="k">지출</span><b class="out"><?= $sum['out'] ? '-' . won($sum['out']) : '0원' ?></b></div>
+    <div><span class="k">합계</span><b><?= won($sum['in'] - $sum['out']) ?></b></div>
+  </div>
   <?php if ($budget): $pct = min(100, $sum['out'] / $budget * 100); $left = $budget - $sum['out'];
       $daysLeft = $isNow ? (int) date('t') - (int) date('j') + 1 : 0; ?>
-    <div class="meter <?= $pct >= 100 ? 'red' : ($pct >= 80 ? 'orange' : '') ?>" style="margin-top:12px"><i style="width:<?= $pct ?>%"></i></div>
-    <div class="small" style="margin-top:6px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <span>예산 <?= won($budget, true) ?> 중 <?= round($sum['out'] / $budget * 100) ?>%</span>
+    <div class="meter <?= $pct >= 100 ? 'red' : ($pct >= 80 ? 'orange' : '') ?>" style="margin-top:10px;height:8px"><i style="width:<?= $pct ?>%"></i></div>
+    <div class="small" style="margin-top:5px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <span class="muted">예산 <?= won($budget, true) ?> 중 <?= round($sum['out'] / $budget * 100) ?>%</span>
       <span style="font-weight:700;color:<?= $left < 0 ? 'var(--red)' : 'var(--text)' ?>"><?= $left < 0 ? won(-$left, true) . ' 넘었어요' : '남은 돈 ' . won($left, true) . ($daysLeft ? ' · 하루 ' . won((int) floor($left / $daysLeft), true) : '') ?></span>
     </div>
   <?php endif; ?>
-  <?php if ($sum['byCat']): $max = max($sum['byCat']) ?: 1; ?>
-    <div class="catbars">
-      <?php foreach ($sum['byCat'] as $k => $v): if ($v <= 0) continue; [$cn, $ci] = ledger_cat($k); ?>
-        <a class="<?= $cat === $k ? 'on' : '' ?>" href="ledger.php?m=<?= $ym ?><?= $cat === $k ? '' : '&c=' . $k ?>">
-          <span class="n"><?= $ci ?> <?= h($cn) ?></span><span class="bar"><i style="width:<?= max(3, $v / $max * 100) ?>%"></i></span><span class="v"><?= won($v, true) ?></span>
-        </a>
-      <?php endforeach; ?>
+</section>
+
+<nav class="segmented ltabs">
+  <a class="<?= $view === 'cal' ? 'on' : '' ?>" href="<?= h($q(['v' => 'cal', 'c' => ''])) ?>">📅 달력</a>
+  <a class="<?= $view === 'list' ? 'on' : '' ?>" href="<?= h($q(['v' => 'list'])) ?>">📋 내역</a>
+  <a class="<?= $view === 'stats' ? 'on' : '' ?>" href="<?= h($q(['v' => 'stats', 'c' => ''])) ?>">📊 통계</a>
+</nav>
+
+<?php if ($view === 'cal'):
+    $first = strtotime($ym . '-01');
+    $lead = (int) date('w', $first);
+    $nDays = (int) date('t', $first); ?>
+<section class="card lcal">
+  <div class="wk"><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span></div>
+  <div class="grid">
+    <?php for ($i = 0; $i < $lead; $i++): ?><span class="blank"></span><?php endfor; ?>
+    <?php for ($dn = 1; $dn <= $nDays; $dn++):
+        $d = sprintf('%s-%02d', $ym, $dn);
+        $w = ($lead + $dn - 1) % 7;
+        $o = $dayOut[$d] ?? 0; $in = $dayIn[$d] ?? 0;
+        $heat = $o > 0 ? min(0.28, 0.06 + 0.22 * $o / $maxDay) : 0;
+        $cls = trim(($d === $selDay ? 'sel ' : '') . ($d === today() ? 'today ' : '') . ($d > today() ? 'future ' : '') . ($w === 0 || isset(HOLIDAYS[$d]) ? 'sun ' : ($w === 6 ? 'sat ' : ''))); ?>
+      <a class="<?= $cls ?>" href="<?= h($q(['d' => $d])) ?>#day"<?= $heat ? ' style="--heat:' . round($heat, 3) . '"' : '' ?>>
+        <span class="n"><?= $dn ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기">📔</i>' : '' ?></span>
+        <span class="amts"><?php if ($in): ?><span class="pin">+<?= cell_won($in) ?></span><?php endif; ?><?php if ($o): ?><span class="pout">-<?= cell_won($o) ?></span><?php endif; ?></span>
+      </a>
+    <?php endfor; ?>
+  </div>
+</section>
+
+<section class="card" id="day">
+  <?php if ($selDay):
+      $rows = $byDay[$selDay] ?? [];
+      $sOut = $dayOut[$selDay] ?? 0; $sIn = $dayIn[$selDay] ?? 0; ?>
+    <div class="card-head">
+      <h2><?= date('n월 j일', strtotime($selDay)) ?> (<?= weekday_short($selDay) ?>)<?= $selDay === today() ? ' <span class="small muted">오늘</span>' : '' ?></h2>
+      <span class="small"><?= $sIn ? '<b class="in">+' . won($sIn) . '</b> ' : '' ?><?= $sOut ? '<b class="out">-' . won($sOut) . '</b>' : '' ?></span>
     </div>
-    <?php if ($cat): ?><p class="small" style="margin:8px 0 0"><a href="ledger.php?m=<?= $ym ?>">× 「<?= h(ledger_cat($cat)[0]) ?>」만 보는 중 · 전체 보기</a></p><?php endif; ?>
+    <?php if ($rows): ?>
+      <div class="lrows flat">
+        <?php foreach ($rows as $x): [$cn, $ci] = ledger_cat($x['category']); $payer = $names[(int) $x['member_id']] ?? null; ?>
+          <a class="lrow<?= (int) $x['amount'] < 0 ? ' cancel' : '' ?>" href="<?= h($q(['d' => $selDay, 'edit' => $x['id']])) ?>#form">
+            <span class="ic"><?= $ci ?></span>
+            <span class="grow">
+              <span class="t"><?= h($x['merchant'] ?: $x['memo'] ?: $cn) ?></span>
+              <span class="s"><?= h($cn) ?><?= $x['at_time'] ? ' · ' . substr($x['at_time'], 0, 5) : '' ?><?= $payer ? ' · ' . h($payer['emoji']) : '' ?><?= $x['source'] !== 'manual' ? ' · 📲' : '' ?><?= $x['memo'] && $x['merchant'] ? ' · ' . h($x['memo']) : '' ?><?= $x['diary_id'] ? ' · 📔' : '' ?></span>
+            </span>
+            <span class="amt <?= $x['kind'] === 'in' ? 'in' : '' ?>"><?= $x['kind'] === 'in' ? '+' : '' ?><?= won((int) $x['amount']) ?></span>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <p class="small muted" style="margin:0">이날 기록이 없어요.</p>
+    <?php endif; ?>
+    <div class="btn-row" style="margin-top:10px">
+      <?php if ($selDay <= today()): ?><a class="btn small primary" href="<?= h($q(['d' => $selDay, 'add' => 1])) ?>#form">＋ 이날 쓴 돈 적기</a><?php endif; ?>
+      <?php if (isset($diaryDays[$selDay])): ?><a class="btn small" href="diary_view.php?id=<?= (int) $diaryDays[$selDay] ?>">📔 이날 일기</a>
+      <?php elseif ($selDay <= today()): ?><a class="btn small" href="diary_edit.php?day=<?= h($selDay) ?>">📔 일기 쓰기</a><?php endif; ?>
+    </div>
+  <?php else: ?>
+    <p class="small muted" style="margin:0">날짜를 누르면 그날 쓴 돈이 보여요.</p>
   <?php endif; ?>
 </section>
 
+<?php elseif ($view === 'list'): ?>
+<?php if ($sum['byCat']): ?>
+  <div class="chips" style="margin:0 2px 10px">
+    <a class="chip<?= $cat ? '' : ' on' ?>" href="<?= h($q(['c' => ''])) ?>">전체</a>
+    <?php foreach ($sum['byCat'] as $k => $v): if ($v <= 0) continue; [$cn, $ci] = ledger_cat($k); ?>
+      <a class="chip<?= $cat === $k ? ' on' : '' ?>" href="<?= h($q(['c' => $k])) ?>"><?= $ci ?> <?= h($cn) ?></a>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
+<?php if (!$list): ?>
+  <section class="card"><p class="muted" style="margin:0"><?= $cat ? '이 항목의 기록이 없어요.' : '이번 달 기록이 아직 없어요. ＋를 눌러 적거나, 카드 결제를 자동으로 받아 보세요.' ?></p></section>
+<?php endif; ?>
+<?php foreach ($byDay as $day => $rows): $dOut = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, $rows)); ?>
+  <h3 class="lday"><span><?= date('n월 j일', strtotime($day)) ?> (<?= weekday_short($day) ?>)<?= $day === today() ? ' · 오늘' : '' ?></span><span><?= $dOut ? '-' . won($dOut) : '' ?></span></h3>
+  <div class="card lrows">
+    <?php foreach ($rows as $x): [$cn, $ci] = ledger_cat($x['category']); $payer = $names[(int) $x['member_id']] ?? null; ?>
+      <a class="lrow<?= (int) $x['amount'] < 0 ? ' cancel' : '' ?>" href="<?= h($q(['edit' => $x['id']])) ?>#form">
+        <span class="ic"><?= $ci ?></span>
+        <span class="grow">
+          <span class="t"><?= h($x['merchant'] ?: $x['memo'] ?: $cn) ?></span>
+          <span class="s"><?= h($cn) ?><?= $x['at_time'] ? ' · ' . substr($x['at_time'], 0, 5) : '' ?><?= $payer ? ' · ' . h($payer['emoji']) : '' ?><?= $x['source'] !== 'manual' ? ' · 📲' . ($x['card'] ? ' ' . h($x['card']) : '') : '' ?><?= $x['memo'] && $x['merchant'] ? ' · ' . h($x['memo']) : '' ?><?= $x['diary_id'] && isset($diaryTitle[(int) $x['diary_id']]) ? ' · 📔 ' . h($diaryTitle[(int) $x['diary_id']]) : '' ?></span>
+        </span>
+        <span class="amt <?= $x['kind'] === 'in' ? 'in' : '' ?>"><?= $x['kind'] === 'in' ? '+' : '' ?><?= won((int) $x['amount']) ?></span>
+      </a>
+    <?php endforeach; ?>
+  </div>
+<?php endforeach; ?>
+
+<?php else: /* 통계 */ ?>
+<section class="card">
+  <h2>항목별 지출</h2>
+  <?php if (!$sum['byCat']): ?><p class="small muted" style="margin:0">이번 달 지출이 없어요.</p><?php endif; ?>
+  <?php if ($sum['byCat']): $max = max($sum['byCat']) ?: 1; $tot = max(1, $sum['out']); ?>
+    <div class="catbars">
+      <?php foreach ($sum['byCat'] as $k => $v): if ($v <= 0) continue; [$cn, $ci] = ledger_cat($k); ?>
+        <a href="<?= h($q(['v' => 'list', 'c' => $k])) ?>">
+          <span class="n"><?= $ci ?> <?= h($cn) ?></span><span class="bar"><i style="width:<?= max(3, $v / $max * 100) ?>%"></i></span><span class="v"><?= won($v, true) ?> <small class="muted"><?= round($v / $tot * 100) ?>%</small></span>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+  <?php if ($compare !== null && $compare !== 0): ?><p class="small" style="margin:12px 0 0;color:<?= $compare > 0 ? 'var(--orange)' : 'var(--accent)' ?>">지난달 같은 기간보다 <?= won(abs($compare), true) ?> <?= $compare > 0 ? '더 썼어요' : '덜 썼어요' ?></p><?php endif; ?>
+</section>
+
+<section class="card">
+  <h2>최근 6개월 지출</h2>
+  <?php $smax = max(1, max($six)); ?>
+  <div class="mbars">
+    <?php foreach ($six as $m => $v): ?>
+      <a class="<?= $m === $ym ? 'on' : '' ?>" href="<?= h($q(['m' => $m])) ?>">
+        <span class="v"><?= $v ? cell_won($v) : '' ?></span>
+        <span class="b"><i style="height:<?= $v ? max(4, round($v / $smax * 100)) : 0 ?>%"></i></span>
+        <span class="l"><?= (int) substr($m, 5) ?>월</span>
+      </a>
+    <?php endforeach; ?>
+  </div>
+</section>
+
+<?php if ($byPayer): ?>
+<section class="card">
+  <h2>낸 사람별</h2>
+  <?php foreach ($byPayer as $r): $m = $names[(int) $r['member_id']] ?? null; ?>
+    <div class="row-between"><span><?= $m ? h($m['emoji'] . ' ' . $m['name']) : '같이 · 모름' ?></span><b><?= won((int) $r['s']) ?></b></div>
+  <?php endforeach; ?>
+</section>
+<?php endif; ?>
+<?php endif; ?>
+
 <section class="card" id="form">
-  <h2><?= $edit ? '✏️ 기록 고치기' : '➕ 쓴 돈 적기' ?></h2>
+  <details class="fold lform"<?= $edit || isset($_GET['add']) ? ' open' : '' ?>>
+  <summary><?= $edit ? '✏️ 기록 고치기' : '➕ 쓴 돈 · 들어온 돈 적기' ?></summary>
   <form method="post" class="form" data-busy="저장하는 중이에요…">
     <?= csrf_field() ?><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= (int) $f['id'] ?>">
     <div class="segmented" id="kind-seg">
@@ -167,7 +323,9 @@ page_start('가계부', 'diary');
       <form method="post" data-confirm="이 기록을 지울까요?"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $edit['id'] ?>"><button class="btn small danger">🗑 지우기</button></form>
     </div>
   <?php endif; ?>
+  </details>
 </section>
+<a class="lfab" href="<?= h($q(['d' => $selDay ?: null, 'add' => 1])) ?>#form" aria-label="쓴 돈 적기">＋</a>
 
 <?php if ($review): ?>
 <section class="card" id="review">
@@ -185,25 +343,6 @@ page_start('가계부', 'diary');
   <?php endforeach; ?>
 </section>
 <?php endif; ?>
-
-<?php if (!$list): ?>
-  <section class="card"><p class="muted" style="margin:0"><?= $cat ? '이 항목의 기록이 없어요.' : '이번 달 기록이 아직 없어요. 위에서 적거나, 카드 결제 문자를 자동으로 받아 보세요.' ?></p></section>
-<?php endif; ?>
-<?php foreach ($byDay as $day => $rows): $dayOut = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, $rows)); ?>
-  <h3 class="lday"><span><?= date('n월 j일', strtotime($day)) ?> (<?= weekday_short($day) ?>)<?= $day === today() ? ' · 오늘' : '' ?></span><span><?= $dayOut ? '-' . won($dayOut) : '' ?></span></h3>
-  <div class="card lrows">
-    <?php foreach ($rows as $x): [$cn, $ci] = ledger_cat($x['category']); $payer = $names[(int) $x['member_id']] ?? null; ?>
-      <a class="lrow<?= (int) $x['amount'] < 0 ? ' cancel' : '' ?>" href="ledger.php?m=<?= $ym ?>&edit=<?= (int) $x['id'] ?><?= $cat ? '&c=' . $cat : '' ?>#form">
-        <span class="ic"><?= $ci ?></span>
-        <span class="grow">
-          <span class="t"><?= h($x['merchant'] ?: $x['memo'] ?: $cn) ?></span>
-          <span class="s"><?= h($cn) ?><?= $x['at_time'] ? ' · ' . substr($x['at_time'], 0, 5) : '' ?><?= $payer ? ' · ' . h($payer['emoji']) : '' ?><?= $x['source'] !== 'manual' ? ' · 📲' . ($x['card'] ? ' ' . h($x['card']) : '') : '' ?><?= $x['memo'] && $x['merchant'] ? ' · ' . h($x['memo']) : '' ?><?= $x['diary_id'] && isset($diaryTitle[(int) $x['diary_id']]) ? ' · 📔 ' . h($diaryTitle[(int) $x['diary_id']]) : '' ?></span>
-        </span>
-        <span class="amt <?= $x['kind'] === 'in' ? 'in' : '' ?>"><?= $x['kind'] === 'in' ? '+' : '' ?><?= won((int) $x['amount']) ?></span>
-      </a>
-    <?php endforeach; ?>
-  </div>
-<?php endforeach; ?>
 
 <?php if ($autoRecent): ?>
 <section class="card" id="auto">
