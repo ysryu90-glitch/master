@@ -145,8 +145,8 @@ page_start('가계부', 'ledger');
 ?>
 <nav class="monthnav">
   <a class="btn small" href="<?= h($q(['m' => $prev, 'd' => null])) ?>" aria-label="지난달">‹</a>
-  <b><?= (int) substr($ym, 0, 4) ?>년 <?= (int) substr($ym, 5) ?>월</b>
-  <a class="btn small" href="<?= h($q(['m' => $next, 'd' => null])) ?>" aria-label="다음 달"<?= $isNow ? ' style="visibility:hidden"' : '' ?>>›</a>
+  <b><?= (int) substr($ym, 0, 4) ?>년 <?= (int) substr($ym, 5) ?>월<?php if (!$isNow): ?> <a class="chip" style="font-size:12px;vertical-align:middle" href="<?= h($q(['m' => date('Y-m'), 'd' => null])) ?>">이번 달</a><?php endif; ?></b>
+  <a class="btn small" href="<?= h($q(['m' => $next, 'd' => null])) ?>" aria-label="다음 달"<?= $ym > date('Y-m') ? ' style="visibility:hidden"' : '' ?>>›</a>
 </nav>
 
 <section class="card lsum2">
@@ -271,6 +271,15 @@ page_start('가계부', 'ledger');
       if (r.top > window.innerHeight - 140) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, true);
   });
+  // 달력을 옆으로 밀면 지난달 · 다음 달
+  var cal = document.querySelector('.lcal'), sx = 0, sy = 0;
+  cal.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  cal.addEventListener('touchend', function (e) {
+    var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    var link = document.querySelector(dx > 0 ? '.monthnav a[aria-label="지난달"]' : '.monthnav a[aria-label="다음 달"]');
+    if (link && link.style.visibility !== 'hidden') link.click();
+  }, { passive: true });
 })();
 </script>
 
