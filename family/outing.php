@@ -338,7 +338,9 @@ $allDays = array_merge($days, $nextWeekend);
         <a class="btn small" href="<?= h($e['url'] ?: 'https://search.naver.com/search.naver?query=' . rawurlencode($e['title'])) ?>" target="_blank" rel="noopener">보기</a></li>
     <?php endforeach; ?>
   </ul>
-  <?php if (is_array($dstatus)): ?><p class="small muted">마지막으로 받은 시각 <?= h($dstatus['at']) ?><?= !empty($dstatus['errors']) ? ' · ⚠️ ' . h(implode(' / ', $dstatus['errors'])) : '' ?> · 출처: 한국관광공사, 서울시</p><?php endif; ?>
+  <?php if (is_array($dstatus)): ?><p class="small muted">마지막으로 받은 시각 <?= h($dstatus['at']) ?> · 출처: 한국관광공사, 서울시</p>
+    <?php if (!empty($dstatus['errors'])): ?><details class="fold small"><summary style="color:var(--orange)">⚠️ 일부 정보를 받지 못했어요 (자세히)</summary><p class="small muted" style="margin:4px 0 0;word-break:break-all"><?= h(implode(' / ', $dstatus['errors'])) ?></p></details><?php endif; ?>
+  <?php endif; ?>
 </section>
 
 <?php $customs = db()->query('SELECT * FROM custom_places WHERE active = 1 ORDER BY id DESC')->fetchAll(); ?>
