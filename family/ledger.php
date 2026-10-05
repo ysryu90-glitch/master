@@ -126,6 +126,9 @@ function cell_won(int $n): string
 }
 $q = fn(array $p) => 'ledger.php?' . http_build_query(array_filter($p + ['m' => $ym, 'v' => $view, 'c' => $cat], fn($v) => $v !== '' && $v !== null));
 
+// 자주 쓰는 가게 (적을 때 고르면 항목도 같이)
+$recentMerchants = db()->query("SELECT merchant, SUBSTRING_INDEX(GROUP_CONCAT(category ORDER BY id DESC), ',', 1) cat FROM expenses
+    WHERE merchant <> '' AND kind = 'out' AND day > DATE_SUB(CURDATE(), INTERVAL 120 DAY) GROUP BY merchant ORDER BY COUNT(*) DESC, MAX(id) DESC LIMIT 40")->fetchAll(PDO::FETCH_KEY_PAIR);
 $f = $edit ?? ['id' => 0, 'kind' => 'out', 'amount' => '', 'category' => $cat && $cat !== 'income' ? $cat : '', 'merchant' => '', 'memo' => '',
     'day' => isset($_GET['day']) ? valid_day($_GET['day']) : ($selDay && $selDay <= today() ? $selDay : today()), 'member_id' => $me['id'], 'diary_id' => (int) ($_GET['diary'] ?? 0) ?: null];
 
@@ -320,10 +323,16 @@ page_start('가계부', 'ledger');
         <label><input type="radio" name="category" value="<?= $k ?>" <?= $f['category'] === $k ? 'checked' : '' ?>><span><?= $ci ?> <?= h($cn) ?></span></label>
       <?php endforeach; ?>
     </div>
+    <datalist id="merchants"><?php foreach ($recentMerchants as $mn => $mc): ?><option value="<?= h($mn) ?>"><?php endforeach; ?></datalist>
     <div class="grid2">
-      <label>어디서 · 무엇<input name="merchant" value="<?= h($f['merchant']) ?>" placeholder="예: 이마트, 에버랜드" id="merchant"></label>
+      <label>어디서 · 무엇<input name="merchant" value="<?= h($f['merchant']) ?>" placeholder="예: 이마트, 에버랜드" id="merchant" list="merchants" autocomplete="off"></label>
       <label>날짜<input type="date" name="day" value="<?= h($f['day']) ?>" max="<?= today() ?>"></label>
     </div>
+    <?php if ($recentMerchants && !$edit): ?>
+      <div class="chips scrollx recentm" style="margin:-4px -18px 10px;padding:0 18px"><span class="small muted" style="flex:none;align-self:center">자주:</span>
+        <?php foreach (array_slice($recentMerchants, 0, 10, true) as $mn => $mc): ?><button type="button" class="chip" data-m="<?= h($mn) ?>" data-c="<?= h($mc) ?>"><?= ledger_cat($mc)[1] ?> <?= h(mb_strimwidth($mn, 0, 18, '…')) ?></button><?php endforeach; ?>
+      </div>
+    <?php endif; ?>
     <details class="fold"<?= $edit || $f['diary_id'] || $f['memo'] ? ' open' : '' ?>>
       <summary>메모 · 낸 사람 · 일기 연결</summary>
       <label>메모<input name="memo" value="<?= h($f['memo']) ?>" placeholder="예: 하린 겨울 점퍼"></label>
@@ -378,9 +387,15 @@ page_start('가계부', 'ledger');
   document.querySelectorAll('#kind-seg input').forEach(function (r) {
     r.addEventListener('change', function () { pick.hidden = r.value === 'in' && r.checked; });
   });
+  var recent = <?= json_encode($recentMerchants, JSON_UNESCAPED_UNICODE) ?>;
+  function setCat(k) { var el = pick.querySelector('input[value="' + k + '"]'); if (el) el.checked = true; }
+  document.querySelectorAll('.recentm .chip').forEach(function (c) {
+    c.addEventListener('click', function () { merchant.value = c.getAttribute('data-m'); setCat(c.getAttribute('data-c')); });
+  });
   var guess = <?= json_encode(LEDGER_GUESS, JSON_UNESCAPED_UNICODE) ?>;
   var merchant = document.getElementById('merchant');
   if (merchant) merchant.addEventListener('change', function () {
+    if (recent[merchant.value]) return setCat(recent[merchant.value]);
     if (pick.querySelector('input:checked')) return;
     var v = merchant.value.replace(/\s/g, '').toLowerCase();
     for (var k in guess) for (var i = 0; i < guess[k].length; i++) {
