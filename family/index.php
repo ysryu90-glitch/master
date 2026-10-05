@@ -188,12 +188,12 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
   </details>
 </section>
 <?php else: ?>
-<section class="readiness none<?= $counted > 0 ? " slim" : "" ?>">
+<section class="readiness none slim">
   <div class="label">오늘의 준비 점수</div>
   <?php if ($counted === 0): ?>
     <div class="level">아직 건강 기록이 없어요</div>
     <div class="msg">아이폰 단축어를 한 번 만들어 두면 매일 자동으로 들어와요.</div>
-    <p style="margin-top:12px"><a class="btn small" href="shortcut.php">단축어 연결하기</a></p>
+    <p style="margin:6px 0 0"><a class="small" href="shortcut.php">단축어 연결하기 ›</a></p>
   <?php elseif (!$todayRow): ?>
     <div class="level">오늘 기록을 기다리는 중</div>
     <div class="msg">아이폰 단축어가 실행되면 바로 계산돼요.</div>
@@ -225,6 +225,7 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
   <?php endif; ?>
 </section>
 
+<?php if (setting('icloud_user')): ?>
 <section class="card">
   <div class="card-head"><h2>📅 오늘 일정</h2><a class="more" href="calendar.php">전체 ›</a></div>
   <?php if (!$events): ?><div class="empty"><?= setting('icloud_user') ? '오늘은 일정이 없어요.' : '<a href="settings.php#calendar">iCloud 캘린더를 연결</a>하면 여기에 보여요.' ?></div><?php endif; ?>
@@ -236,6 +237,7 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
     <?php endforeach; ?>
   </ul>
 </section>
+<?php endif; ?>
 
 <section class="card">
   <div class="card-head"><h2>❤️ 오늘 건강</h2><a class="more" href="health.php">건강 ›</a></div>
