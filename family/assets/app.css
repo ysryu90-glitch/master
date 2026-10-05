@@ -706,3 +706,7 @@ main.page:has(> .lfab) { padding-bottom: 84px; }
 html { touch-action: manipulation; }
 .lrow:active, .todo-row:active, .tile:active, .lcal .grid a:active, .quickgrid a:active { opacity: 0.7; }
 .lrow, .todo-row, .tile, .lcal .grid a { transition: opacity 0.1s; }
+.jump.settabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 12px; padding: 2px 16px 4px; }
+.jump.settabs::-webkit-scrollbar { display: none; }
+.jump.settabs a { flex: none; white-space: nowrap; }
+.jump.settabs a.on { background: var(--text); color: var(--bg); }

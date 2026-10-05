@@ -118,7 +118,7 @@ page_start('설정');
 ?>
 <?php if ($error): ?><div class="flash" style="background:rgba(220,38,38,.1);color:var(--red)"><?= h($error) ?></div><?php endif; ?>
 
-<nav class="jump" aria-label="설정 바로가기">
+<nav class="jump settabs" id="settabs" aria-label="설정 바로가기">
   <a href="#profile">🙂 내 정보</a><a href="#notify">🔔 알림</a><a href="#shortcut">📲 단축어</a><a href="#kid">👧 아이</a>
   <a href="#home">🏠 우리집</a><a href="#calendar">📅 캘린더</a><a href="#discover">🧺 나들이 데이터</a><a href="#board">📺 전광판</a>
 </nav>
@@ -265,6 +265,26 @@ page_start('설정');
   <a class="btn danger" href="logout.php">로그아웃</a>
   <p class="small muted" style="margin-top:8px">모든 기록(건강 · 식단과 사진 · 식탁 · 설정)은 NAS의 MariaDB(family_board)에 저장돼요.</p>
 </section>
+<script>
+(function () {
+  // 설정을 한 칸씩 보기 (위 버튼으로 바꾸기, 저장하고 돌아와도 보던 칸 그대로)
+  var links = document.querySelectorAll('#settabs a'), ids = [];
+  links.forEach(function (a) { ids.push(a.getAttribute('href').slice(1)); });
+  function show(id, push) {
+    if (ids.indexOf(id) < 0) id = ids[0];
+    ids.forEach(function (x) { var el = document.getElementById(x); if (el) el.hidden = x !== id; });
+    links.forEach(function (a) { var on = a.getAttribute('href') === '#' + id; a.classList.toggle('on', on); if (on) a.scrollIntoView({ inline: 'center', block: 'nearest' }); });
+    try { sessionStorage.setItem('settingsTab', id); } catch (e) {}
+    if (push) history.replaceState(null, '', '#' + id);
+    window.scrollTo(0, 0);
+  }
+  links.forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); show(a.getAttribute('href').slice(1), true); }); });
+  var want = location.hash.slice(1);
+  if (!want) try { want = sessionStorage.getItem('settingsTab') || ''; } catch (e) {}
+  show(want, false);
+  window.addEventListener('hashchange', function () { show(location.hash.slice(1), false); });
+})();
+</script>
 <?php
 function dinner_time_setting(): string { return (string) setting('dinner_time', '18:30'); }
 page_end();
