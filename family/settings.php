@@ -122,7 +122,6 @@ page_start('설정');
   <a href="#profile">🙂 내 정보</a><a href="#notify">🔔 알림</a><a href="#shortcut">📲 단축어</a><a href="#kid">👧 아이</a>
   <a href="#home">🏠 우리집</a><a href="#calendar">📅 캘린더</a><a href="#discover">🧺 나들이 데이터</a><a href="#board">📺 전광판</a>
 </nav>
-<p class="small muted" style="margin:0 4px 12px">💊 약 관리는 <a href="meds.php">건강 › 약</a>으로 옮겼어요.</p>
 
 <section class="card" id="profile">
   <h2>🙂 내 정보</h2>

@@ -92,7 +92,7 @@ foreach ($stmt->fetchAll() as $r) {
             'carbs' => (float) $i['carbs'], 'protein' => (float) $i['protein'], 'fat' => (float) $i['fat'], 'sodium' => (float) $i['sodium']], $its)];
 }
 
-page_start($meal ? '식단 수정' : '식단 기록', 'meals');
+page_start($meal ? '식단 수정' : '식단 기록', 'meals', ['back' => "meals.php?m={$who['id']}&day=$day"]);
 ?>
 <form method="post" id="meal-form" class="form">
   <?= csrf_field() ?>

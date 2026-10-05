@@ -634,7 +634,7 @@ const NAV = [
     'meal' => ['식사', '🍽', 'table.php', [['table.php', '오늘 저녁', '🍲'], ['meals.php', '식단 기록', '🍚']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
     'ledger' => ['가계부', '💰', 'ledger.php', [['ledger.php', '가계부', '💰'], ['ledger_guide.php', '예산 · 자동 입력', '⚙︎']]],
-    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '주간 리포트', '📊']]],
+    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['calendar.php', '일정', '📅'], ['settings.php', '설정', '⚙︎']]],
 ];
 
@@ -703,8 +703,8 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <link rel="stylesheet" href="assets/app.css?v=<?= asset_version('assets/app.css') ?>">
 <title><?= h($title) ?> · 우리집</title>
 </head>
-<?php [$group, $sub] = nav_current(); $nav = $me && $group !== ''; ?>
-<body class="<?= $nav ? 'with-tabs with-nav' : '' ?>">
+<?php [$group, $sub] = nav_current(); $nav = $me && $group !== ''; $back = $options['back'] ?? ''; $GLOBALS['page_back'] = $back; ?>
+<body class="<?= $nav ? ($back ? 'with-nav focus' : 'with-tabs with-nav') : '' ?>">
 <?php if ($nav): ?>
 <aside class="sidenav" aria-label="메뉴">
   <a class="brand" href="index.php"><img src="assets/icon.png" alt="" width="28" height="28"> 우리집</a>
@@ -717,12 +717,12 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <?php endif; ?>
 <div class="shell">
 <header class="topbar">
-  <div class="topbar-title"><?= h($title) ?></div>
+  <div class="topbar-title"><?php if ($back): ?><a class="back" href="<?= h($back) ?>" aria-label="뒤로" onclick="if (document.referrer.indexOf(location.host) > 0 && history.length > 1) { history.back(); return false; }">‹</a><?php endif; ?><?= h($title) ?></div>
   <?php if ($me): ?>
   <a class="topbar-me<?= $group === 'more' ? ' on' : '' ?>" href="more.php" aria-label="더보기 · 설정"><?= h($me['emoji']) ?> <span><?= h($me['name']) ?></span> <b class="hb">☰</b></a>
   <?php endif; ?>
 </header>
-<?php if ($nav && count(NAV[$group][3]) > 1): ?>
+<?php if ($nav && !$back && count(NAV[$group][3]) > 1): ?>
 <nav class="subnav" aria-label="<?= h(NAV[$group][0]) ?> 메뉴">
   <?php foreach (NAV[$group][3] as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $ii ?> <?= $il ?></a><?php endforeach; ?>
 </nav>
@@ -736,7 +736,7 @@ function page_end(string $tab = ''): void
 {
     [$group] = nav_current();
     echo '</main></div>';
-    if (current_member() && $group !== '') {
+    if (current_member() && $group !== '' && empty($GLOBALS['page_back'])) {
         echo '<nav class="tabbar" aria-label="메뉴">';
         foreach (TABBAR as $key) {
             [$label, $icon, $href] = NAV[$key];

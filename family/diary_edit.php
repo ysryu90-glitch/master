@@ -135,7 +135,7 @@ $t = fn(string $daily, string $outing) => ' data-daily="' . h($daily) . '" data-
 $tt = fn(string $daily, string $outing) => h($isOuting ? $outing : $daily);
 
 $kidFaces = ['😢', '😕', '🙂', '😄', '🤩'];
-page_start($entry ? '일기 고치기' : '일기 쓰기', 'family');
+page_start($entry ? '일기 고치기' : '일기 쓰기', 'family', ['back' => $entry ? 'diary_view.php?id=' . (int) $entry['id'] : 'diary.php']);
 ?>
 <form id="diary-form" method="post" class="form" action="diary_edit.php" data-csrf="<?= csrf_token() ?>">
   <?= csrf_field() ?>

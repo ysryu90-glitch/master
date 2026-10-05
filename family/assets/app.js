@@ -525,3 +525,23 @@
     if (initial.length) initial.forEach(addItem); else addItem();
   }
 })();
+
+/* 아래에서 올라오는 창 (data-open-sheet="id" 로 열고, 바깥 · ✕ · Esc 로 닫기) */
+(function () {
+  function close(sh) { sh.hidden = true; document.body.classList.remove('noscroll'); }
+  document.addEventListener('click', function (e) {
+    var op = e.target.closest('[data-open-sheet]');
+    if (op) {
+      var sh = document.getElementById(op.getAttribute('data-open-sheet'));
+      if (sh) { e.preventDefault(); sh.hidden = false; document.body.classList.add('noscroll'); }
+      return;
+    }
+    if (e.target.classList && e.target.classList.contains('sheet') && e.target.id !== 'form') { e.preventDefault(); close(e.target); return; }
+    var x = e.target.closest('.sheet:not(#form) [data-sheet-close]');
+    if (x) { e.preventDefault(); close(x.closest('.sheet')); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.sheet:not([hidden]):not(#form)').forEach(close);
+  });
+})();

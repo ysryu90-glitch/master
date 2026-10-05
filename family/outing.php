@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('부모님 댁 방문을 기록했어요.');
             break;
     }
-    redirect('outing.php' . (post('pt') ? '?pt=' . urlencode(post('pt')) : ''));
+    redirect('outing.php' . (post('pt') ? '?pt=' . urlencode(post('pt')) : '') . (in_array(post('action'), ['plan', 'like'], true) && preg_match('/^\d{4}-\d{2}-\d{2}$/', post('day')) ? '#d' . post('day') : ''));
 }
 
 calendar_refresh_if_stale();
@@ -174,6 +174,22 @@ page_start('나들이 추천', 'family');
   .pick .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
   .pick .acts form { margin: 0; }
   .planb { background: var(--blue-soft); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-top: 6px; }
+  .planrow { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); }
+  .planrow:first-of-type { border-top: none; }
+  .planrow .d { white-space: nowrap; font-size: 14px; }
+  .planrow .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .planchip { display: inline-flex; align-items: center; gap: 2px; margin: 0; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 4px 4px 4px 12px; font-size: 14px; font-weight: 700; }
+  .planchip button { border: 0; background: none; color: inherit; font-size: 13px; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; }
+  .daytabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 10px; padding: 4px 16px 8px; background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); position: sticky; top: calc(52px + env(safe-area-inset-top)); z-index: 15; }
+  .daytabs::-webkit-scrollbar { display: none; }
+  .daytabs a { flex: none; display: flex; flex-direction: column; align-items: center; min-width: 58px; padding: 7px 10px; border-radius: 14px; background: var(--card); box-shadow: var(--shadow); color: var(--text); text-decoration: none; }
+  .daytabs a .w { font-size: 12px; color: var(--sub); font-weight: 700; }
+  .daytabs a.sun .w { color: var(--red); } .daytabs a.sat .w { color: var(--blue); }
+  .daytabs a b { font-size: 15px; }
+  .daytabs a .nx { font-size: 10px; color: var(--sub); }
+  .daytabs a.on { background: var(--text); }
+  .daytabs a.on .w, .daytabs a.on b, .daytabs a.on .nx { color: var(--bg); }
+  .on-plan { background: var(--accent-soft); color: var(--accent); cursor: default; }
   .daycard h2 small { font-size: 13px; color: var(--sub); font-weight: 600; margin-left: 6px; }
 </style>
 
@@ -188,22 +204,40 @@ page_start('나들이 추천', 'family');
   <?php endif; ?>
 </section>
 
-<?php foreach ($pendingDiary as $pl): $pp = place($pl['place_id']); if (!$pp) continue; ?>
-<section class="card" style="display:flex;gap:12px;align-items:center">
-  <span style="font-size:28px">📔</span>
-  <span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pp['name']) ?></b><div class="small muted">잘 다녀오셨어요? 사진과 별점을 남겨 주세요.</div></span>
-  <a class="btn small primary" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">일기 쓰기</a>
-</section>
-<?php endforeach; ?>
-
-<?php if ($plans): ?>
-<section class="card">
-  <h2>📌 정한 나들이</h2>
-  <?php foreach ($plans as $pl): $pp = place($pl['place_id']); if (!$pp) continue; ?>
-    <div class="person"><span class="who" style="width:auto;flex:1"><?= date('n/j', strtotime($pl['day'])) ?> (<?= $weekdays[(int) date('w', strtotime($pl['day']))] ?>) · <?= h($pp['name']) ?></span>
-      <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><button class="btn small danger">취소</button></form></div>
+<?php $pendingPlaces = array_filter(array_map(fn($pl) => ($pp = place($pl['place_id'])) ? $pl + ['name' => $pp['name']] : null, $pendingDiary)); ?>
+<?php if ($pendingPlaces): ?>
+<section class="card todo">
+  <div class="card-head"><h2>📔 잘 다녀오셨어요?</h2><span class="small muted">사진 · 별점 남기기</span></div>
+  <?php foreach ($pendingPlaces as $pl): ?>
+    <a class="todo-row" href="diary_edit.php?cat=outing&place=<?= rawurlencode($pl['place_id']) ?>&day=<?= h($pl['day']) ?>">
+      <span class="ic">🧺</span><span class="grow"><b><?= h($pl['name']) ?></b><div class="small muted"><?= date('n/j', strtotime($pl['day'])) ?> (<?= $weekdays[(int) date('w', strtotime($pl['day']))] ?>)</div></span><span class="more" style="white-space:nowrap">일기 쓰기 ›</span>
+    </a>
   <?php endforeach; ?>
 </section>
+<?php endif; ?>
+
+<?php
+// 정한 나들이: 날짜별로 묶기
+$plansByDay = [];
+foreach ($plans as $pl) if (($pp = place($pl['place_id']))) $plansByDay[$pl['day']][] = $pl + ['name' => $pp['name']];
+$allDays = array_merge($days, $nextWeekend);
+?>
+<?php $otherPlans = array_diff_key($plansByDay, array_flip($allDays)); if ($otherPlans): ?>
+<section class="card">
+  <h2>📌 다른 날 정한 나들이</h2>
+  <?php foreach ($otherPlans as $pd => $pls): ?>
+    <div class="planrow"><b class="d"><?= date('n/j', strtotime($pd)) ?> (<?= $weekdays[(int) date('w', strtotime($pd))] ?>)</b>
+      <span class="chips"><?php foreach ($pls as $pl): ?><form method="post" class="planchip" data-confirm="<?= h($pl['name']) ?> 나들이를 취소할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><span><?= h($pl['name']) ?></span><button aria-label="취소" title="취소">✕</button></form><?php endforeach; ?></span></div>
+  <?php endforeach; ?>
+</section>
+<?php endif; ?>
+
+<?php if (count($allDays) > 1): ?>
+<nav class="daytabs" id="daytabs" aria-label="날짜 고르기">
+  <?php foreach ($allDays as $i => $d): $w = (int) date('w', strtotime($d)); ?>
+    <a href="#d<?= $d ?>" data-day="<?= $d ?>" class="<?= $w === 0 || isset(HOLIDAYS[$d]) ? 'sun' : ($w === 6 ? 'sat' : '') ?>"><span class="w"><?= $weekdays[$w] ?><?= isset($plansByDay[$d]) ? ' 📌' : '' ?></span><b><?= date('n/j', strtotime($d)) ?></b><?= $i >= count($days) ? '<span class="nx">다음 주</span>' : '' ?></a>
+  <?php endforeach; ?>
+</nav>
 <?php endif; ?>
 
 <?php $nearShown = []; foreach (array_merge($days, $nextWeekend) as $idx => $d):
@@ -221,15 +255,16 @@ page_start('나들이 추천', 'family');
         if ($nearTrip) $nearShown[] = $nearTrip['id']; // 날마다 다른 근교를 보여 줘요
     }
     $air = $wx ? air_grade($wx['pm25'], $wx['pm10']) : null;
-    if ($idx === count($days) && $nextWeekend): ?>
-      <h3 style="margin:18px 4px 8px">다음 주말 미리 보기 · <?= h($blockLabel($nextWeekend)) ?></h3>
-    <?php endif; ?>
-<section class="card daycard">
+    ?>
+<section class="card daycard" id="d<?= $d ?>" data-day="<?= $d ?>">
   <h2><?= date('n/j', strtotime($d)) ?> (<?= $weekdays[(int) date('w', strtotime($d))] ?>)<?= isset(HOLIDAYS[$d]) ? '<small>' . h(HOLIDAYS[$d]) . '</small>' : '' ?><?= $ctx['parentsDay'] ? '<small>👵 평택</small>' : '' ?></h2>
   <?php if ($wx): ?>
     <div class="wxline"><span class="ic"><?= $wx['icon'] ?></span><span><b><?= round($wx['min']) ?>° / <?= round($wx['max']) ?>°</b> <?= h($wx['text']) ?> · 비 <?= (int) $wx['rain'] ?>%<?= $air !== null ? ' · 미세먼지 ' . AIR_LABELS[$air] : '' ?></span></div>
   <?php else: ?>
     <p class="small muted">아직 날씨 예보가 없어요 (10일 이후이거나 불러오지 못함). 날씨 없이 추천해요.</p>
+  <?php endif; ?>
+  <?php if (!empty($plansByDay[$d])): ?>
+    <div class="planrow" style="border:0;padding-top:0"><b class="d">📌 가기로 한 곳</b><span class="chips"><?php foreach ($plansByDay[$d] as $pl): ?><form method="post" class="planchip" data-confirm="<?= h($pl['name']) ?> 나들이를 취소할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><span><?= h($pl['name']) ?></span><button aria-label="취소" title="취소">✕</button></form><?php endforeach; ?></span></div>
   <?php endif; ?>
   <?php if ($ctx['events']): ?>
     <p class="small">📅 <?= h(implode(' · ', array_map(fn($e) => ($e['all_day'] ? '' : substr($e['start_at'], 11, 5) . ' ') . $e['title'], $ctx['events']))) ?></p>
@@ -244,8 +279,9 @@ page_start('나들이 추천', 'family');
       <div class="acts">
         <a class="btn small" href="https://map.naver.com/p/search/<?= rawurlencode($p['name']) ?>" target="_blank" rel="noopener">🗺 지도</a>
         <?php if (!empty($p['url'])): ?><a class="btn small" href="<?= h($p['url']) ?>" target="_blank" rel="noopener">ℹ️ 안내</a><?php endif; ?>
-        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="like"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small"><?= in_array($p['id'], $liked, true) ? '❤️ 찜됨' : '🤍 찜' ?></button></form>
-        <form data-busy="나들이로 정하고 가족 캘린더에 넣는 중이에요…" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small primary">📌 이 날 가요</button></form>
+        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="like"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small"><?= in_array($p['id'], $liked, true) ? '❤️ 찜됨' : '🤍 찜' ?></button></form>
+        <?php if (in_array($p['id'], array_column($plansByDay[$d] ?? [], 'place_id'), true)): ?><span class="btn small on-plan">📌 이 날 가기로 함</span>
+        <?php else: ?><form data-busy="나들이로 정하고 가족 캘린더에 넣는 중이에요…" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="place" value="<?= h($p['id']) ?>"><input type="hidden" name="day" value="<?= $d ?>"><input type="hidden" name="pt" value="<?= h($ptDay) ?>"><button class="btn small primary">📌 이 날 가요</button></form><?php endif; ?>
       </div>
     </div>
   <?php endforeach; ?>
@@ -265,6 +301,24 @@ page_start('나들이 추천', 'family');
   </div>
 </section>
 <?php endforeach; ?>
+
+<script>
+(function () {
+  var tabs = document.querySelectorAll('#daytabs a'), cards = document.querySelectorAll('.daycard');
+  if (!tabs.length) return;
+  function show(day, scroll) {
+    var found = false;
+    cards.forEach(function (c) { var on = c.getAttribute('data-day') === day; c.hidden = !on; found = found || on; });
+    if (!found) return show(tabs[0].getAttribute('data-day'));
+    tabs.forEach(function (t) { var on = t.getAttribute('data-day') === day; t.classList.toggle('on', on); if (on && scroll) t.scrollIntoView({ inline: 'center', block: 'nearest' }); });
+    try { sessionStorage.setItem('outingDay', day); } catch (e) {}
+  }
+  tabs.forEach(function (t) { t.addEventListener('click', function (e) { e.preventDefault(); show(t.getAttribute('data-day'), true); }); });
+  var want = (location.hash.match(/^#d(\d{4}-\d{2}-\d{2})$/) || [])[1];
+  if (!want) try { want = sessionStorage.getItem('outingDay'); } catch (e) {}
+  show(want || tabs[0].getAttribute('data-day'), true);
+})();
+</script>
 
 <?php $events = upcoming_events($home); $dstatus = setting('discover_status'); ?>
 <section class="card">

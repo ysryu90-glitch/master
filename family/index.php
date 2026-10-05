@@ -8,6 +8,7 @@ require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
 require __DIR__ . '/lib/discover.php';
 require __DIR__ . '/lib/ledger.php';
+require __DIR__ . '/lib/foods.php';
 
 $me = require_login();
 check_csrf();
@@ -279,5 +280,21 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
 </section>
 <?php endif; ?>
 
+</div>
+
+<?php $kid0 = members('child')[0] ?? null; ?>
+<button type="button" class="lfab" data-open-sheet="quick" aria-label="빠른 기록">＋</button>
+<div class="sheet" id="quick" hidden role="dialog" aria-modal="true" aria-labelledby="quick-title">
+  <div class="panel">
+    <div class="sheet-head"><h2 id="quick-title">무엇을 적을까요?</h2><button type="button" class="x" data-sheet-close aria-label="닫기">✕</button></div>
+    <div class="quickgrid">
+      <a href="ledger.php?add=1#form"><span class="ic">💰</span><b>쓴 돈</b><span>가계부에 적기</span></a>
+      <a href="meal_edit.php?m=<?= (int) $me['id'] ?>"><span class="ic">🍚</span><b>내 식단</b><span><?= h(MEAL_TYPES[meal_type_for_now()][0]) ?> 기록</span></a>
+      <?php if ($kid0): ?><a href="meal_edit.php?m=<?= (int) $kid0['id'] ?>"><span class="ic"><?= h($kid0['emoji']) ?></span><b><?= h($kid0['name']) ?> 식단</b><span>먹은 것 기록</span></a><?php endif; ?>
+      <a href="diary_edit.php?cat=daily"><span class="ic">📔</span><b>일기</b><span>사진 · 한 줄</span></a>
+      <?php if ($kid0): ?><a href="sick.php?m=<?= (int) $kid0['id'] ?>"><span class="ic">🌡</span><b>체온 · 해열제</b><span><?= h($kid0['name']) ?> 아플 때</span></a><?php endif; ?>
+      <a href="table.php"><span class="ic">🛒</span><b>장보기</b><span>살 것 적기</span></a>
+    </div>
+  </div>
 </div>
 <?php page_end('home');
