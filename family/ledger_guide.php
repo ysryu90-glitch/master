@@ -4,6 +4,12 @@ require __DIR__ . '/lib/bootstrap.php';
 $me = require_login();
 $url = public_base() . '/api/expense.php?token=' . $me['shortcut_token'];
 
+function human_ago(string $at): string
+{
+    $d = time() - strtotime($at);
+    return $d < 60 ? '방금' : ($d < 3600 ? floor($d / 60) . '분 전' : ($d < 86400 ? floor($d / 3600) . '시간 전' : floor($d / 86400) . '일 전'));
+}
+
 function guide_steps(string $title, array $lines): void
 {
     echo '<section class="card"><h2>' . h($title) . '</h2><ol class="small steps">';
@@ -69,6 +75,22 @@ guide_steps('B. 애플페이(지갑) 결제로 받기', [
     '<span class="tag">완료</span>',
 ]);
 ?>
+
+<?php $hit = setting('expense_last_hit'); ?>
+<section class="card" id="lasthit">
+  <h2>🔍 마지막으로 받은 요청</h2>
+  <?php if (is_array($hit)): ?>
+    <p class="small" style="margin:0;line-height:1.8">
+      시각 <b><?= h($hit['at']) ?></b> (<?= h(human_ago($hit['at'])) ?>)<br>
+      방식 <?= h($hit['method']) ?> · 내용 <?= number_format((int) $hit['bytes']) ?>바이트<?= $hit['type'] ? ' · ' . h($hit['type']) : '' ?><?= $hit['mode'] ? ' · ' . h($hit['mode']) : '' ?><br>
+      결과 <b><?= h($hit['result']) ?></b>
+    </p>
+  <?php else: ?>
+    <p class="small muted" style="margin:0">아직 받은 요청이 없어요.</p>
+  <?php endif; ?>
+  <p class="small muted" style="margin:8px 0 0">단축어에서 「네트워크 연결이 유실」 같은 오류가 나면, 바로 이 화면을 새로고침해 보세요. 시각이 방금으로 바뀌었으면 요청은 서버까지 온 거예요.</p>
+  <a class="btn small" href="ledger_guide.php#lasthit" style="margin-top:8px">↻ 새로고침</a>
+</section>
 
 <section class="card">
   <h2>🧪 붙여 넣어 시험해 보기</h2>

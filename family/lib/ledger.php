@@ -68,10 +68,12 @@ function won(int $n, bool $short = false): string
 /** 오전 9:12 → 09:12, 오후 1:05 → 13:05 */
 function ledger_norm_time(string $t): string
 {
+    mb_substitute_character('none');
+    $t = mb_convert_encoding($t, 'UTF-8', 'UTF-8'); // 깨진 문자 정리 (정규식이 멈추지 않게)
     return preg_replace_callback('/(오전|오후)\s*(\d{1,2}):(\d{2})/u', function ($m) {
         $h = (int) $m[2] % 12 + ($m[1] === '오후' ? 12 : 0);
         return sprintf('%02d:%s', $h, $m[3]);
-    }, $t);
+    }, $t) ?? $t;
 }
 
 /** $relaxed: 화면 캡처처럼 '승인' 같은 말이 없어도 금액만 있으면 읽음 */

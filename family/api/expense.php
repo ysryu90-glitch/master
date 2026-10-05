@@ -8,6 +8,22 @@ require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/ledger.php';
 
 $raw = file_get_contents('php://input') ?: '';
+// 진단: 요청이 서버까지 왔는지 · 어디서 멈췄는지 기록 (가계부 › 카드 자동 입력 화면에서 보임)
+$hit = ['at' => date('Y-m-d H:i:s'), 'method' => $_SERVER['REQUEST_METHOD'] ?? '', 'bytes' => strlen($raw),
+    'type' => substr((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 0, 60), 'mode' => (string) ($_GET['mode'] ?? ''), 'result' => '처리 중 멈춤'];
+try { set_setting('expense_last_hit', $hit); } catch (Throwable $e) {}
+register_shutdown_function(function () use (&$hit) {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        $hit['result'] = '서버 오류: ' . mb_substr($err['message'], 0, 200);
+        try { set_setting('expense_last_hit', $hit); } catch (Throwable $e) {}
+        if (!headers_sent()) header('Content-Type: text/plain; charset=utf-8');
+        echo '⚠️ 서버 오류가 났어요. 가계부 › 카드 자동 입력 화면 아래 「마지막 요청」을 확인해 주세요.';
+    }
+});
+// 캡처 글자에 깨진 문자가 섞여 와도 읽을 수 있게 (깨진 글자는 빼고)
+mb_substitute_character('none');
+$raw = mb_convert_encoding($raw, 'UTF-8', 'UTF-8');
 $data = json_decode($raw, true);
 if (!is_array($data)) $data = $_POST;
 if (!$data && $raw !== '') $data = ['text' => $raw]; // 본문에 글자만 그대로 보낸 경우
@@ -17,6 +33,9 @@ $screen = ($data['mode'] ?? $_GET['mode'] ?? '') === 'screen';
 
 function reply(array $r, bool $plain): void
 {
+    global $hit;
+    $hit['result'] = mb_substr((string) ($r['message'] ?? $r['error'] ?? ''), 0, 200);
+    try { set_setting('expense_last_hit', $hit); } catch (Throwable $e) {}
     if ($plain) {
         header('Content-Type: text/plain; charset=utf-8');
         echo $r['message'] ?? ($r['error'] ?? '');
@@ -33,7 +52,9 @@ $stmt->execute([$token]);
 $member = $stmt->fetch();
 if (!$member) reply(['ok' => false, 'error' => '토큰이 맞지 않아요.', 'message' => '⚠️ 토큰이 맞지 않아요'], $plain);
 
-$text = trim((string) ($data['text'] ?? $data['message'] ?? ''));
+$text = $data['text'] ?? $data['message'] ?? '';
+if (is_array($text)) $text = implode("\n", array_map('strval', $text)); // 여러 줄이 목록으로 올 때
+$text = trim(mb_convert_encoding((string) $text, 'UTF-8', 'UTF-8'));
 
 // 읽은 결제 목록
 if ($text !== '') {
