@@ -56,6 +56,8 @@ foreach (members('adult') as $m) {
         $parts[] = $r ? sprintf('준비 점수 %.1f (%s)', $r['score'], readiness_level($r['score'])[0]) : '준비 점수는 단축어 실행 후 계산돼요';
         $parts[] = $events ? '일정 ' . count($events) . '개: ' . implode(', ', array_slice(array_map(fn($e) => ($e['all_day'] ? '' : substr($e['start_at'], 11, 5) . ' ') . $e['title'], $events), 0, 3)) : '오늘 일정 없음';
         if ($plan) $parts[] = '저녁 ' . $plan['dish'];
+        $yOut = array_sum(array_map(fn($x) => (int) $x['amount'], expenses_of_day(date('Y-m-d', strtotime('-1 day')))));
+        if ($yOut) $parts[] = '어제 쓴 돈 ' . won($yOut);
         $log[] = "$m[name] 아침 요약 → " . push_to_member($id, "☀️ 좋은 아침이에요, {$m['name']}님", implode(' · ', $parts), 'index.php', 'morning');
     }
 
