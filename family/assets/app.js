@@ -596,3 +596,20 @@
     y0 = null; dy = 0;
   }, { passive: true });
 })();
+
+/* 할 일 동그라미: 새로 불러오지 않고 바로 체크 (홈 · 할 일 화면) */
+(function () {
+  document.querySelectorAll('.tcheck-f').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      var row = f.closest('.trow'); row.classList.toggle('done');
+      fetch(f.getAttribute('action') || 'todo.php', { method: 'POST', body: new FormData(f), headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j.ok) { row.classList.toggle('done'); return; }
+          if (j.next) { var m = document.createElement('span'); m.className = 'tnext'; m.textContent = '🔁 다음: ' + j.next; row.querySelector('.tm').appendChild(m); }
+        })
+        .catch(function () { row.classList.toggle('done'); alert('저장하지 못했어요. 연결을 확인해 주세요.'); });
+    }, true);
+  });
+})();

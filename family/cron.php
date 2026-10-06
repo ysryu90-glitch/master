@@ -16,6 +16,7 @@ if (!hash_equals((string) (cfg()['secret'] ?? ''), (string) ($_GET['key'] ?? '')
 }
 calendar_refresh_if_stale();
 require_once __DIR__ . '/lib/ledger.php';
+require_once __DIR__ . '/lib/todo.php';
 if (($fixed = ledger_recurring_fill()) > 0) echo "가계부 고정 지출 {$fixed}건\n";
 
 $now = time();
@@ -56,6 +57,8 @@ foreach (members('adult') as $m) {
         $parts[] = $r ? sprintf('준비 점수 %.1f (%s)', $r['score'], readiness_level($r['score'])[0]) : '준비 점수는 단축어 실행 후 계산돼요';
         $parts[] = $events ? '일정 ' . count($events) . '개: ' . implode(', ', array_slice(array_map(fn($e) => ($e['all_day'] ? '' : substr($e['start_at'], 11, 5) . ' ') . $e['title'], $events), 0, 3)) : '오늘 일정 없음';
         if ($plan) $parts[] = '저녁 ' . $plan['dish'];
+        $tds = todos_due_today($id);
+        if ($tds) $parts[] = '할 일 ' . count($tds) . '개' . (count($tds) <= 2 ? ': ' . implode(', ', array_map(fn($t) => $t['title'], $tds)) : '');
         $yOut = array_sum(array_map(fn($x) => (int) $x['amount'], expenses_of_day(date('Y-m-d', strtotime('-1 day')))));
         if ($yOut) $parts[] = '어제 쓴 돈 ' . won($yOut);
         $log[] = "$m[name] 아침 요약 → " . push_to_member($id, "☀️ 좋은 아침이에요, {$m['name']}님", implode(' · ', $parts), 'index.php', 'morning');
@@ -99,6 +102,17 @@ foreach (members('adult') as $m) {
                 }
             }
         }
+    }
+}
+
+// ✅ 할 일: 정한 시각이 되면 맡은 사람(같이면 두 사람 모두)에게
+$stmt = db()->query("SELECT * FROM todos WHERE done = 0 AND due_day = CURDATE() AND due_time IS NOT NULL");
+foreach ($stmt->fetchAll() as $t) {
+    if (!due($t['due_time'], $now)) continue;
+    $targets = $t['owner_id'] ? [(int) $t['owner_id']] : array_map(fn($m) => (int) $m['id'], members('adult'));
+    foreach ($targets as $mid) {
+        if (!has_push($mid) || !notify_once($mid, 'todo', $t['id'] . ':' . $today)) continue;
+        $log[] = "할 일 알림 → " . push_to_member($mid, '✅ ' . $t['title'], $t['due_time'] . ($t['note'] !== '' ? ' · ' . $t['note'] : '') . ' · 다 하면 동그라미를 눌러 주세요', 'todo.php', 'todo' . $t['id']);
     }
 }
 

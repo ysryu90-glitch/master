@@ -8,6 +8,7 @@ require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
 require __DIR__ . '/lib/discover.php';
 require __DIR__ . '/lib/ledger.php';
+require __DIR__ . '/lib/todo.php';
 require __DIR__ . '/lib/foods.php';
 
 $me = require_login();
@@ -107,6 +108,8 @@ $monthSpent = expenses_summary(date('Y-m'))['out'];
 $todaySpent = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, expenses_of_day($today)));
 $budget = ledger_budget();
 $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')->fetchColumn();
+$myTodos = todos_due_today((int) $me['id']);
+$laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (due_day IS NULL OR due_day > CURDATE()) AND (owner_id = ' . (int) $me['id'] . ' OR owner_id IS NULL)')->fetchColumn();
 ?>
 <section class="hello">
   <div class="d"><?= date('n월 j일') ?> <?= ['일', '월', '화', '수', '목', '금', '토'][(int) date('w')] ?>요일<?= isset(HOLIDAYS[$today]) ? ' · ' . h(HOLIDAYS[$today]) : '' ?></div>
@@ -132,7 +135,18 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
 <div class="home-cols">
 
 <section class="card todo" id="meds">
-  <div class="card-head"><h2>✅ 오늘 할 일</h2></div>
+  <div class="card-head"><h2>✅ 오늘 할 일</h2><a class="more" href="todo.php">전체<?= $laterTodos ? ' ' . ($laterTodos + count($myTodos)) : '' ?> ›</a></div>
+  <div id="todo" class="hometodos">
+  <?php foreach ($myTodos as $t): ?>
+    <div class="trow" data-id="<?= (int) $t['id'] ?>">
+      <form method="post" action="todo.php" class="tcheck-f"><?= csrf_field() ?><input type="hidden" name="action" value="toggle"><input type="hidden" name="back" value="home"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><button class="tcheck" aria-label="다 했어요"></button></form>
+      <a class="tbody" href="todo.php?edit=<?= (int) $t['id'] ?>#form"><span class="tt"><?= h($t['title']) ?></span>
+        <span class="tm"><?php if ($t['due_day'] < today()): ?><span class="late"><?= h(todo_day_label($t['due_day'])) ?>까지였어요</span><?php elseif ($t['due_time']): ?><span><?= h($t['due_time']) ?></span><?php endif; ?><?php if (!$t['owner_id']): ?><span class="who both">같이</span><?php endif; ?></span></a>
+    </div>
+  <?php endforeach; ?>
+  <form method="post" action="todo.php" class="tadd mini"><?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="back" value="home"><input type="hidden" name="owner" value="<?= (int) $me['id'] ?>"><input type="hidden" name="day" value="<?= today() ?>">
+    <input name="title" placeholder="＋ 오늘 할 일 적기" autocomplete="off" enterkeyhint="done" required></form>
+  </div>
   <?php foreach ($todoMeds as $med): ?>
     <div class="todo-row">
       <span class="ic">💊</span><span class="grow"><b><?= h($med['name']) ?></b> <span class="small muted"><?= h($med['time']) ?></span></span>
@@ -161,7 +175,7 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
       <span class="ic">📲</span><span class="grow"><b>카드 기록 <?= $toReview ?>건</b> 항목 확인<div class="small muted">자동으로 들어왔는데 항목을 못 정했어요</div></span><span class="more">›</span>
     </a>
   <?php endif; ?>
-  <?php if (!$todoMeds && $myAtt && !$pendingDiary && !$toReview): ?>
+  <?php if (!$todoMeds && $myAtt && !$pendingDiary && !$toReview && !$myTodos): ?>
     <p class="done">🎉 오늘 할 일을 다 했어요<?= $doneMeds ? ' · 💊 약 ' . $doneMeds . '개 먹음' : '' ?></p>
   <?php elseif ($doneMeds): ?>
     <p class="small muted" style="margin:8px 0 0">💊 오늘 약 <?= $doneMeds ?>개 먹음 · <a href="meds.php">약 기록 ›</a></p>
@@ -295,7 +309,8 @@ $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')
       <?php if ($kid0): ?><a href="meal_edit.php?m=<?= (int) $kid0['id'] ?>"><span class="ic"><?= h($kid0['emoji']) ?></span><b><?= h($kid0['name']) ?> 식단</b><span>먹은 것 기록</span></a><?php endif; ?>
       <a href="diary_edit.php?cat=daily"><span class="ic">📔</span><b>일기</b><span>사진 · 한 줄</span></a>
       <?php if ($kid0): ?><a href="sick.php?m=<?= (int) $kid0['id'] ?>"><span class="ic">🌡</span><b>체온 · 해열제</b><span><?= h($kid0['name']) ?> 아플 때</span></a><?php endif; ?>
-      <a href="table.php"><span class="ic">🛒</span><b>장보기</b><span>살 것 적기</span></a>
+      <a href="todo.php"><span class="ic">✅</span><b>할 일</b><span>나 · 가족에게</span></a>
+      <a href="table.php#shopping"><span class="ic">🛒</span><b>장보기</b><span>살 것 적기</span></a>
     </div>
   </div>
 </div>

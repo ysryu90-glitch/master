@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -402,6 +402,22 @@ function migrate(PDO $pdo): void
             KEY day (day),
             KEY diary (diary_id)
         )",
+        // 할 일 (사람별 · 가족 같이, 날짜 · 시각 · 반복)
+        "CREATE TABLE IF NOT EXISTS todos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            note VARCHAR(500) NOT NULL DEFAULT '',
+            owner_id INT NULL,
+            due_day DATE NULL,
+            due_time CHAR(5) NULL,
+            repeat_rule VARCHAR(8) NOT NULL DEFAULT '',
+            done TINYINT NOT NULL DEFAULT 0,
+            done_at DATETIME NULL,
+            done_by INT NULL,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL,
+            KEY open_due (done, due_day)
+        )",
         // 가계부 고정 지출 · 수입 (매달 같은 날 저절로 들어감: 통신비, 보험, 유치원비, 월급 …)
         "CREATE TABLE IF NOT EXISTS ledger_recurring (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -647,7 +663,7 @@ function check_csrf(): void
  * [이름, 아이콘, 첫 화면, [[화면, 이름, 아이콘], ...]]
  */
 const NAV = [
-    'home' => ['홈', '🏠', 'index.php', []],
+    'home' => ['홈', '🏠', 'index.php', [['index.php', '홈', '🏠'], ['todo.php', '할 일', '✅']]],
     'meal' => ['식사', '🍽', 'table.php', [['table.php', '오늘 저녁', '🍲'], ['meals.php', '식단 기록', '🍚']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
     'ledger' => ['가계부', '💰', 'ledger.php', [['ledger.php', '가계부', '💰'], ['ledger_guide.php', '가계부 설정', '⚙︎']]],
@@ -660,7 +676,7 @@ const TABBAR = ['home', 'meal', 'diary', 'ledger', 'health'];
 
 /** 화면 → [묶음, 작은 탭 화면] (일기 쓰기 화면은 '일기' 탭에 속하는 식) */
 const NAV_PAGES = [
-    'index.php' => ['home', 'index.php'],
+    'index.php' => ['home', 'index.php'], 'todo.php' => ['home', 'todo.php'],
     'table.php' => ['meal', 'table.php'], 'meals.php' => ['meal', 'meals.php'], 'meal_edit.php' => ['meal', 'meals.php'],
     'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
     'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary.php'],
