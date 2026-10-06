@@ -3,6 +3,7 @@ require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/table.php';
 require __DIR__ . '/lib/foods.php';
 require __DIR__ . '/lib/calendar.php';
+require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 check_csrf();
@@ -73,7 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $back .= '#shopping';
             break;
         case 'shop_toggle':
-            $pdo->prepare('UPDATE shopping SET done = 1 - done, done_at = IF(done = 0, NOW(), NULL) WHERE id = ?')->execute([(int) post('id')]);
+            $pdo->prepare('UPDATE shopping SET done_at = IF(done = 0, NOW(), NULL), done = 1 - done, expense_id = IF(done = 1, expense_id, NULL) WHERE id = ?')->execute([(int) post('id')]);
+            // 산 것으로 체크하면, 앞뒤 6시간 안의 장보기 결제 메모에 붙임
+            $st = $pdo->prepare('SELECT done FROM shopping WHERE id = ?');
+            $st->execute([(int) post('id')]);
+            if ((int) $st->fetchColumn() === 1) shopping_attach_item((int) post('id'));
             $back .= '#shopping';
             break;
         case 'shop_clear':
@@ -104,7 +109,7 @@ $challenges = db()->query("SELECT food, COUNT(*) tries, SUM(reaction = 'good') g
     WHERE day > DATE_SUB(CURDATE(), INTERVAL 90 DAY) GROUP BY food HAVING SUM(reaction <> 'good') > 0 ORDER BY last DESC LIMIT 8")->fetchAll();
 
 $together = (int) db()->query("SELECT COUNT(*) FROM dinner_outcomes WHERE together = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
-$shopping = db()->query('SELECT * FROM shopping ORDER BY done, id DESC')->fetchAll();
+$shopping = db()->query('SELECT s.*, x.merchant x_merchant, x.amount x_amount, x.day x_day FROM shopping s LEFT JOIN expenses x ON x.id = s.expense_id ORDER BY s.done, s.id DESC')->fetchAll();
 
 page_start('오늘 저녁 · 식탁', 'table');
 ?>
@@ -224,10 +229,12 @@ $afterDinner = $day < today() || ($day === today() && time() >= strtotime(today(
       <div class="check <?= $s['done'] ? 'done' : '' ?>">
         <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="shop_toggle"><input type="hidden" name="day" value="<?= $day ?>"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="box"><?= $s['done'] ? '✓' : '' ?></button></form>
         <span class="name"><?= h($s['name']) ?></span>
+        <?php if ($s['x_amount'] !== null): ?><a class="small muted" style="margin-left:auto;white-space:nowrap" href="ledger.php?m=<?= substr($s['x_day'], 0, 7) ?>&d=<?= h($s['x_day']) ?>#day">🧾 <?= h(mb_strimwidth($s['x_merchant'] ?: '결제', 0, 14, '…')) ?> <?= won((int) $s['x_amount'], true) ?></a><?php endif; ?>
       </div>
     <?php endforeach; ?>
     <?php if (!$shopping): ?><div class="empty">목록이 비어 있어요.</div><?php endif; ?>
   </div>
+  <p class="small muted" style="margin:8px 0 0">장 보면서 체크하면, 그 앞뒤로 들어온 장보기 · 생활용품 결제의 메모에 산 것이 붙어요 (가계부에서 보여요).</p>
   <?php if (array_filter($shopping, fn($s) => $s['done'])): ?>
     <form method="post" style="margin-top:8px"><?= csrf_field() ?><input type="hidden" name="action" value="shop_clear"><input type="hidden" name="day" value="<?= $day ?>"><button class="btn small">산 것 지우기</button></form>
   <?php endif; ?>

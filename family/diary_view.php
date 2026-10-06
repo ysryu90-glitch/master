@@ -69,11 +69,21 @@ page_start($catLabel . ' 일기', 'family');
 
   <?php if ($e['kid_said']): ?><blockquote class="kidsaid">👧 “<?= h(trim($e['kid_said'], " \"“”")) ?>”</blockquote><?php endif; ?>
   <?php if (trim((string) $e['body']) !== ''): ?><div class="dbody"><?= nl2br(h($e['body'])) ?></div><?php endif; ?>
-  <?php $spent = expenses_of_diary((int) $e['id']); if ($spent): ?>
+  <?php $spent = expenses_of_diary((int) $e['id']);
+      $obudget = $e['category'] === 'outing' && $e['place_id'] ? outing_budget($e['place_id'], $e['day']) : null;
+      if (!$spent && $obudget): ?>
+    <div class="money"><div class="row"><span>🎯 나들이 예산</span><span><?= won($obudget) ?></span></div>
+      <p class="small muted" style="margin:6px 0 0">이날 쓴 돈을 적거나 가계부 기록을 연결하면 예산과 비교해 드려요.</p></div>
+  <?php endif; ?>
+  <?php if ($spent): ?>
     <div class="money">
       <?php $byCat = []; foreach ($spent as $x) $byCat[$x['category']] = ($byCat[$x['category']] ?? 0) + (int) $x['amount']; arsort($byCat); ?>
       <?php foreach ($byCat as $k => $v): [$cn, $ci] = ledger_cat($k); ?><div class="row"><span><?= $ci ?> <?= h($cn) ?></span><span><?= won($v) ?></span></div><?php endforeach; ?>
       <div class="row tot"><span>💰 이날 쓴 돈</span><span><?= won(array_sum($byCat)) ?></span></div>
+      <?php if ($obudget): $tot = array_sum($byCat); $pct = min(100, $tot / max(1, $obudget) * 100); ?>
+        <div class="row" style="margin-top:6px"><span>🎯 예산 <?= won($obudget, true) ?></span><b style="color:<?= $tot > $obudget ? 'var(--red)' : 'var(--accent)' ?>"><?= budget_diff_text($obudget, $tot) ?></b></div>
+        <div class="meter <?= $tot > $obudget ? 'red' : '' ?>" style="height:6px;margin-top:4px"><i style="width:<?= $pct ?>%"></i></div>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 

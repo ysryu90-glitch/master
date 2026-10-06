@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -427,6 +427,9 @@ function migrate(PDO $pdo): void
     $pdo->exec('ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS last_try DATETIME NULL');
     $pdo->exec('ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS last_status INT NULL');
     $pdo->exec("ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS last_error VARCHAR(300) NOT NULL DEFAULT ''");
+    // 나들이 예산 · 장보기 목록이 어느 결제에 들어갔는지
+    $pdo->exec('ALTER TABLE outing_logs ADD COLUMN IF NOT EXISTS budget INT NULL');
+    $pdo->exec('ALTER TABLE shopping ADD COLUMN IF NOT EXISTS expense_id INT NULL');
     $pdo->prepare("REPLACE INTO settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
 }
 

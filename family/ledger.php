@@ -4,6 +4,7 @@ require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/diary.php';
 require __DIR__ . '/lib/ledger.php';
 require __DIR__ . '/lib/weather.php'; // 공휴일 (달력 빨간 날)
+require __DIR__ . '/lib/places.php'; // 나들이 계획 이름
 
 $me = require_login();
 check_csrf();
@@ -112,6 +113,23 @@ if ($ym >= date('Y-m')) foreach (ledger_recurring() as $r) {
     $pd = ledger_recurring_day($r, $ym);
     if ($pd > today() && $pd >= $r['start_day'] && $r['kind'] === 'out') $dayPlan[$pd][] = $r;
 }
+// 나들이 계획과 예산 (그날 나들이 관련 지출과 비교)
+$dayOutings = [];
+$stmt = db()->prepare("SELECT place_id, day, MAX(budget) budget FROM outing_logs WHERE kind = 'plan' AND day BETWEEN ? AND LAST_DAY(?) GROUP BY place_id, day");
+$stmt->execute([$ym . '-01', $ym . '-01']);
+foreach ($stmt as $r) if (($pp = place($r['place_id']))) $dayOutings[$r['day']][] = $r + ['name' => $pp['name']];
+$outingCatOut = [];
+if ($dayOutings) {
+    $stmt = db()->prepare("SELECT day, SUM(amount) s FROM expenses WHERE kind = 'out' AND day BETWEEN ? AND LAST_DAY(?) AND category IN ('" . implode("','", LEDGER_OUTING_CATS) . "') GROUP BY day");
+    $stmt->execute([$ym . '-01', $ym . '-01']);
+    $outingCatOut = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+}
+// 그 나들이 일기에 연결한 지출이 있으면 그것으로 (일기 화면과 같은 금액)
+$stmt = db()->prepare("SELECT d.place_id, d.day, SUM(x.amount) s FROM diary_entries d JOIN expenses x ON x.diary_id = d.id AND x.kind = 'out'
+    WHERE d.day BETWEEN ? AND LAST_DAY(?) AND d.place_id <> '' GROUP BY d.place_id, d.day");
+$stmt->execute([$ym . '-01', $ym . '-01']);
+$outingDiaryOut = [];
+foreach ($stmt as $r) $outingDiaryOut[$r['day'] . '|' . $r['place_id']] = (int) $r['s'];
 $planLeft = array_sum(array_map(fn($rs) => array_sum(array_column($rs, 'amount')), $dayPlan));
 
 // 통계: 최근 6개월 지출 · 낸 사람별
@@ -208,7 +226,7 @@ page_start('가계부', 'ledger');
         $heat = $o > 0 ? min(0.28, 0.06 + 0.22 * $o / $maxDay) : 0;
         $cls = trim(($d === $selDay ? 'sel ' : '') . ($d === today() ? 'today ' : '') . ($d > today() ? 'future ' : '') . ($w === 0 || isset(HOLIDAYS[$d]) ? 'sun ' : ($w === 6 ? 'sat ' : ''))); ?>
       <a class="<?= $cls ?>" href="<?= h($q(['d' => $d])) ?>#day"<?= $heat ? ' style="--heat:' . round($heat, 3) . '"' : '' ?>>
-        <span class="n"><?= $dn ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기 쓴 날"></i>' : '' ?></span>
+        <span class="n"><?= $dn ?><?= isset($dayOutings[$d]) ? '<i class="od" title="나들이">🧺</i>' : '' ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기 쓴 날"></i>' : '' ?></span>
         <span class="amts"><?php if (!empty($dayPlan[$d])): ?><span class="pplan">-<?= cell_won(array_sum(array_column($dayPlan[$d], 'amount'))) ?></span><?php endif; ?><?php if ($in): ?><span class="pin">+<?= cell_won($in) ?></span><?php endif; ?><?php if ($o): ?><span class="pout">-<?= cell_won($o) ?></span><?php endif; ?></span>
       </a>
     <?php endfor; ?>
@@ -225,6 +243,14 @@ page_start('가계부', 'ledger');
       <h2><?= date('n월 j일', strtotime($pd)) ?> (<?= weekday_short($pd) ?>)<?= $pd === today() ? ' <span class="small muted">오늘</span>' : '' ?></h2>
       <span class="tot"><?= $sIn ? '<b class="in">+' . won($sIn) . '</b>' : '' ?><?= $sOut ? '<b class="out">-' . won($sOut) . '</b>' : '' ?></span>
     </div>
+    <?php foreach ($dayOutings[$pd] ?? [] as $o): $linked = isset($outingDiaryOut[$pd . '|' . $o['place_id']]); $oSpent = $linked ? $outingDiaryOut[$pd . '|' . $o['place_id']] : (int) ($outingCatOut[$pd] ?? 0); ?>
+      <a class="obudget" href="outing.php#d<?= $pd ?>">
+        <span>🧺 <b><?= h($o['name']) ?></b> 나들이<?= $o['budget'] ? ' · 예산 ' . won((int) $o['budget'], true) : '' ?></span>
+        <?php if ($o['budget'] && $pd <= today()): ?><span class="small"><?= $linked ? '일기에 연결한 지출' : '나들이 · 외식 · 카페 등' ?> <?= won($oSpent, true) ?> → <b style="color:<?= $oSpent > $o['budget'] ? 'var(--red)' : 'var(--accent)' ?>"><?= budget_diff_text((int) $o['budget'], $oSpent) ?></b></span>
+          <span class="meter <?= $oSpent > $o['budget'] ? 'red' : '' ?>" style="height:5px"><i style="width:<?= min(100, $oSpent / max(1, $o['budget']) * 100) ?>%"></i></span>
+        <?php elseif (!$o['budget']): ?><span class="small muted">나들이 추천에서 「💰 예산」을 정하면 쓴 돈과 비교해 드려요</span><?php endif; ?>
+      </a>
+    <?php endforeach; ?>
     <?php if ($rows): ?>
       <div class="lrows flat">
         <?php foreach ($rows as $x): [$cn, $ci] = ledger_cat($x['category']); $payer = $names[(int) $x['member_id']] ?? null; ?>

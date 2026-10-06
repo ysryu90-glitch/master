@@ -156,7 +156,9 @@ function expense_add(array $e): ?int
         if (str_contains($ex->getMessage(), 'Duplicate')) return null;
         throw $ex;
     }
-    return (int) db()->lastInsertId();
+    $id = (int) db()->lastInsertId();
+    if ($kind === 'out' && (int) $e['amount'] > 0 && in_array($cat, SHOPPING_CATS, true)) shopping_attach($id);
+    return $id;
 }
 
 /** 한 달 지출 목록 (최신순) */
@@ -385,4 +387,72 @@ function ledger_recurring_fill(): int
         }
     }
     return $n;
+}
+
+// ───────── 장보기 목록 ↔ 가계부 ─────────
+
+/** 장보기 목록이 붙는 항목 (장보기 · 생활용품) */
+const SHOPPING_CATS = ['food', 'living'];
+
+/** 결제 하나에 최근 체크한 장보기 품목을 메모로 붙이기 (결제 앞뒤 6시간 · 아직 안 붙은 것). 붙인 개수 */
+function shopping_attach(int $expenseId): int
+{
+    $stmt = db()->prepare('SELECT * FROM expenses WHERE id = ?');
+    $stmt->execute([$expenseId]);
+    $x = $stmt->fetch();
+    if (!$x) return 0;
+    $at = $x['day'] . ' ' . ($x['at_time'] ?: date('H:i:s', strtotime($x['created_at'])));
+    $stmt = db()->prepare('SELECT id, name FROM shopping WHERE done = 1 AND expense_id IS NULL AND done_at BETWEEN DATE_SUB(?, INTERVAL 6 HOUR) AND DATE_ADD(?, INTERVAL 6 HOUR) ORDER BY done_at');
+    $stmt->execute([$at, $at]);
+    $items = $stmt->fetchAll();
+    if (!$items) return 0;
+    $names = implode(' · ', array_column($items, 'name'));
+    $memo = str_contains($x['memo'], '🛒 ') ? $x['memo'] . ' · ' . $names : trim(($x['memo'] !== '' ? $x['memo'] . ' · ' : '') . '🛒 ' . $names);
+    db()->prepare('UPDATE expenses SET memo = ? WHERE id = ?')->execute([mb_strimwidth($memo, 0, 200, '…'), $expenseId]);
+    db()->prepare('UPDATE shopping SET expense_id = ? WHERE id IN (' . implode(',', array_map('intval', array_column($items, 'id'))) . ')')->execute([$expenseId]);
+    return count($items);
+}
+
+/** 장보기 품목을 체크했을 때: 앞뒤 6시간 안의 장보기 결제가 있으면 거기에 붙이기 */
+function shopping_attach_item(int $shopId): void
+{
+    $stmt = db()->prepare("SELECT id FROM expenses WHERE kind = 'out' AND amount > 0 AND category IN ('" . implode("','", SHOPPING_CATS) . "')
+        AND ABS(TIMESTAMPDIFF(MINUTE, CONCAT(day, ' ', COALESCE(at_time, TIME(created_at))), NOW())) <= 360 ORDER BY id DESC LIMIT 1");
+    $stmt->execute();
+    if ($eid = (int) $stmt->fetchColumn()) shopping_attach($eid);
+}
+
+// ───────── 나들이 예산 · 정산 ─────────
+
+/** 그날 그곳 나들이 계획의 예산 (없으면 null) */
+function outing_budget(string $placeId, string $day): ?int
+{
+    $stmt = db()->prepare("SELECT MAX(budget) FROM outing_logs WHERE kind = 'plan' AND place_id = ? AND day = ?");
+    $stmt->execute([$placeId, $day]);
+    $b = $stmt->fetchColumn();
+    return $b !== null && $b !== false ? (int) $b : null;
+}
+
+/** 장소별 지난 나들이에서 쓴 돈 평균 [place_id => ['avg' => 원, 'n' => 번]] (일기에 연결된 지출 기준) */
+function outing_spend_avg(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+    $cache = [];
+    $rows = db()->query("SELECT d.place_id, d.id, SUM(x.amount) s FROM diary_entries d JOIN expenses x ON x.diary_id = d.id AND x.kind = 'out'
+        WHERE d.place_id <> '' GROUP BY d.place_id, d.id")->fetchAll();
+    foreach ($rows as $r) {
+        if ((int) $r['s'] <= 0) continue;
+        $cache[$r['place_id']]['sum'] = ($cache[$r['place_id']]['sum'] ?? 0) + (int) $r['s'];
+        $cache[$r['place_id']]['n'] = ($cache[$r['place_id']]['n'] ?? 0) + 1;
+    }
+    foreach ($cache as $k => $v) $cache[$k] = ['avg' => (int) round($v['sum'] / $v['n']), 'n' => $v['n']];
+    return $cache;
+}
+
+/** 예산과 실제 비교 문구 */
+function budget_diff_text(int $budget, int $spent): string
+{
+    if ($spent <= $budget) return won($budget - $spent, true) . ' 남겼어요';
+    return won($spent - $budget, true) . ' 넘었어요';
 }
