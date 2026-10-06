@@ -111,7 +111,7 @@ $challenges = db()->query("SELECT food, COUNT(*) tries, SUM(reaction = 'good') g
 $together = (int) db()->query("SELECT COUNT(*) FROM dinner_outcomes WHERE together = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
 $shopping = db()->query('SELECT s.*, x.merchant x_merchant, x.amount x_amount, x.day x_day FROM shopping s LEFT JOIN expenses x ON x.id = s.expense_id ORDER BY s.done, s.id DESC')->fetchAll();
 
-page_start('오늘 저녁 · 식탁', 'table');
+page_start('오늘 저녁', 'family');
 ?>
 <div class="week" style="margin-bottom:14px">
   <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("$weekStart +$i day")); $p = $plans[$d] ?? null; ?>
@@ -217,26 +217,10 @@ $afterDinner = $day < today() || ($day === today() && time() >= strtotime(today(
 </section>
 <?php endforeach; ?>
 
-<section class="card" id="shopping">
-  <div class="card-head"><h2>🛒 장보기</h2><span class="muted small"><?= count(array_filter($shopping, fn($s) => !$s['done'])) ?>개 남음</span></div>
-  <form method="post" class="form inline">
-    <?= csrf_field() ?><input type="hidden" name="action" value="shop_add"><input type="hidden" name="day" value="<?= $day ?>">
-    <label style="margin-bottom:0"><input name="names" placeholder="예: 두부, 우유, 계란" autocomplete="off"></label>
-    <button class="btn primary" style="margin-bottom:0">추가</button>
-  </form>
-  <div style="margin-top:8px">
-    <?php foreach ($shopping as $s): ?>
-      <div class="check <?= $s['done'] ? 'done' : '' ?>">
-        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="shop_toggle"><input type="hidden" name="day" value="<?= $day ?>"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="box"><?= $s['done'] ? '✓' : '' ?></button></form>
-        <span class="name"><?= h($s['name']) ?></span>
-        <?php if ($s['x_amount'] !== null): ?><a class="small muted" style="margin-left:auto;white-space:nowrap" href="ledger.php?m=<?= substr($s['x_day'], 0, 7) ?>&d=<?= h($s['x_day']) ?>#day">🧾 <?= h(mb_strimwidth($s['x_merchant'] ?: '결제', 0, 14, '…')) ?> <?= won((int) $s['x_amount'], true) ?></a><?php endif; ?>
-      </div>
-    <?php endforeach; ?>
-    <?php if (!$shopping): ?><div class="empty">목록이 비어 있어요.</div><?php endif; ?>
-  </div>
-  <p class="small muted" style="margin:8px 0 0">장 보면서 체크하면, 그 앞뒤로 들어온 장보기 · 생활용품 결제의 메모에 산 것이 붙어요 (가계부에서 보여요).</p>
-  <?php if (array_filter($shopping, fn($s) => $s['done'])): ?>
-    <form method="post" style="margin-top:8px"><?= csrf_field() ?><input type="hidden" name="action" value="shop_clear"><input type="hidden" name="day" value="<?= $day ?>"><button class="btn small">산 것 지우기</button></form>
-  <?php endif; ?>
-</section>
-<?php page_end('table');
+<?php $shopLeft = array_values(array_filter($shopping, fn($x) => !$x['done'])); ?>
+<a class="card shoplink" id="shopping" href="shop.php">
+  <span class="ic">🛒</span>
+  <span class="grow"><b>장보기 <?= count($shopLeft) ?>개 남음</b><span class="small muted"><?= $shopLeft ? h(mb_strimwidth(implode(', ', array_column($shopLeft, 'name')), 0, 40, '…')) : '살 것이 없어요' ?></span></span>
+  <span class="chev">›</span>
+</a>
+<?php page_end('family');

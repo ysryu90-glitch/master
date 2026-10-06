@@ -109,6 +109,9 @@ $todaySpent = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amo
 $budget = ledger_budget();
 $toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')->fetchColumn();
 $myTodos = todos_due_today((int) $me['id']);
+$otherTodos = [];
+foreach (db()->query("SELECT owner_id, COUNT(*) n FROM todos WHERE done = 0 AND (due_day IS NULL OR due_day <= CURDATE() + INTERVAL 1 DAY) AND (owner_id IS NULL OR owner_id <> " . (int) $me['id'] . ") GROUP BY owner_id") as $r) $otherTodos[$r['owner_id'] === null ? 'both' : (int) $r['owner_id']] = (int) $r['n'];
+$shopLeft = db()->query('SELECT name FROM shopping WHERE done = 0 ORDER BY id DESC')->fetchAll(PDO::FETCH_COLUMN);
 $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (due_day IS NULL OR due_day > CURDATE()) AND (owner_id = ' . (int) $me['id'] . ' OR owner_id IS NULL)')->fetchColumn();
 ?>
 <section class="hello">
@@ -144,6 +147,16 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
         <span class="tm"><?php if ($t['due_day'] < today()): ?><span class="late"><?= h(todo_day_label($t['due_day'])) ?>까지였어요</span><?php elseif ($t['due_time']): ?><span><?= h($t['due_time']) ?></span><?php endif; ?><?php if (!$t['owner_id']): ?><span class="who both">같이</span><?php endif; ?></span></a>
     </div>
   <?php endforeach; ?>
+  <?php
+    $fam = [];
+    foreach (members('adult') as $a) if ((int) $a['id'] !== (int) $me['id'] && !empty($otherTodos[(int) $a['id']])) $fam[] = h($a['name']) . ' 할 일 ' . $otherTodos[(int) $a['id']] . '개';
+  ?>
+  <?php if ($fam || $shopLeft): ?>
+    <div class="famline">
+      <?php if ($fam): ?><a href="todo.php">👨‍👩‍👧 <?= implode(' · ', $fam) ?></a><?php endif; ?>
+      <?php if ($shopLeft): ?><a href="shop.php">🛒 장보기 <?= count($shopLeft) ?>개<span class="muted"> · <?= h(mb_strimwidth(implode(', ', $shopLeft), 0, 24, '…')) ?></span></a><?php endif; ?>
+    </div>
+  <?php endif; ?>
   <form method="post" action="todo.php" class="tadd mini"><?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="back" value="home"><input type="hidden" name="owner" value="<?= (int) $me['id'] ?>"><input type="hidden" name="day" value="<?= today() ?>">
     <input name="title" placeholder="＋ 오늘 할 일 적기" autocomplete="off" enterkeyhint="done" required></form>
   </div>
@@ -219,7 +232,7 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
 <?php endif; ?>
 
 <section class="card tonight">
-  <div class="card-head"><h2>🍲 오늘 저녁 <span class="small muted"><?= h(dinner_time()) ?></span></h2><a class="more" href="table.php">식탁 ›</a></div>
+  <div class="card-head"><h2>🍲 오늘 저녁 <span class="small muted"><?= h(dinner_time()) ?></span></h2><a class="more" href="table.php">저녁 ›</a></div>
   <div class="dish"><?= $plan ? h($plan['dish']) : '<span class="muted" style="font-size:17px">아직 메뉴를 안 정했어요 · <a href="table.php">정하기</a></span>' ?></div>
   <?php foreach ($conflicts as $c): ?><p class="small" style="color:var(--orange)">⚠️ <?= h($c) ?></p><?php endforeach; ?>
   <div class="attend">
@@ -310,7 +323,7 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
       <a href="diary_edit.php?cat=daily"><span class="ic">📔</span><b>일기</b><span>사진 · 한 줄</span></a>
       <?php if ($kid0): ?><a href="sick.php?m=<?= (int) $kid0['id'] ?>"><span class="ic">🌡</span><b>체온 · 해열제</b><span><?= h($kid0['name']) ?> 아플 때</span></a><?php endif; ?>
       <a href="todo.php"><span class="ic">✅</span><b>할 일</b><span>나 · 가족에게</span></a>
-      <a href="table.php#shopping"><span class="ic">🛒</span><b>장보기</b><span>살 것 적기</span></a>
+      <a href="shop.php"><span class="ic">🛒</span><b>장보기</b><span>살 것 적기</span></a>
     </div>
   </div>
 </div>

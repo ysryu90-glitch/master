@@ -940,3 +940,24 @@ details.fold[open] > summary::before { content: none; }
 .hometodos .trow + .trow, .todo .hometodos + .todo-row { border-top: 1px solid var(--line); }
 .tadd.mini { box-shadow: none; background: var(--card-2); border-radius: 14px; padding: 2px 14px; margin: 6px 0 4px; }
 .tadd.mini input { padding: 10px 0; font-size: 15px; }
+.tadd { flex-wrap: wrap; }
+.towner { flex-basis: 100%; display: flex; gap: 6px; padding: 2px 0 6px; overflow-x: auto; scrollbar-width: none; }
+.towner label { flex: none; margin: 0; }
+.towner input { display: none; }
+.towner span { display: inline-block; padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--sub); background: var(--card-2); cursor: pointer; }
+.towner input:checked + span { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.tfilter .chip small { color: var(--dim); font-weight: 600; margin-left: 2px; }
+.tfilter .chip.on small { color: inherit; opacity: 0.7; }
+.tm .who.me { color: var(--sub); font-weight: 500; }
+.tm .by { color: var(--dim); }
+.tdel { margin: 0; align-self: center; }
+.tdel button { border: 0; background: none; color: var(--dim); font-size: 14px; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; }
+.towner input[type=checkbox] { display: none; }
+.shoplink { display: flex; align-items: center; gap: 14px; color: var(--text); text-decoration: none; }
+.shoplink .ic { width: 42px; height: 42px; border-radius: 13px; background: var(--card-2); display: flex; align-items: center; justify-content: center; font-size: 21px; flex: none; }
+.shoplink b { display: block; }
+.shoplink .chev { color: var(--dim); font-size: 22px; }
+.famline { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 2px; }
+.famline a { font-size: 13.5px; font-weight: 600; color: var(--text); padding: 6px 0; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 카드 밖 칩은 흰 바탕 (배경과 구분) */
+.page > .chips .chip:not(.on), .page > nav.chips .chip:not(.on) { background: var(--card); box-shadow: var(--shadow); }

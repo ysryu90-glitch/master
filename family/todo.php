@@ -5,8 +5,14 @@ require __DIR__ . '/lib/todo.php';
 
 $me = require_login();
 check_csrf();
-$who = ($_GET['w'] ?? '') === 'all' ? 'all' : 'me';
-$back = 'todo.php' . ($who === 'all' ? '?w=all' : '');
+$adults = members('adult');
+$names = [];
+foreach (members() as $m) $names[(int) $m['id']] = $m;
+// 보기: 전체(기본) · 나 · 다른 사람 · 같이
+$w = (string) ($_GET['w'] ?? 'all');
+$who = in_array($w, ['all', 'me', 'both'], true) || (ctype_digit($w) && isset($names[(int) $w])) ? $w : 'all';
+if ($who === (string) $me['id']) $who = 'me';
+$back = 'todo.php' . ($who !== 'all' ? '?w=' . $who : '');
 $ajax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -28,17 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 db()->prepare('INSERT INTO todos (title, note, owner_id, due_day, due_time, repeat_rule, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())')
                     ->execute([mb_substr($title, 0, 200), mb_substr(post('note'), 0, 500), $owner, $day, $time, $repeat, $me['id']]);
-                if ($owner && $owner !== (int) $me['id']) {
-                    // 다른 사람에게 맡겼으면 알림 (기기 등록돼 있을 때)
-                    try {
-                        require_once __DIR__ . '/lib/push.php';
-                        if (has_push($owner)) push_to_member($owner, '✅ ' . $me['name'] . '님이 할 일을 부탁했어요', $title . ($day ? ' · ' . todo_day_label($day) : ''), 'todo.php', 'todo');
-                    } catch (Throwable $e) {}
-                }
+                // 가족에게 알림: 맡긴 사람에게 · 「같이」면 다른 사람 모두에게
+                $when = $day ? ' · ' . todo_day_label($day) . ($time ? ' ' . $time : '') : '';
+                if ($owner && $owner !== (int) $me['id']) todo_notify([$owner], '✅ ' . $me['name'] . '님이 부탁했어요', $title . $when);
+                elseif (!$owner) todo_notify(other_adults((int) $me['id']), '👨‍👩‍👧 같이 할 일이 생겼어요', $title . $when . ' · ' . $me['name'] . '님이 적음');
+                flash(($owner && $owner !== (int) $me['id'] ? ($names[$owner]['name'] ?? '') . '에게 부탁했어요' : (!$owner ? '같이 할 일로 넣었어요' : '넣었어요')) . ($day ? ' · ' . todo_day_label($day) : ''));
             }
             redirect(post('back') === 'home' ? 'index.php#todo' : $back);
         case 'toggle':
             $r = todo_toggle($id, (int) $me['id']);
+            if ($r && $r['now_done'] && (int) $r['created_by'] !== (int) $me['id']) {
+                todo_notify([(int) $r['created_by']], '👏 ' . $me['name'] . '님이 다 했어요', $r['title'], 'tododone');
+            }
             if ($ajax) json_out(['ok' => (bool) $r, 'done' => $r['now_done'] ?? false, 'next' => isset($r['next']) && $r['next'] ? todo_day_label($r['next']) : null]);
             redirect(post('back') === 'home' ? 'index.php#todo' : $back);
         case 'delete':
@@ -59,15 +66,14 @@ if (!empty($_GET['edit'])) {
     $edit = $stmt->fetch() ?: null;
 }
 $list = todos_open((int) $me['id'], $who);
+$counts = [];
+foreach (db()->query('SELECT owner_id, COUNT(*) n FROM todos WHERE done = 0 GROUP BY owner_id') as $r) $counts[$r['owner_id'] === null ? 'both' : (int) $r['owner_id']] = (int) $r['n'];
 $groups = ['지났어요' => [], '오늘' => [], '내일' => [], '이번 주' => [], '나중에' => [], '언젠가' => []];
 $doneList = [];
 foreach ($list as $t) {
     if ((int) $t['done']) $doneList[] = $t; else $groups[todo_bucket($t)][] = $t;
 }
 $openCount = count($list) - count($doneList);
-$names = [];
-foreach (members('adult') as $m) $names[(int) $m['id']] = $m;
-$adults = members('adult');
 $f = $edit ?? ['id' => 0, 'title' => '', 'note' => '', 'owner_id' => $me['id'], 'due_day' => null, 'due_time' => null, 'repeat_rule' => ''];
 
 function todo_row(array $t, array $names, int $meId, string $who): void
@@ -78,12 +84,13 @@ function todo_row(array $t, array $names, int $meId, string $who): void
     <div class="trow<?= $t['done'] ? ' done' : '' ?>" data-id="<?= (int) $t['id'] ?>">
       <form method="post" class="tcheck-f"><?= csrf_field() ?><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
         <button class="tcheck" aria-label="<?= $t['done'] ? '안 한 것으로' : '다 했어요' ?>"></button></form>
-      <a class="tbody" href="todo.php?<?= $who === 'all' ? 'w=all&' : '' ?>edit=<?= (int) $t['id'] ?>#form">
+      <a class="tbody" href="todo.php?<?= $who !== 'all' ? 'w=' . $who . '&' : '' ?>edit=<?= (int) $t['id'] ?>#form">
         <span class="tt"><?= h($t['title']) ?></span>
         <span class="tm">
           <?php if ($t['due_day']): ?><span class="<?= $late ? 'late' : '' ?>"><?= h(todo_day_label($t['due_day'])) ?><?= $t['due_time'] ? ' ' . h($t['due_time']) : '' ?></span><?php endif; ?>
           <?php if ($t['repeat_rule']): ?><span>🔁 <?= h(TODO_REPEATS[$t['repeat_rule']] ?? '') ?></span><?php endif; ?>
-          <?php if (!$t['owner_id']): ?><span class="who both">👨‍👩‍👧 같이</span><?php elseif ($owner && (int) $t['owner_id'] !== $meId): ?><span class="who"><?= h($owner['emoji'] . ' ' . $owner['name']) ?></span><?php endif; ?>
+          <?php if (!$t['owner_id']): ?><span class="who both">👨‍👩‍👧 같이</span><?php elseif ($owner): ?><span class="who<?= (int) $t['owner_id'] === $meId ? ' me' : '' ?>"><?= h($owner['emoji'] . ' ' . ((int) $t['owner_id'] === $meId ? '나' : $owner['name'])) ?></span><?php endif; ?>
+          <?php if ($t['done'] && $t['done_by'] && isset($names[(int) $t['done_by']])): ?><span class="by">✓ <?= h($names[(int) $t['done_by']]['name']) ?> <?= h(date('H:i', strtotime($t['done_at']))) ?></span><?php elseif ($t['created_by'] && (int) $t['created_by'] !== $meId && isset($names[(int) $t['created_by']])): ?><span class="by"><?= h($names[(int) $t['created_by']]['name']) ?>님이 적음</span><?php endif; ?>
           <?php if ($t['note'] !== ''): ?><span>📝 <?= h(mb_strimwidth($t['note'], 0, 30, '…')) ?></span><?php endif; ?>
         </span>
       </a>
@@ -95,15 +102,23 @@ page_start('할 일', 'home');
 ?>
 <form method="post" class="tadd" id="quickadd">
   <?= csrf_field() ?><input type="hidden" name="action" value="add">
-  <input type="hidden" name="owner" value="<?= $who === 'all' ? 'both' : (int) $me['id'] ?>">
   <input name="title" placeholder="할 일 추가 · 예: 내일 세탁소 맡기기" autocomplete="off" enterkeyhint="done" required>
   <button class="tadd-btn" aria-label="추가"><?= nav_icon('plus') ?></button>
+  <div class="towner" role="radiogroup" aria-label="누가">
+    <?php $defOwner = $who === 'both' ? 'both' : (ctype_digit($who) ? $who : (string) $me['id']); ?>
+    <?php foreach ($adults as $a): ?><label><input type="radio" name="owner" value="<?= (int) $a['id'] ?>"<?= $defOwner === (string) $a['id'] ? ' checked' : '' ?>><span><?= h($a['emoji']) ?> <?= (int) $a['id'] === (int) $me['id'] ? '나' : h($a['name']) ?></span></label><?php endforeach; ?>
+    <label><input type="radio" name="owner" value="both"<?= $defOwner === 'both' ? ' checked' : '' ?>><span>👨‍👩‍👧 같이</span></label>
+  </div>
 </form>
-<p class="small muted" style="margin:-4px 6px 12px">「오늘 · 내일 · 모레 · 금요일 · 10/15」로 시작하면 그 날짜로 들어가요. 시각 · 반복 · 맡을 사람은 추가한 뒤 눌러서 정해요.</p>
+<p class="small muted" style="margin:-2px 6px 14px">「내일 · 금요일 · 10/15」로 시작하면 그 날짜로 · 엄마에게 맡기면 엄마 폰으로 알림이 가요.</p>
 
-<nav class="segmented ltabs">
-  <a class="<?= $who === 'me' ? 'on' : '' ?>" href="todo.php">내 할 일</a>
-  <a class="<?= $who === 'all' ? 'on' : '' ?>" href="todo.php?w=all">가족 전체</a>
+<nav class="chips scrollx tfilter" style="margin:0 -16px 6px;padding:0 16px">
+  <a class="chip<?= $who === 'all' ? ' on' : '' ?>" href="todo.php">전체 <small><?= array_sum($counts) ?></small></a>
+  <a class="chip<?= $who === 'me' ? ' on' : '' ?>" href="todo.php?w=me">내 것 <small><?= ($counts[(int) $me['id']] ?? 0) + ($counts['both'] ?? 0) ?></small></a>
+  <?php foreach ($adults as $a): if ((int) $a['id'] === (int) $me['id']) continue; ?>
+    <a class="chip<?= $who === (string) $a['id'] ? ' on' : '' ?>" href="todo.php?w=<?= (int) $a['id'] ?>"><?= h($a['emoji'] . ' ' . $a['name']) ?> <small><?= $counts[(int) $a['id']] ?? 0 ?></small></a>
+  <?php endforeach; ?>
+  <a class="chip<?= $who === 'both' ? ' on' : '' ?>" href="todo.php?w=both">👨‍👩‍👧 같이 <small><?= $counts['both'] ?? 0 ?></small></a>
 </nav>
 
 <?php if (!$openCount && !$doneList): ?>

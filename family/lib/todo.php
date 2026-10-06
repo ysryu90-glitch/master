@@ -26,15 +26,33 @@ function todo_parse(string $text): array
     return [$text, null];
 }
 
-/** 보이는 할 일 (안 한 것 전부 + 최근 2일 안에 한 것) — $who: 'me' | 'all' */
-function todos_open(int $meId, string $who = 'me'): array
+/** 보이는 할 일 (안 한 것 전부 + 최근 2일 안에 한 것)
+ *  $filter: 'all' 모두 · 'me' 나 + 같이 · 'both' 같이만 · 숫자 = 그 사람 것 */
+function todos_open(int $meId, string $filter = 'all'): array
 {
-    $sql = 'SELECT * FROM todos WHERE (done = 0 OR done_at > DATE_SUB(NOW(), INTERVAL 2 DAY))'
-        . ($who === 'me' ? ' AND (owner_id = ? OR owner_id IS NULL)' : '')
-        . ' ORDER BY done, due_day IS NULL, due_day, due_time IS NULL, due_time, id';
-    $stmt = db()->prepare($sql);
-    $stmt->execute($who === 'me' ? [$meId] : []);
+    $where = '(done = 0 OR done_at > DATE_SUB(NOW(), INTERVAL 2 DAY))';
+    $args = [];
+    if ($filter === 'me') { $where .= ' AND (owner_id = ? OR owner_id IS NULL)'; $args[] = $meId; }
+    elseif ($filter === 'both') { $where .= ' AND owner_id IS NULL'; }
+    elseif (ctype_digit($filter)) { $where .= ' AND owner_id = ?'; $args[] = (int) $filter; }
+    $stmt = db()->prepare("SELECT * FROM todos WHERE $where ORDER BY done, due_day IS NULL, due_day, due_time IS NULL, due_time, id");
+    $stmt->execute($args);
     return $stmt->fetchAll();
+}
+
+/** 가족에게 알리기 (알림 기기를 등록한 사람만, 실패해도 조용히) */
+function todo_notify(array $memberIds, string $title, string $body, string $tag = 'todo'): void
+{
+    try {
+        require_once __DIR__ . '/push.php';
+        foreach (array_unique($memberIds) as $mid) if ($mid && has_push((int) $mid)) push_to_member((int) $mid, $title, $body, 'todo.php', $tag);
+    } catch (Throwable $e) {}
+}
+
+/** 나 말고 다른 어른들 */
+function other_adults(int $meId): array
+{
+    return array_values(array_filter(array_map(fn($m) => (int) $m['id'], members('adult')), fn($id) => $id !== $meId));
 }
 
 /** 오늘까지 해야 하는 내 할 일 (홈 화면용) */

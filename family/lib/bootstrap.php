@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -446,6 +446,7 @@ function migrate(PDO $pdo): void
     // 나들이 예산 · 장보기 목록이 어느 결제에 들어갔는지
     $pdo->exec('ALTER TABLE outing_logs ADD COLUMN IF NOT EXISTS budget INT NULL');
     $pdo->exec('ALTER TABLE shopping ADD COLUMN IF NOT EXISTS expense_id INT NULL');
+    $pdo->exec('ALTER TABLE shopping ADD COLUMN IF NOT EXISTS done_by INT NULL');
     $pdo->prepare("REPLACE INTO settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
 }
 
@@ -663,21 +664,22 @@ function check_csrf(): void
  * [이름, 아이콘, 첫 화면, [[화면, 이름, 아이콘], ...]]
  */
 const NAV = [
-    'home' => ['홈', '🏠', 'index.php', [['index.php', '홈', '🏠'], ['todo.php', '할 일', '✅']]],
-    'meal' => ['식사', '🍽', 'table.php', [['table.php', '오늘 저녁', '🍲'], ['meals.php', '식단 기록', '🍚']]],
+    'home' => ['홈', '🏠', 'index.php', []],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
     'ledger' => ['가계부', '💰', 'ledger.php', [['ledger.php', '가계부', '💰'], ['ledger_guide.php', '가계부 설정', '⚙︎']]],
-    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '리포트', '📊']]],
+    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['calendar.php', '일정', '📅'], ['settings.php', '설정', '⚙︎']]],
 ];
 
 /** 아래 탭에 보이는 묶음 (더보기는 오른쪽 위 ☰ 버튼) */
-const TABBAR = ['home', 'meal', 'diary', 'ledger', 'health'];
+const TABBAR = ['home', 'family', 'diary', 'ledger', 'health'];
 
 /** 화면 → [묶음, 작은 탭 화면] (일기 쓰기 화면은 '일기' 탭에 속하는 식) */
 const NAV_PAGES = [
-    'index.php' => ['home', 'index.php'], 'todo.php' => ['home', 'todo.php'],
-    'table.php' => ['meal', 'table.php'], 'meals.php' => ['meal', 'meals.php'], 'meal_edit.php' => ['meal', 'meals.php'],
+    'index.php' => ['home', 'index.php'],
+    'todo.php' => ['family', 'todo.php'], 'shop.php' => ['family', 'shop.php'],
+    'table.php' => ['family', 'table.php'], 'meals.php' => ['health', 'meals.php'], 'meal_edit.php' => ['health', 'meals.php'],
     'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
     'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'ledger.php' => ['ledger', 'ledger.php'], 'ledger_guide.php' => ['ledger', 'ledger_guide.php'],
@@ -692,6 +694,8 @@ function nav_icon(string $key, bool $on = false): string
     $paths = [
         'home' => $on ? '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="currentColor"/>'
                       : '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+        'family' => $on ? '<circle cx="9" cy="7.5" r="3.2" fill="currentColor"/><path d="M2.8 20c0-3.6 2.8-6.3 6.2-6.3s6.2 2.7 6.2 6.3z" fill="currentColor"/><circle cx="17.2" cy="9" r="2.5"/><path d="M17.2 14c2.4 0 4.3 2 4.3 4.7"/>'
+                        : '<circle cx="9" cy="7.5" r="3.2"/><path d="M2.8 20c0-3.6 2.8-6.3 6.2-6.3s6.2 2.7 6.2 6.3"/><circle cx="17.2" cy="9" r="2.5"/><path d="M17.2 14c2.4 0 4.3 2 4.3 4.7"/>',
         'meal' => '<path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M17 21V3c-2.2 1.2-3.5 3.6-3.5 7v3H17"/>',
         'diary' => $on ? '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" fill="currentColor"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/>'
                        : '<path d="M5 19.5V4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zm0 0A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6"/>',
