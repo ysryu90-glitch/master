@@ -25,12 +25,19 @@ $groups = [
 ];
 page_start('더보기', 'more');
 ?>
+<section class="card me-card">
+  <span class="av"><?= h($me['emoji']) ?></span>
+  <span class="grow"><b><?= h($me['name']) ?></b><span class="small muted">우리집 · 로그인 중</span></span>
+  <a class="btn small" href="settings.php#profile">내 정보</a>
+</section>
 <?php foreach ($groups as $title => $links): ?>
-<h3 class="dmonth" style="margin-top:6px"><?= h($title) ?></h3>
-<div class="tiles">
+<h3 class="listhead"><?= h($title) ?></h3>
+<div class="card rows">
   <?php foreach ($links as [$href, $icon, $name, $sub]): ?>
-    <a class="tile" href="<?= h($href) ?>"<?= $href === 'logout.php' ? ' data-no-busy' : '' ?>>
-      <span class="ic"><?= $icon ?></span><span class="t"><?= h($name) ?></span><?php if ($sub): ?><span class="s"><?= h($sub) ?></span><?php endif; ?>
+    <a class="row" href="<?= h($href) ?>"<?= $href === 'logout.php' ? ' data-no-busy' : '' ?>>
+      <span class="ic"><?= $icon ?></span>
+      <span class="grow"><span class="t"><?= h($name) ?></span><?php if ($sub): ?><span class="s"><?= h($sub) ?></span><?php endif; ?></span>
+      <span class="chev">›</span>
     </a>
   <?php endforeach; ?>
 </div>

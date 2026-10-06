@@ -670,6 +670,27 @@ const NAV_PAGES = [
     'settings.php' => ['more', 'settings.php'], 'shortcut.php' => ['more', 'settings.php'],
 ];
 
+/** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */
+function nav_icon(string $key, bool $on = false): string
+{
+    $paths = [
+        'home' => $on ? '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="currentColor"/>'
+                      : '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+        'meal' => '<path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M17 21V3c-2.2 1.2-3.5 3.6-3.5 7v3H17"/>',
+        'diary' => $on ? '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" fill="currentColor"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/>'
+                       : '<path d="M5 19.5V4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zm0 0A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6"/>',
+        'ledger' => $on ? '<rect x="3" y="6" width="18" height="14" rx="3" fill="currentColor"/><path d="M6 6V5a2 2 0 0 1 2-2h9" /><circle cx="16.5" cy="13" r="1.5" fill="var(--card)" stroke="none"/>'
+                        : '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M6 6V5a2 2 0 0 1 2-2h9M16 13h.01"/><path d="M21 10h-4a3 3 0 0 0 0 6h4"/>',
+        'health' => $on ? '<path d="M12 20s-7.5-4.5-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.5-7.5 10-7.5 10z" fill="currentColor"/>'
+                        : '<path d="M12 20s-7.5-4.5-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.5-7.5 10-7.5 10z"/><path d="M3 12h4l2-3 3 6 2-3h7"/>',
+        'more' => '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+        'menu' => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+        'back' => '<path d="M15 5l-7 7 7 7"/>',
+        'plus' => '<path d="M12 5v14M5 12h14"/>',
+    ];
+    return '<svg class="ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$key] ?? '') . '</svg>';
+}
+
 function nav_current(): array
 {
     return NAV_PAGES[basename($_SERVER['SCRIPT_NAME'] ?? 'index.php')] ?? ['', ''];
@@ -712,11 +733,13 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="우리집">
-<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f4f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101114" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png?v=<?= asset_version('assets/favicon.png') ?>">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon.png?v=<?= asset_version('assets/icon.png') ?>">
 <link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="assets/app.css?v=<?= asset_version('assets/app.css') ?>">
 <title><?= h($title) ?> · 우리집</title>
 </head>
@@ -726,7 +749,7 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <aside class="sidenav" aria-label="메뉴">
   <a class="brand" href="index.php"><img src="assets/icon.png" alt="" width="28" height="28"> 우리집</a>
   <?php foreach (NAV as $key => [$label, $icon, $href, $items]): ?>
-    <a class="g<?= $key === $group ? ' on' : '' ?>" href="<?= $href ?>"><span class="i"><?= $icon ?></span><?= $label ?></a>
+    <a class="g<?= $key === $group ? ' on' : '' ?>" href="<?= $href ?>"><span class="i"><?= nav_icon($key, $key === $group) ?></span><?= $label ?></a>
     <?php if (count($items) > 1): ?><div class="subs"><?php foreach ($items as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $il ?></a><?php endforeach; ?></div><?php endif; ?>
   <?php endforeach; ?>
   <a class="me" href="settings.php"><?= h($me['emoji'] . ' ' . $me['name']) ?> · 설정</a>
@@ -734,14 +757,14 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <?php endif; ?>
 <div class="shell">
 <header class="topbar">
-  <div class="topbar-title"><?php if ($back): ?><a class="back" href="<?= h($back) ?>" aria-label="뒤로" onclick="if (document.referrer.indexOf(location.host) > 0 && history.length > 1) { history.back(); return false; }">‹</a><?php endif; ?><?= h($title) ?></div>
+  <div class="topbar-title"><?php if ($back): ?><a class="back" href="<?= h($back) ?>" aria-label="뒤로" data-back onclick="if (document.referrer.indexOf(location.host) > 0 && history.length > 1) { history.back(); return false; }"><?= nav_icon('back') ?></a><?php endif; ?><?= h($title) ?></div>
   <?php if ($me): ?>
-  <a class="topbar-me<?= $group === 'more' ? ' on' : '' ?>" href="more.php" aria-label="더보기 · 설정"><?= h($me['emoji']) ?> <span><?= h($me['name']) ?></span> <b class="hb">☰</b></a>
+  <a class="topbar-me<?= $group === 'more' ? ' on' : '' ?>" href="more.php" aria-label="더보기 · 설정"><span class="av"><?= h($me['emoji']) ?></span><span class="nm"><?= h($me['name']) ?></span><?= nav_icon('menu') ?></a>
   <?php endif; ?>
 </header>
 <?php if ($nav && !$back && count(NAV[$group][3]) > 1): ?>
 <nav class="subnav" aria-label="<?= h(NAV[$group][0]) ?> 메뉴">
-  <?php foreach (NAV[$group][3] as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $ii ?> <?= $il ?></a><?php endforeach; ?>
+  <?php foreach (NAV[$group][3] as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $il ?></a><?php endforeach; ?>
 </nav>
 <?php endif; ?>
 <main class="page<?= $options['class'] ?? '' ? ' ' . h($options['class']) : '' ?>">
@@ -761,7 +784,7 @@ function page_end(string $tab = ''): void
         foreach (TABBAR as $key) {
             [$label, $icon] = NAV[$key];
             $href = $key === 'ledger' && !empty($dots['ledger']) ? 'ledger.php?review=1#review' : NAV[$key][2];
-            if (!empty($dots[$key])) $icon .= '<i class="dot"></i>';
+            $icon = nav_icon($key, $key === $group) . (!empty($dots[$key]) ? '<i class="dot"></i>' : '');
             echo '<a href="' . $href . '" class="' . ($key === $group ? 'on' : '') . '"' . ($key === $group ? ' aria-current="page"' : '') . '><span class="i">' . $icon . '</span>' . $label . '</a>';
         }
         echo '</nav>';

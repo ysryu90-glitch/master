@@ -170,18 +170,21 @@ page_start('가계부', 'ledger');
   <a class="btn small" href="<?= h($q(['m' => $next, 'd' => null])) ?>" aria-label="다음 달"<?= $ym > date('Y-m') ? ' style="visibility:hidden"' : '' ?>>›</a>
 </nav>
 
-<section class="card lsum2">
-  <div class="cols">
-    <div><span class="k">수입</span><b class="in"><?= $sum['in'] ? '+' . won($sum['in']) : '0원' ?></b></div>
-    <div><span class="k">지출</span><b class="out"><?= $sum['out'] ? '-' . won($sum['out']) : '0원' ?></b></div>
-    <div><span class="k">합계</span><b><?= won($sum['in'] - $sum['out']) ?></b></div>
+<section class="card lsum3">
+  <div class="k"><?= (int) substr($ym, 5) ?>월 쓴 돈</div>
+  <div class="big"><?= won($sum['out']) ?></div>
+  <div class="row">
+    <span>수입 <b class="in"><?= $sum['in'] ? '+' . won($sum['in']) : '0원' ?></b></span>
+    <span>남은 돈 <b><?= won($sum['in'] - $sum['out']) ?></b></span>
   </div>
   <?php if ($budget): $pct = min(100, $sum['out'] / $budget * 100); $left = $budget - $sum['out'];
       $daysLeft = $isNow ? (int) date('t') - (int) date('j') + 1 : 0; ?>
-    <div class="meter <?= $pct >= 100 ? 'red' : ($pct >= 80 ? 'orange' : '') ?>" style="margin-top:10px;height:8px"><i style="width:<?= $pct ?>%"></i></div>
-    <div class="small" style="margin-top:5px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <span class="muted">예산 <?= won($budget, true) ?> 중 <?= round($sum['out'] / $budget * 100) ?>%<?= $planLeft ? ' · 고정 예정 ' . won($planLeft, true) : '' ?></span>
-      <span style="font-weight:700;color:<?= $left < 0 ? 'var(--red)' : 'var(--text)' ?>"><?= $left < 0 ? won(-$left, true) . ' 넘었어요' : '남은 돈 ' . won($left, true) . ($daysLeft ? ' · 하루 ' . won((int) max(0, floor(($left - $planLeft) / $daysLeft)), true) : '') ?></span>
+    <div class="budget">
+      <div class="meter <?= $pct >= 100 ? 'red' : ($pct >= 80 ? 'orange' : '') ?>"><i style="width:<?= $pct ?>%"></i></div>
+      <div class="bt">
+        <span>예산 <?= won($budget, true) ?>의 <?= round($sum['out'] / $budget * 100) ?>%<?= $planLeft ? ' · 고정 예정 ' . won($planLeft, true) : '' ?></span>
+        <b style="color:<?= $left < 0 ? 'var(--red)' : 'var(--text)' ?>"><?= $left < 0 ? won(-$left, true) . ' 넘음' : ($daysLeft ? '하루 ' . won((int) max(0, floor(($left - $planLeft) / $daysLeft)), true) : won($left, true) . ' 남음') ?></b>
+      </div>
     </div>
   <?php endif; ?>
 </section>
@@ -206,9 +209,9 @@ page_start('가계부', 'ledger');
 <?php endif; ?>
 
 <nav class="segmented ltabs">
-  <a class="<?= $view === 'cal' ? 'on' : '' ?>" href="<?= h($q(['v' => 'cal', 'c' => ''])) ?>">📅 달력</a>
-  <a class="<?= $view === 'list' ? 'on' : '' ?>" href="<?= h($q(['v' => 'list'])) ?>">📋 내역</a>
-  <a class="<?= $view === 'stats' ? 'on' : '' ?>" href="<?= h($q(['v' => 'stats', 'c' => ''])) ?>">📊 통계</a>
+  <a class="<?= $view === 'cal' ? 'on' : '' ?>" href="<?= h($q(['v' => 'cal', 'c' => ''])) ?>">달력</a>
+  <a class="<?= $view === 'list' ? 'on' : '' ?>" href="<?= h($q(['v' => 'list'])) ?>">내역</a>
+  <a class="<?= $view === 'stats' ? 'on' : '' ?>" href="<?= h($q(['v' => 'stats', 'c' => ''])) ?>">통계</a>
 </nav>
 
 <?php if ($view === 'cal'):
@@ -226,7 +229,7 @@ page_start('가계부', 'ledger');
         $heat = $o > 0 ? min(0.28, 0.06 + 0.22 * $o / $maxDay) : 0;
         $cls = trim(($d === $selDay ? 'sel ' : '') . ($d === today() ? 'today ' : '') . ($d > today() ? 'future ' : '') . ($w === 0 || isset(HOLIDAYS[$d]) ? 'sun ' : ($w === 6 ? 'sat ' : ''))); ?>
       <a class="<?= $cls ?>" href="<?= h($q(['d' => $d])) ?>#day"<?= $heat ? ' style="--heat:' . round($heat, 3) . '"' : '' ?>>
-        <span class="n"><?= $dn ?><?= isset($dayOutings[$d]) ? '<i class="od" title="나들이">🧺</i>' : '' ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기 쓴 날"></i>' : '' ?></span>
+        <span class="n"><?= $dn ?><?= isset($dayOutings[$d]) ? '<i class="od" title="나들이"></i>' : '' ?><?= isset($diaryDays[$d]) ? '<i class="dd" title="일기 쓴 날"></i>' : '' ?></span>
         <span class="amts"><?php if (!empty($dayPlan[$d])): ?><span class="pplan">-<?= cell_won(array_sum(array_column($dayPlan[$d], 'amount'))) ?></span><?php endif; ?><?php if ($in): ?><span class="pin">+<?= cell_won($in) ?></span><?php endif; ?><?php if ($o): ?><span class="pout">-<?= cell_won($o) ?></span><?php endif; ?></span>
       </a>
     <?php endfor; ?>
