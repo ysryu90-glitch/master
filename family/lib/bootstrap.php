@@ -741,6 +741,7 @@ function page_start(string $title, string $tab = '', array $options = []): void
         $base = preg_replace('#/(api|board)$#', '', site_base());
         if (setting('public_base') !== $base) set_setting('public_base', $base);
     }
+    ob_start('page_polish');
     $flash = $_COOKIE['flash'] ?? '';
     if ($flash) setcookie('flash', '', ['expires' => 1, 'path' => '/']);
     ?>
@@ -810,6 +811,14 @@ function page_end(string $tab = ''): void
         echo '</nav>';
     }
     echo '<script src="assets/app.js?v=' . asset_version('assets/app.js') . '"></script></body></html>';
+}
+
+/** 카드 제목 앞 이모지를 둥근 배지에 담기 (<h2>☕ 제목 → 배지 + 제목) */
+function page_polish(string $html): string
+{
+    $emoji = '(?:[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{2300}-\x{23FF}\x{2190}-\x{21FF}\x{25A0}-\x{25FF}\x{2934}\x{2935}\x{3297}\x{3299}](?:\x{FE0F}|\x{200D}[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}]|[\x{1F3FB}-\x{1F3FF}])*)';
+    $out = preg_replace('/(<h2(?:\s[^>]*)?>)\s*(' . $emoji . '+)\s*/u', '$1<span class="hic">$2</span>', $html);
+    return $out ?? $html;
 }
 
 /** 파일이 바뀌면 주소도 바뀌게 해서 아이폰이 예전 파일을 쓰지 않게 */

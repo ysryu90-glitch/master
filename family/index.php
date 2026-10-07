@@ -120,11 +120,41 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
   <?php if ($homeLoc): ?><div class="wxmini" data-weather='<?= h(json_encode($homeLoc, JSON_UNESCAPED_UNICODE)) ?>' data-compact><span class="muted small">날씨 불러오는 중…</span></div><?php endif; ?>
 </section>
 
+<?php
+$attHome = count(array_filter($att, fn($a) => in_array($a['status'], ['home', 'late'], true)));
+$budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
+?>
+<nav class="glance" aria-label="한눈에">
+  <a href="todo.php" class="g-todo">
+    <span class="gi">✅</span><span class="gk">오늘 할 일</span>
+    <b><?= count($myTodos) ?><small>개</small></b>
+    <span class="gs"><?= $myTodos ? h(mb_strimwidth($myTodos[0]['title'], 0, 16, '…')) : ($laterTodos ? '다음 할 일 ' . $laterTodos . '개' : '모두 끝냈어요') ?></span>
+  </a>
+  <a href="ledger.php" class="g-money">
+    <span class="gi">💰</span><span class="gk"><?= (int) date('n') ?>월 쓴 돈</span>
+    <b><?= won($monthSpent, true) ?></b>
+    <?php if ($budgetPct !== null): ?><span class="gbar <?= $budgetPct >= 100 ? 'red' : ($budgetPct >= 80 ? 'orange' : '') ?>"><i style="width:<?= $budgetPct ?>%"></i></span><span class="gs">예산의 <?= round($budgetPct) ?>%</span>
+    <?php else: ?><span class="gs">오늘 <?= won($todaySpent, true) ?></span><?php endif; ?>
+  </a>
+  <a href="shop.php" class="g-shop">
+    <span class="gi">🛒</span><span class="gk">장보기</span>
+    <b><?= count($shopLeft) ?><small>개</small></b>
+    <span class="gs"><?= $shopLeft ? h(mb_strimwidth(implode(', ', $shopLeft), 0, 18, '…')) : '살 것 없음' ?></span>
+  </a>
+  <a href="table.php" class="g-dinner">
+    <span class="gi">🍲</span><span class="gk">오늘 저녁</span>
+    <b class="txt"><?= $plan ? h(mb_strimwidth(preg_split('/\s*[·,]\s*/u', $plan['dish'])[0], 0, 12, '…')) : '미정' ?></b>
+    <span class="gs"><?= $attHome ? $attHome . '명 집에서' : h(dinner_time()) ?></span>
+  </a>
+</nav>
+
 <?php foreach ($stale as [$a, $lastAt]): ?>
-<section class="card alert">
-  <b>⚠️ <?= h($a['name']) ?> 건강 기록이 <?= (int) floor((time() - strtotime($lastAt)) / 86400) ?>일째 안 들어와요</b>
-  <p class="small muted" style="margin:4px 0 0">마지막: <?= h(date('n월 j일 H:i', strtotime($lastAt))) ?> · 아이폰 단축어 자동화가 꺼졌는지 확인해 주세요. <a href="shortcut.php">단축어 안내 ›</a></p>
-</section>
+<a class="card alert" href="shortcut.php">
+  <span class="ai">⚠️</span>
+  <span class="grow"><b><?= h($a['name']) ?> 건강 기록이 <?= (int) floor((time() - strtotime($lastAt)) / 86400) ?>일째 없어요</b>
+  <span class="small muted">마지막 <?= h(date('n/j H:i', strtotime($lastAt))) ?> · 단축어 자동화를 확인해 주세요</span></span>
+  <span class="chev">›</span>
+</a>
 <?php endforeach; ?>
 
 <?php foreach ($sickKids as [$k, $t, $next]): ?>
@@ -151,10 +181,9 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
     $fam = [];
     foreach (members('adult') as $a) if ((int) $a['id'] !== (int) $me['id'] && !empty($otherTodos[(int) $a['id']])) $fam[] = h($a['name']) . ' 할 일 ' . $otherTodos[(int) $a['id']] . '개';
   ?>
-  <?php if ($fam || $shopLeft): ?>
+  <?php if ($fam): ?>
     <div class="famline">
       <?php if ($fam): ?><a href="todo.php">👨‍👩‍👧 <?= implode(' · ', $fam) ?></a><?php endif; ?>
-      <?php if ($shopLeft): ?><a href="shop.php">🛒 장보기 <?= count($shopLeft) ?>개<span class="muted"> · <?= h(mb_strimwidth(implode(', ', $shopLeft), 0, 24, '…')) ?></span></a><?php endif; ?>
     </div>
   <?php endif; ?>
   <form method="post" action="todo.php" class="tadd mini"><?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="back" value="home"><input type="hidden" name="owner" value="<?= (int) $me['id'] ?>"><input type="hidden" name="day" value="<?= today() ?>">
@@ -284,18 +313,6 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
   <?php endforeach; ?>
 </section>
 
-<section class="card homeledger">
-  <div class="card-head"><h2>💰 이번 달 가계부</h2><a class="more" href="ledger.php">달력 ›</a></div>
-  <div class="hl-row">
-    <a href="ledger.php" class="hl-sum"><span class="k">이번 달 쓴 돈</span><b><?= won($monthSpent) ?></b>
-      <span class="small muted">오늘 <?= $todaySpent ? won($todaySpent) : '0원' ?></span></a>
-    <a class="btn primary" href="ledger.php?add=1#form">＋ 적기</a>
-  </div>
-  <?php if ($budget): $left = $budget - $monthSpent; ?>
-    <div class="meter <?= $monthSpent >= $budget ? 'red' : ($monthSpent >= $budget * 0.8 ? 'orange' : '') ?>" style="height:8px;margin-top:12px"><i style="width:<?= min(100, $monthSpent / $budget * 100) ?>%"></i></div>
-    <p class="small muted" style="margin:6px 0 0">예산 <?= won($budget, true) ?> · <?= $left >= 0 ? '남은 돈 <b style="color:var(--text)">' . won($left, true) . '</b>' : '<b style="color:var(--red)">' . won(-$left, true) . ' 넘었어요</b>' ?></p>
-  <?php endif; ?>
-</section>
 
 <?php if ($outing && $outing['picks']): $wd = ['일', '월', '화', '수', '목', '금', '토']; ?>
 <section class="card">

@@ -961,3 +961,62 @@ details.fold[open] > summary::before { content: none; }
 .famline a { font-size: 13.5px; font-weight: 600; color: var(--text); padding: 6px 0; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 카드 밖 칩은 흰 바탕 (배경과 구분) */
 .page > .chips .chip:not(.on), .page > nav.chips .chip:not(.on) { background: var(--card); box-shadow: var(--shadow); }
+
+/* ═════════════════ 디자인 3 — 배지 제목 · 한눈에 타일 · 떠 있는 탭 ═════════════════ */
+/* 카드 제목 이모지 → 둥근 배지 */
+h2 .hic { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 10px; background: var(--card-2); font-size: 16px; margin-right: 9px; vertical-align: -7px; line-height: 1; }
+.card-head h2, .sheet-head h2, .card > h2 { display: flex; align-items: center; }
+.card-head h2 .hic, .card > h2 .hic { vertical-align: 0; flex: none; }
+
+/* 한눈에 타일 2 × 2 */
+.glance { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 2px 0 14px; }
+.glance a { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 14px 15px 13px; background: var(--card); border-radius: 20px; box-shadow: var(--shadow); color: var(--text); text-decoration: none; min-width: 0; overflow: hidden; }
+.glance a:active { transform: scale(0.98); }
+.glance .gi { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: var(--card-2); }
+.glance .g-todo .gi { background: var(--accent-soft); }
+.glance .g-money .gi { background: rgba(255, 196, 0, 0.16); }
+.glance .g-shop .gi { background: var(--blue-soft); }
+.glance .g-dinner .gi { background: var(--orange-soft); }
+.glance .gk { font-size: 13px; font-weight: 600; color: var(--sub); padding-right: 36px; }
+.glance b { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-top: 6px; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.glance b.txt { font-size: 19px; }
+.glance b small { font-size: 14px; font-weight: 700; color: var(--sub); margin-left: 2px; }
+.glance .gs { font-size: 12.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.glance .gbar { display: block; height: 5px; border-radius: 3px; background: var(--card-2); margin-top: 7px; overflow: hidden; }
+.glance .gbar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.glance .gbar.orange i { background: var(--orange); }
+.glance .gbar.red i { background: var(--red); }
+@media (min-width: 960px) { .glance { grid-template-columns: repeat(4, 1fr); } }
+
+/* 경고 · 아플 때 · 추억 · 저녁: 색 번짐 대신 흰 카드 + 색 배지 */
+.card.alert { display: flex; align-items: center; gap: 12px; border: 0; background: var(--card); color: var(--text); text-decoration: none; padding: 14px 16px; }
+.card.alert .ai { width: 38px; height: 38px; border-radius: 12px; background: var(--orange-soft); display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none; }
+.card.alert b { display: block; font-size: 15px; }
+.card.alert .chev, .shoplink .chev { color: var(--dim); font-size: 22px; }
+.sickcard { background: var(--card); box-shadow: inset 4px 0 0 var(--orange), var(--shadow); }
+.memory { background: var(--card); }
+.tonight { background: var(--card); }
+.tonight .dish { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+
+/* 떠 있는 둥근 아래 탭 */
+.tabbar { left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); padding: 6px 6px 5px; border-radius: 24px; border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  background: color-mix(in srgb, var(--card) 88%, transparent); box-shadow: 0 8px 30px rgba(0, 20, 40, 0.12); }
+body.with-tabs { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.tabbar a { border-radius: 18px; padding: 5px 0 3px; }
+.tabbar a.on { background: var(--card-2); }
+.lfab { bottom: calc(96px + env(safe-area-inset-bottom)); }
+#busy-box { bottom: calc(100px + env(safe-area-inset-bottom)); }
+body.with-tabs .sticky-save { bottom: calc(94px + env(safe-area-inset-bottom)); }
+@media (prefers-color-scheme: dark) { .tabbar { box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); } }
+
+/* 위 제목 줄: 스크롤하면 얇은 선 */
+.topbar { transition: box-shadow 0.2s; }
+body.scrolled .topbar { box-shadow: 0 1px 0 var(--line); }
+
+/* 섹션 제목 · 빈 상태 · 숫자 */
+.listhead { letter-spacing: -0.01em; }
+.dmonth { font-size: 15px; font-weight: 700; color: var(--text); margin: 18px 6px 10px; }
+.empty { text-align: center; padding: 16px 0; }
+.meter { border-radius: 99px; }
+.card-head h2, .sheet-head h2, .card > h2 { gap: 6px; }
+.card-head h2 .hic, .card > h2 .hic, .sheet-head h2 .hic { margin-right: 3px; }

@@ -613,3 +613,10 @@
     }, true);
   });
 })();
+
+/* 스크롤하면 위 제목 줄에 얇은 선 */
+(function () {
+  var on = false;
+  function f() { var s = window.scrollY > 4; if (s !== on) { on = s; document.body.classList.toggle('scrolled', s); } }
+  window.addEventListener('scroll', f, { passive: true }); f();
+})();
