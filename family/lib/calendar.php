@@ -30,7 +30,7 @@ function caldav_request(string $method, string $url, string $body = '', array $h
     curl_close($ch);
     if ($response === false) throw new RuntimeException('iCloud 연결 실패: ' . $error);
     if ($status === 401) throw new RuntimeException('iCloud 로그인 실패: Apple ID 또는 앱 전용 암호를 확인해 주세요.');
-    if ($status >= 400) throw new RuntimeException("iCloud 응답 오류 ($status)");
+    if ($status >= 400) throw new RuntimeException("iCloud 응답 오류 ($status)", $status);
     return [$status, $response];
 }
 
@@ -101,26 +101,54 @@ function caldav_selected(): array
     return array_values(array_filter($all, fn($c) => in_array($c['name'], $names, true)));
 }
 
-/** 일정 복사본 새로 받기 (지난 7일 ~ 앞으로 45일) */
+/** 일정 복사본 새로 받기 (지난 7일 ~ 앞으로 45일)
+ *  반복 일정은 iCloud에 펼쳐 달라고(expand) 부탁하고, iCloud가 거절하면(501 등) 그냥 받아서 여기서 펼친다.
+ *  캘린더 하나가 실패해도 나머지는 받는다. */
 function caldav_sync(): int
 {
-    $start = gmdate('Ymd\THis\Z', strtotime('-7 day'));
-    $end = gmdate('Ymd\THis\Z', strtotime('+45 day'));
+    $fromTs = strtotime('-7 day');
+    $toTs = strtotime('+45 day');
+    $start = gmdate('Ymd\THis\Z', $fromTs);
+    $end = gmdate('Ymd\THis\Z', $toTs);
+    $filter = '<c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT">'
+        . '<c:time-range start="' . $start . '" end="' . $end . '"/></c:comp-filter></c:comp-filter></c:filter>';
+    $withExpand = '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag/>'
+        . '<c:calendar-data><c:expand start="' . $start . '" end="' . $end . '"/></c:calendar-data></d:prop>' . $filter . '</c:calendar-query>';
+    $plain = '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag/>'
+        . '<c:calendar-data/></d:prop>' . $filter . '</c:calendar-query>';
+    $noExpand = (bool) setting('caldav_no_expand', false); // 한 번 거절당하면 다음부터는 바로 그냥 받기
+
     $events = [];
-    foreach (caldav_selected() as $cal) {
-        $body = '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag/>'
-            . '<c:calendar-data><c:expand start="' . $start . '" end="' . $end . '"/></c:calendar-data></d:prop>'
-            . '<c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT">'
-            . '<c:time-range start="' . $start . '" end="' . $end . '"/></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>';
-        [, $xml] = caldav_request('REPORT', $cal['url'], $body, [], 1);
-        foreach (caldav_xml($xml)->xpath('//c:calendar-data') as $data) {
-            foreach (ics_events((string) $data) as $event) {
-                $event['calendar'] = $cal['name'];
-                $event['color'] = $cal['color'];
-                $events[] = $event;
+    $failed = [];
+    $calendars = caldav_selected();
+    foreach ($calendars as $cal) {
+        try {
+            $expanded = false;
+            $xml = null;
+            if (!$noExpand) {
+                try {
+                    [, $xml] = caldav_request('REPORT', $cal['url'], $withExpand, [], 1);
+                    $expanded = true;
+                } catch (RuntimeException $e) {
+                    if ($e->getCode() === 401 || $e->getCode() === 0) throw $e; // 로그인 · 연결 문제는 그대로
+                    $noExpand = true;
+                    set_setting('caldav_no_expand', true);
+                }
             }
+            if ($xml === null) [, $xml] = caldav_request('REPORT', $cal['url'], $plain, [], 1);
+            foreach (caldav_xml($xml)->xpath('//c:calendar-data') as $data) {
+                foreach (ics_events((string) $data, $expanded ? null : [$fromTs, $toTs]) as $event) {
+                    $event['calendar'] = $cal['name'];
+                    $event['color'] = $cal['color'];
+                    $events[] = $event;
+                }
+            }
+        } catch (RuntimeException $e) {
+            if ($e->getCode() === 401) throw $e;
+            $failed[] = $cal['name'] . ': ' . $e->getMessage();
         }
     }
+    if ($calendars && count($failed) === count($calendars)) throw new RuntimeException(implode(' / ', $failed));
 
     $pdo = db();
     $pdo->beginTransaction();
@@ -133,7 +161,7 @@ function caldav_sync(): int
     }
     $pdo->commit();
     set_setting('calendar_synced_at', date('Y-m-d H:i:s'));
-    set_setting('calendar_error', '');
+    set_setting('calendar_error', $failed ? '일부 캘린더를 받지 못했어요 — ' . implode(' / ', $failed) : '');
     return count($events);
 }
 
@@ -190,32 +218,126 @@ function caldav_create(string $calendarName, string $title, string $startDate, ?
     set_setting('calendar_synced_at', ''); // 다음 화면에서 바로 다시 받기
 }
 
-/** iCalendar 글에서 일정 꺼내기 (expand 덕분에 반복 일정은 iCloud가 펼쳐서 보내 줌) */
-function ics_events(string $ics): array
+/** iCalendar 글에서 일정 꺼내기.
+ *  $window = [시작 ts, 끝 ts] 를 주면 반복 일정(RRULE)을 그 기간 안에서 여기서 펼친다 (iCloud가 expand를 거절할 때). */
+function ics_events(string $ics, ?array $window = null): array
 {
     $ics = preg_replace("/\r?\n[ \t]/", '', $ics); // 접힌 줄 펴기
-    $events = [];
     if (!preg_match_all('/BEGIN:VEVENT(.*?)END:VEVENT/s', $ics, $blocks)) return [];
+    $unescape = fn($s) => str_replace(['\\n', '\\N', '\\,', '\\;', '\\\\'], ["\n", "\n", ',', ';', '\\'], $s);
+    $parsed = [];
+    $overrides = []; // UID => [원래 시작 ts, ...] (따로 고친 회차)
     foreach ($blocks[1] as $block) {
         $props = [];
+        $multi = [];
         foreach (preg_split("/\r?\n/", trim($block)) as $line) {
             if (!preg_match('/^([A-Z-]+)((?:;[^:]*)?):(.*)$/', $line, $m)) continue;
             $props[$m[1]] ??= ['params' => $m[2], 'value' => $m[3]];
+            if ($m[1] === 'EXDATE') $multi['EXDATE'][] = ['params' => $m[2], 'value' => $m[3]];
         }
         if (!isset($props['DTSTART'])) continue;
+        $uid = $props['UID']['value'] ?? md5($block);
+        if (isset($props['RECURRENCE-ID'])) $overrides[$uid][] = strtotime(ics_time($props['RECURRENCE-ID'])[0]);
+        $parsed[] = [$props, $multi, $uid];
+    }
+    $events = [];
+    foreach ($parsed as [$props, $multi, $uid]) {
+        if (isset($props['STATUS']) && strtoupper($props['STATUS']['value']) === 'CANCELLED') continue;
         [$start, $allDay] = ics_time($props['DTSTART']);
         $end = isset($props['DTEND']) ? ics_time($props['DTEND'])[0] : ($allDay ? date('Y-m-d H:i:s', strtotime("$start +1 day")) : $start);
-        $unescape = fn($s) => str_replace(['\\n', '\\N', '\\,', '\\;', '\\\\'], ["\n", "\n", ',', ';', '\\'], $s);
-        $events[] = [
-            'uid' => ($props['UID']['value'] ?? md5($block)) . (isset($props['RECURRENCE-ID']) ? '#' . $props['RECURRENCE-ID']['value'] : ''),
-            'start' => $start,
-            'end' => $end,
+        $base = [
             'all_day' => $allDay,
             'title' => $unescape($props['SUMMARY']['value'] ?? '(제목 없음)'),
             'location' => $unescape($props['LOCATION']['value'] ?? ''),
         ];
+        $rid = isset($props['RECURRENCE-ID']) ? '#' . $props['RECURRENCE-ID']['value'] : '';
+        if ($window === null || !isset($props['RRULE']) || $rid !== '') {
+            $events[] = $base + ['uid' => $uid . $rid, 'start' => $start, 'end' => $end];
+            continue;
+        }
+        // 여기서 반복 펼치기
+        $skip = $overrides[$uid] ?? [];
+        foreach ($multi['EXDATE'] ?? [] as $ex) {
+            foreach (explode(',', $ex['value']) as $v) $skip[] = strtotime(ics_time(['params' => $ex['params'], 'value' => $v])[0]);
+        }
+        $len = strtotime($end) - strtotime($start);
+        foreach (rrule_occurrences(strtotime($start), $props['RRULE']['value'], $window[0] - max($len, 86400), $window[1]) as $ts) {
+            if (in_array($ts, $skip, true)) continue;
+            if ($ts + $len < $window[0]) continue;
+            $events[] = $base + ['uid' => $uid . '#' . date('Ymd\THis', $ts), 'start' => date('Y-m-d H:i:s', $ts), 'end' => date('Y-m-d H:i:s', $ts + $len)];
+        }
     }
     return $events;
+}
+
+/** RRULE 펼치기: 첫 시작 ts부터 [from, to] 사이 회차 시작 ts 목록 (매일 · 매주(요일) · 매달(날짜 · n번째 요일) · 매년) */
+function rrule_occurrences(int $dtstart, string $rule, int $from, int $to): array
+{
+    $r = [];
+    foreach (explode(';', $rule) as $part) if (str_contains($part, '=')) { [$k, $v] = explode('=', $part, 2); $r[strtoupper($k)] = strtoupper($v); }
+    $freq = $r['FREQ'] ?? '';
+    if (!in_array($freq, ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'], true)) return $dtstart >= $from && $dtstart <= $to ? [$dtstart] : [];
+    $interval = max(1, (int) ($r['INTERVAL'] ?? 1));
+    $count = isset($r['COUNT']) ? (int) $r['COUNT'] : null;
+    $until = isset($r['UNTIL']) ? strtotime(ics_time(['params' => '', 'value' => $r['UNTIL']])[0]) : null;
+    if ($until !== null && strlen($r['UNTIL']) === 8) $until += 86399; // 날짜만이면 그날 끝까지
+    $days = ['SU' => 0, 'MO' => 1, 'TU' => 2, 'WE' => 3, 'TH' => 4, 'FR' => 5, 'SA' => 6];
+    $byday = isset($r['BYDAY']) ? explode(',', $r['BYDAY']) : [];
+    $bymonthday = isset($r['BYMONTHDAY']) ? array_map('intval', explode(',', $r['BYMONTHDAY'])) : [];
+    $time = date('H:i:s', $dtstart);
+    $out = [];
+    $n = 0;
+    $limit = 2000;
+    $add = function (int $ts) use (&$out, &$n, $from, $to, $count, $until, $dtstart): bool {
+        if ($ts < $dtstart) return true;
+        if ($until !== null && $ts > $until) return false;
+        $n++;
+        if ($count !== null && $n > $count) return false;
+        if ($ts > $to) return false;
+        if ($ts >= $from) $out[] = $ts;
+        return true;
+    };
+    $cursor = $dtstart;
+    for ($i = 0; $i < $limit; $i++) {
+        $cands = [];
+        if ($freq === 'DAILY') {
+            $cands[] = $cursor;
+        } elseif ($freq === 'WEEKLY') {
+            if (!$byday) $cands[] = $cursor;
+            else {
+                $weekStart = strtotime('-' . (int) date('w', $cursor) . ' day', strtotime(date('Y-m-d', $cursor)));
+                foreach ($byday as $d) if (isset($days[substr($d, -2)])) $cands[] = strtotime(date('Y-m-d', strtotime('+' . $days[substr($d, -2)] . ' day', $weekStart)) . ' ' . $time);
+                sort($cands);
+            }
+        } elseif ($freq === 'MONTHLY') {
+            $ym = date('Y-m', $cursor);
+            if ($byday) {
+                foreach ($byday as $d) {
+                    if (!preg_match('/^([+-]?\d)?(SU|MO|TU|WE|TH|FR|SA)$/', $d, $m)) continue;
+                    $nth = (int) ($m[1] ?? 0) ?: 1;
+                    $names = ['SU' => 'sunday', 'MO' => 'monday', 'TU' => 'tuesday', 'WE' => 'wednesday', 'TH' => 'thursday', 'FR' => 'friday', 'SA' => 'saturday'];
+                    $ts = $nth > 0 ? strtotime(['', 'first', 'second', 'third', 'fourth', 'fifth'][min($nth, 5)] . ' ' . $names[$m[2]] . ' of ' . $ym) : strtotime('last ' . $names[$m[2]] . ' of ' . $ym);
+                    if ($ts && date('Y-m', $ts) === $ym) $cands[] = strtotime(date('Y-m-d', $ts) . ' ' . $time);
+                }
+            } else {
+                foreach ($bymonthday ?: [(int) date('j', $dtstart)] as $md) {
+                    $last = (int) date('t', strtotime($ym . '-01'));
+                    $day = $md < 0 ? $last + $md + 1 : $md;
+                    if ($day >= 1 && $day <= $last) $cands[] = strtotime(sprintf('%s-%02d %s', $ym, $day, $time));
+                }
+            }
+            sort($cands);
+        } else { // YEARLY
+            $md = date('m-d', $dtstart);
+            $y = date('Y', $cursor);
+            if (checkdate((int) substr($md, 0, 2), (int) substr($md, 3), (int) $y)) $cands[] = strtotime("$y-$md $time");
+        }
+        foreach ($cands as $ts) if (!$add($ts)) return $out;
+        $step = ['DAILY' => 'day', 'WEEKLY' => 'week', 'MONTHLY' => 'month', 'YEARLY' => 'year'][$freq];
+        $cursor = $freq === 'MONTHLY' ? strtotime(date('Y-m-01', $cursor) . " +$interval month " . $time) : strtotime("+$interval $step", $cursor);
+        if ($cursor > $to + 86400 * 400) break;
+    }
+    return $out;
 }
 
 /** DTSTART 값 → [한국 시간 'Y-m-d H:i:s', 종일 여부] */

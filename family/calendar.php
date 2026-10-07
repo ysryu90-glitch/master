@@ -51,11 +51,21 @@ page_start('가족 일정', 'calendar');
   <a class="btn primary" href="settings.php#calendar">연결하러 가기</a>
 </section>
 <?php else: ?>
-  <?php if ($error || $syncError): ?><section class="card"><p class="error"><?= h($error ?: $syncError) ?></p></section><?php endif; ?>
+  <?php if ($error || $syncError): $msg = $error ?: $syncError; $partial = str_starts_with($msg, '일부 캘린더'); $login = str_contains($msg, '로그인 실패'); ?>
+    <section class="card alert" style="align-items:flex-start">
+      <span class="ai"><?= $partial ? 'ℹ️' : '⚠️' ?></span>
+      <span class="grow">
+        <b><?= $login ? 'iCloud에 로그인하지 못했어요' : ($partial ? '캘린더 몇 개는 받지 못했어요' : '일정을 받지 못했어요') ?></b>
+        <span class="small muted" style="display:block;margin-top:2px"><?= $login ? '설정 › iCloud 캘린더에서 Apple ID와 앱 전용 암호를 다시 넣어 주세요.' : ($partial ? '받은 캘린더의 일정은 아래에 보여요. 생일 · 공휴일처럼 구독한 캘린더는 iCloud가 막아 둔 경우가 있어요.' : '잠시 뒤 「지금 새로 받기」를 눌러 주세요. 계속되면 설정에서 캘린더 연결을 다시 해 주세요.') ?></span>
+        <details class="fold small" style="margin-top:4px"><summary>자세히</summary><span class="small muted" style="word-break:break-all"><?= h($msg) ?></span></details>
+        <?php if ($login): ?><a class="btn small" style="margin-top:8px" href="settings.php#calendar">설정으로</a><?php endif; ?>
+      </span>
+    </section>
+  <?php endif; ?>
 
   <section class="card">
-    <details>
-      <summary style="font-weight:700">+ 일정 추가</summary>
+    <details class="fold">
+      <summary>＋ 일정 추가</summary>
       <form data-busy="아이클라우드 캘린더에 일정을 넣는 중이에요…" method="post" class="form" style="margin-top:12px">
         <?= csrf_field() ?><input type="hidden" name="action" value="add">
         <label>제목<input name="title" required placeholder="예: 딸 유치원 상담"></label>
@@ -76,7 +86,7 @@ page_start('가족 일정', 'calendar');
   <?php if (!$byDay): ?><section class="card"><div class="empty">앞으로 30일 동안 일정이 없어요.</div></section><?php endif; ?>
   <?php foreach ($byDay as $d => $list): ?>
     <section class="card">
-      <h3><?= h(day_label($d)) ?></h3>
+      <h3 style="color:var(--text);font-weight:700"><?= h(day_label($d)) ?></h3>
       <ul class="list">
         <?php foreach ($list as $e): ?>
           <li><span class="dot" style="background:<?= h($e['color']) ?>"></span>
