@@ -131,6 +131,7 @@
     renderDinner(now);
     renderWeather();
     renderShopping();
+    renderTodos();
     renderMemory(true);
     renderPeople();
     renderStatus();
@@ -307,6 +308,17 @@
       ? shown.map(function (s) { return '<span class="chip">' + esc(s) + '</span>'; }).join('') +
         (items.length > shown.length ? '<span class="chip more">+' + (items.length - shown.length) + '</span>' : '')
       : '<div class="empty">살 것이 없어요</div>';
+  }
+
+  function renderTodos() {
+    var items = (state.data && state.data.todos) || [];
+    $('todo-count').textContent = items.length ? items.length + '개' : '';
+    $('todos').innerHTML = items.length
+      ? items.slice(0, 3).map(function (t) {
+          return '<div class="todo' + (t.late ? ' late' : '') + '"><span class="who">' + esc(t.who) + '</span><span class="tt">' + esc(t.title) + '</span>' +
+            (t.time ? '<span class="tm">' + esc(t.time) + '</span>' : (t.late ? '<span class="tm">밀림</span>' : '')) + '</div>';
+        }).join('') + (items.length > 3 ? '<div class="empty">+' + (items.length - 3) + '개 더</div>' : '')
+      : '<div class="empty">오늘 할 일을 다 했어요 🎉</div>';
   }
 
   function ring(score, key) {

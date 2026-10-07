@@ -34,6 +34,11 @@ foreach (members() as $m) {
 
 $newFoods = db()->query("SELECT DISTINCT food FROM kid_reactions WHERE new_food = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY) ORDER BY food LIMIT 3")->fetchAll(PDO::FETCH_COLUMN);
 $shopping = db()->query('SELECT name FROM shopping WHERE done = 0 ORDER BY id DESC')->fetchAll(PDO::FETCH_COLUMN);
+// 오늘까지 할 일 (밀린 것 포함) · 누가
+$who = [];
+foreach (members() as $m) $who[(int) $m['id']] = $m['emoji'];
+$todos = array_map(fn($t) => ['title' => $t['title'], 'who' => $t['owner_id'] ? ($who[(int) $t['owner_id']] ?? '') : '👨‍👩‍👧', 'time' => (string) $t['due_time'], 'late' => $t['due_day'] < $today],
+    db()->query("SELECT * FROM todos WHERE done = 0 AND due_day IS NOT NULL AND due_day <= CURDATE() ORDER BY due_day, due_time IS NULL, due_time, id LIMIT 12")->fetchAll());
 
 $people = [];
 foreach (members('adult') as $m) {
@@ -83,6 +88,7 @@ $data = [
     'outcome' => dinner_outcome($today),
     'newFoods' => $newFoods,
     'shopping' => $shopping,
+    'todos' => $todos,
     'people' => $people,
     'locations' => locations(),
 ];

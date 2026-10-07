@@ -281,19 +281,48 @@ $budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
   <?php endif; ?>
 </section>
 
-<?php if (setting('icloud_user')): ?>
-<section class="card">
-  <div class="card-head"><h2>📅 오늘 일정</h2><a class="more" href="calendar.php">전체 ›</a></div>
-  <?php if (!$events): ?><div class="empty"><?= setting('icloud_user') ? '오늘은 일정이 없어요.' : '<a href="settings.php#calendar">iCloud 캘린더를 연결</a>하면 여기에 보여요.' ?></div><?php endif; ?>
-  <ul class="list">
-    <?php foreach ($events as $e): ?>
-      <li><span class="dot" style="background:<?= h($e['color']) ?>"></span>
-        <span class="time"><?= $e['all_day'] ? '종일' : substr($e['start_at'], 11, 5) ?></span>
-        <span class="grow"><span class="title"><?= h($e['title']) ?></span><?= $e['location'] ? '<div class="sub">' . h($e['location']) . '</div>' : '' ?></span></li>
-    <?php endforeach; ?>
-  </ul>
+<?php
+// 이번 주: 오늘부터 7일 (일정 · 할 일 · 나들이)
+$weekTo = date('Y-m-d', strtotime('+6 day'));
+$week = [];
+foreach (calendar_events($today, $weekTo) as $e) {
+    $sd = max($today, substr($e['start_at'], 0, 10));
+    $ed = $e['all_day'] ? date('Y-m-d', strtotime($e['end_at']) - 1) : substr($e['end_at'], 0, 10);
+    for ($d = $sd; $d <= min($ed, $weekTo); $d = date('Y-m-d', strtotime("$d +1 day"))) $week[$d]['ev'][] = $e;
+}
+$st = db()->prepare("SELECT due_day, COUNT(*) n FROM todos WHERE done = 0 AND due_day BETWEEN ? AND ? GROUP BY due_day");
+$st->execute([$today, $weekTo]);
+foreach ($st as $r) $week[$r['due_day']]['todo'] = (int) $r['n'];
+$st = db()->prepare("SELECT DISTINCT day FROM outing_logs WHERE kind = 'plan' AND day BETWEEN ? AND ?");
+$st->execute([$today, $weekTo]);
+foreach ($st as $r) $week[$r['day']]['plan'] = true;
+$wdn = ['일', '월', '화', '수', '목', '금', '토'];
+?>
+<section class="card weekcard">
+  <div class="card-head"><h2>📅 이번 주</h2><a class="more" href="calendar.php">달력 ›</a></div>
+  <div class="weekstrip">
+    <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("+$i day")); $w = (int) date('w', strtotime($d)); $it = $week[$d] ?? []; ?>
+      <a href="calendar.php?m=<?= substr($d, 0, 7) ?>&d=<?= $d ?>" class="<?= $i === 0 ? 'today' : '' ?> <?= $w === 0 || isset(HOLIDAYS[$d]) ? 'sun' : ($w === 6 ? 'sat' : '') ?>">
+        <span class="w"><?= $i === 0 ? '오늘' : $wdn[$w] ?></span><b><?= (int) substr($d, 8) ?></b>
+        <span class="wd"><?php foreach (array_slice($it['ev'] ?? [], 0, 3) as $e): ?><i style="background:<?= h($e['color']) ?>"></i><?php endforeach; ?><?php if (!empty($it['todo'])): ?><i class="t"></i><?php endif; ?><?php if (!empty($it['plan'])): ?><i class="p"></i><?php endif; ?></span>
+      </a>
+    <?php endfor; ?>
+  </div>
+  <?php $todayEv = $week[$today]['ev'] ?? []; $tomorrow = date('Y-m-d', strtotime('+1 day')); $tomEv = $week[$tomorrow]['ev'] ?? []; ?>
+  <?php if ($todayEv || $tomEv): ?>
+    <ul class="list" style="margin-top:6px">
+      <?php foreach ([[$today, '오늘', $todayEv], [$tomorrow, '내일', $tomEv]] as [$dd, $lbl, $evs]): foreach (array_slice($evs, 0, 4) as $e): ?>
+        <li><span class="dot" style="background:<?= h($e['color']) ?>"></span>
+          <span class="time"><?= $lbl ?><br><?= $e['all_day'] ? '종일' : (substr($e['start_at'], 0, 10) === $dd ? substr($e['start_at'], 11, 5) : '계속') ?></span>
+          <span class="grow"><span class="title"><?= h($e['title']) ?></span><?= $e['location'] ? '<div class="sub">' . h($e['location']) . '</div>' : '' ?></span></li>
+      <?php endforeach; endforeach; ?>
+    </ul>
+  <?php elseif (!setting('icloud_user')): ?>
+    <p class="small muted" style="margin:8px 0 0"><a href="settings.php#calendar">iCloud 캘린더를 연결</a>하면 가족 일정도 여기에 보여요.</p>
+  <?php else: ?>
+    <p class="small muted" style="margin:8px 0 0">오늘 · 내일은 일정이 없어요.</p>
+  <?php endif; ?>
 </section>
-<?php endif; ?>
 
 <section class="card">
   <div class="card-head"><h2>❤️ 오늘 건강</h2><a class="more" href="health.php">건강 ›</a></div>

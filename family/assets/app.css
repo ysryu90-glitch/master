@@ -1045,3 +1045,16 @@ body.scrolled .topbar { box-shadow: 0 1px 0 var(--line); }
 .agrow .chev { color: var(--dim); font-size: 20px; }
 #day .trow, .daylist .trow { padding: 0; margin-left: -10px; border-top: 1px solid var(--line); }
 .daylist { padding: 8px 18px; }
+.weekstrip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.weekstrip a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 7px; border-radius: 14px; color: var(--text); text-decoration: none; background: var(--card-2); min-width: 0; }
+.weekstrip a .w { font-size: 11px; font-weight: 600; color: var(--sub); }
+.weekstrip a.sun .w, .weekstrip a.sun b { color: var(--red); }
+.weekstrip a.sat .w { color: var(--blue); }
+.weekstrip a b { font-size: 16px; font-weight: 800; }
+.weekstrip a.today { background: var(--text); }
+.weekstrip a.today .w, .weekstrip a.today b { color: var(--bg); }
+.weekstrip .wd { display: flex; gap: 2px; height: 6px; }
+.weekstrip .wd i { width: 5px; height: 5px; border-radius: 50%; }
+.weekstrip .wd i.t { background: var(--blue); }
+.weekstrip .wd i.p { background: var(--accent); }
+.weekcard .list .time { font-size: 12px; line-height: 1.3; }
