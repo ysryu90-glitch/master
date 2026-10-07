@@ -75,7 +75,15 @@ $stmt->execute([$from, $to]);
 foreach ($stmt as $t) $byDay[$t['due_day']]['todo'][] = $t;
 $stmt = db()->prepare("SELECT place_id, day, MAX(budget) budget FROM outing_logs WHERE kind = 'plan' AND day BETWEEN ? AND ? GROUP BY place_id, day");
 $stmt->execute([$from, $to]);
-foreach ($stmt as $r) if (($pp = place($r['place_id']))) $byDay[$r['day']]['plan'][] = $r + ['name' => $pp['name']];
+foreach ($stmt as $r) {
+    if (!($pp = place($r['place_id']))) continue;
+    // 「이 날 가요」로 iCloud에도 들어간 일정이면 한 번만 (나들이 쪽을 남김)
+    $byDay[$r['day']]['plan'][] = $r + ['name' => $pp['name']];
+    if (!empty($byDay[$r['day']]['ev'])) {
+        $byDay[$r['day']]['ev'] = array_values(array_filter($byDay[$r['day']]['ev'], fn($e) => !str_contains($e['title'], $pp['name'])));
+        if (!$byDay[$r['day']]['ev']) unset($byDay[$r['day']]['ev']);
+    }
+}
 $stmt = db()->prepare('SELECT id, day, title, place_name, category FROM diary_entries WHERE day BETWEEN ? AND ? ORDER BY id');
 $stmt->execute([$from, $to]);
 foreach ($stmt as $r) $byDay[$r['day']]['diary'][] = $r;
