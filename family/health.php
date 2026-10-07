@@ -73,6 +73,19 @@ page_start('컨디션', 'health');
   <?php endforeach; ?>
 </div>
 
+<?php if (!$rows): ?>
+<section class="card tempty">
+  <div class="big">⌚️</div>
+  <b><?= h($view['name']) ?> 건강 기록이 아직 없어요</b>
+  <p class="small muted">아이폰 단축어 자동화를 한 번 만들어 두면 수면 · 걸음 · 심박이 매일 저절로 들어오고, 준비 점수도 계산해 드려요.</p>
+  <?php if ((int) $view['id'] === (int) $me['id']): ?><a class="btn primary" href="shortcut.php">단축어 연결하기</a><?php endif; ?>
+</section>
+<div class="card rows">
+  <a class="row" href="meals.php"><span class="ic">🍚</span><span class="grow"><span class="t">식단</span><span class="s">먹은 것 · 칼로리 · 영양</span></span><span class="chev">›</span></a>
+  <a class="row" href="meds.php"><span class="ic">💊</span><span class="grow"><span class="t">약</span><span class="s">먹을 시간 알림 · 먹었어요</span></span><span class="chev">›</span></a>
+  <a class="row" href="sick.php"><span class="ic">🤒</span><span class="grow"><span class="t">아플 때</span><span class="s">체온 · 해열제 간격</span></span><span class="chev">›</span></a>
+</div>
+<?php else: ?>
 <section class="card">
   <div class="card-head"><h2>준비 점수 (30일)</h2><span class="muted small">평균 <?= avg_of($readinessSeries) ?></span></div>
   <?= chart(['type' => 'line', 'points' => $readinessSeries, 'color' => '#10b981', 'min' => 0, 'max' => 10]) ?>
@@ -114,7 +127,9 @@ page_start('컨디션', 'health');
 </section>
 <?php endif; ?>
 
-<?php if ($isMe): ?>
+<?php endif; /* 기록 있음 */ ?>
+
+<?php if ($isMe && $rows): ?>
 <section class="card">
   <h2>애플워치 공식 점수로 보정</h2>
   <p class="small muted">애플워치에 나온 준비 점수를 가끔 입력하면, 3개부터 이 사이트 점수를 공식 점수에 맞게 보정해요. 비워서 저장하면 그날 값을 지워요.</p>

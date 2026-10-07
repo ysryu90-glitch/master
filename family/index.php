@@ -244,7 +244,7 @@ $budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
     </div>
   </details>
 </section>
-<?php else: ?>
+<?php elseif ($counted > 0): ?>
 <section class="readiness none slim">
   <div class="label">오늘의 준비 점수</div>
   <?php if ($counted === 0): ?>
@@ -327,18 +327,22 @@ $wdn = ['일', '월', '화', '수', '목', '금', '토'];
 
 <section class="card">
   <div class="card-head"><h2>❤️ 오늘 건강</h2><a class="more" href="health.php">건강 ›</a></div>
+  <?php if ($counted > 0): ?>
   <div class="minis">
     <div><span class="k">걸음</span><b><?= num($todayRow['steps'] ?? null) ?></b></div>
     <div><span class="k">수면</span><b><?= isset($todayRow['sleep_min']) ? intdiv((int) $todayRow['sleep_min'], 60) . '<small>h</small>' . ((int) $todayRow['sleep_min'] % 60) . '<small>m</small>' : '-' ?></b></div>
     <div><span class="k">HRV</span><b><?= num($todayRow['hrv'] ?? null) ?><small>ms</small></b></div>
     <div><span class="k">심박</span><b><?= num($todayRow['rhr'] ?? null) ?><small>bpm</small></b></div>
   </div>
+  <?php else: ?>
+    <a class="mealline" href="shortcut.php"><span>⌚️ 건강 기록 연결하기</span><span class="grow"></span><span class="small muted">수면 · 걸음 ›</span></a>
+  <?php endif; ?>
   <a class="mealline" href="meals.php">
     <span>🍚 식단 <?= (int) $food['meals'] ?>끼</span>
     <span class="meter orange"><i style="width:<?= min(100, $food['kcal'] / max(1, $me['kcal_target']) * 100) ?>%"></i></span>
     <span class="small muted"><?= num($food['kcal']) ?> / <?= num($me['kcal_target']) ?> kcal ›</span>
   </a>
-  <?php foreach ($others as $o): $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; ?>
+  <?php foreach ($others as $o): $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; if (!$oh && !health_days_count((int) $o['id'])) continue; ?>
     <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>
   <?php endforeach; ?>
 </section>
