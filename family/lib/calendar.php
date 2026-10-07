@@ -11,7 +11,9 @@ function caldav_request(string $method, string $url, string $body = '', array $h
     if ($user === '' || $pass === '') throw new RuntimeException('iCloud 계정이 설정되지 않았어요.');
 
     $ch = curl_init($url);
-    $headerLines = array_merge(['Content-Type: application/xml; charset=utf-8'], $headers);
+    // Content-Type은 한 번만 (일정 올리기는 text/calendar)
+    $hasType = (bool) array_filter($headers, fn($h) => stripos($h, 'content-type:') === 0);
+    $headerLines = array_merge($hasType ? [] : ['Content-Type: application/xml; charset=utf-8'], $headers);
     if ($depth >= 0) $headerLines[] = 'Depth: ' . $depth;
     curl_setopt_array($ch, [
         CURLOPT_CUSTOMREQUEST => $method,
@@ -30,7 +32,11 @@ function caldav_request(string $method, string $url, string $body = '', array $h
     curl_close($ch);
     if ($response === false) throw new RuntimeException('iCloud 연결 실패: ' . $error);
     if ($status === 401) throw new RuntimeException('iCloud 로그인 실패: Apple ID 또는 앱 전용 암호를 확인해 주세요.');
-    if ($status >= 400) throw new RuntimeException("iCloud 응답 오류 ($status)", $status);
+    if ($status >= 400) {
+        // 원인을 알 수 있게 iCloud가 보낸 글 앞부분도 함께 (자세히에 보임)
+        $detail = trim(preg_replace('/\s+/', ' ', strip_tags((string) $response)));
+        throw new RuntimeException("iCloud 응답 오류 ($status, $method)" . ($detail !== '' ? ' — ' . mb_substr($detail, 0, 160) : ''), $status);
+    }
     return [$status, $response];
 }
 
@@ -55,7 +61,11 @@ function caldav_absolute(string $base, string $href): string
 function caldav_calendars(bool $refresh = false): array
 {
     $cached = setting('icloud_calendars');
-    if (!$refresh && is_array($cached) && $cached) return $cached;
+    // 예전에 저장한 목록에 쓰기 권한 정보가 없으면 한 번 새로 받기
+    if (!$refresh && is_array($cached) && $cached && array_key_exists('writable', $cached[0])) return $cached;
+    if (!$refresh && is_array($cached) && $cached) {
+        try { return caldav_calendars(true); } catch (Throwable $e) { return $cached; }
+    }
 
     [, $xml] = caldav_request('PROPFIND', CALDAV_ROOT . '/',
         '<d:propfind xmlns:d="DAV:"><d:prop><d:current-user-principal/></d:prop></d:propfind>', [], 0);
@@ -71,7 +81,7 @@ function caldav_calendars(bool $refresh = false): array
 
     [, $xml] = caldav_request('PROPFIND', $homeUrl,
         '<d:propfind xmlns:d="DAV:" xmlns:a="http://apple.com/ns/ical/" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop>'
-        . '<d:displayname/><d:resourcetype/><a:calendar-color/><c:supported-calendar-component-set/></d:prop></d:propfind>', [], 1);
+        . '<d:displayname/><d:resourcetype/><a:calendar-color/><c:supported-calendar-component-set/><d:current-user-privilege-set/></d:prop></d:propfind>', [], 1);
     $doc = caldav_xml($xml);
     $calendars = [];
     foreach ($doc->xpath('//d:response') as $response) {
@@ -82,7 +92,9 @@ function caldav_calendars(bool $refresh = false): array
         $components = array_map('strval', $response->xpath('.//c:comp/@name'));
         if ($components && !in_array('VEVENT', $components, true)) continue; // 미리알림 목록 제외
         $color = substr((string) ($response->xpath('.//a:calendar-color')[0] ?? '#4da3ff'), 0, 7);
+        $privs = array_map(fn($x) => $x->getName(), $response->xpath('.//d:current-user-privilege-set/d:privilege/*'));
         $calendars[] = [
+            'writable' => !$privs || (bool) array_intersect($privs, ['write', 'write-content', 'bind', 'all']),
             'name' => (string) ($response->xpath('.//d:displayname')[0] ?? '캘린더'),
             'url' => caldav_absolute($homeUrl, (string) $response->xpath('./d:href')[0]),
             'color' => preg_match('/^#[0-9a-f]{6}$/i', $color) ? $color : '#4da3ff',
@@ -90,6 +102,15 @@ function caldav_calendars(bool $refresh = false): array
     }
     set_setting('icloud_calendars', $calendars);
     return $calendars;
+}
+
+/** 일정을 넣을 수 있는 캘린더 (보기로 고른 것 먼저) */
+function caldav_writable(): array
+{
+    $all = array_values(array_filter(caldav_calendars(), fn($c) => $c['writable'] ?? true));
+    $sel = setting('icloud_selected', []);
+    usort($all, fn($a, $b) => (int) !in_array($a['name'], (array) $sel, true) <=> (int) !in_array($b['name'], (array) $sel, true));
+    return $all;
 }
 
 /** 보여줄 캘린더 (설정에서 고른 것, 없으면 전부) */
@@ -193,7 +214,9 @@ function caldav_create(string $calendarName, string $title, string $startDate, ?
 {
     $cal = null;
     foreach (caldav_calendars() as $c) if ($c['name'] === $calendarName) $cal = $c;
-    if (!$cal) throw new RuntimeException('캘린더를 찾지 못했어요.');
+    if (!$cal) foreach (caldav_writable() as $c) { $cal = $c; break; } // 이름이 바뀌었으면 쓸 수 있는 첫 캘린더
+    if (!$cal) throw new RuntimeException('일정을 넣을 수 있는 iCloud 캘린더를 찾지 못했어요.');
+    if (isset($cal['writable']) && !$cal['writable']) throw new RuntimeException("「{$cal['name']}」 캘린더는 iCloud에서 읽기 전용이라 일정을 넣을 수 없어요. 다른 캘린더를 골라 주세요.");
 
     $uid = strtoupper(bin2hex(random_bytes(16))) . '@family-health';
     $esc = fn($s) => str_replace(["\\", ';', ',', "\n"], ["\\\\", '\;', '\,', '\n'], $s);
@@ -213,9 +236,10 @@ function caldav_create(string $calendarName, string $title, string $startDate, ?
     if ($note !== '') $lines[] = 'DESCRIPTION:' . $esc($note);
     array_push($lines, 'END:VEVENT', 'END:VCALENDAR');
 
-    caldav_request('PUT', rtrim($cal['url'], '/') . '/' . rawurlencode($uid) . '.ics', implode("\r\n", $lines) . "\r\n",
+    caldav_request('PUT', rtrim($cal['url'], '/') . '/' . strtolower(strtok($uid, '@')) . '.ics', implode("\r\n", $lines) . "\r\n",
         ['Content-Type: text/calendar; charset=utf-8', 'If-None-Match: *']);
     set_setting('calendar_synced_at', ''); // 다음 화면에서 바로 다시 받기
+    set_setting('calendar_last_add', $cal['name']);
 }
 
 /** iCalendar 글에서 일정 꺼내기.

@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = date('n/j', strtotime($day)) . ' ' . $p['name'] . '(으)로 정했어요.';
                 if (setting('icloud_user')) {
                     try {
-                        $cals = caldav_selected();
+                        $cals = caldav_writable();
                         if ($cals) {
                             caldav_create($cals[0]['name'], '🧺 나들이: ' . $p['name'], $day, '10:00', '15:00', $p['name'], $p['tip']);
                             $msg .= ' 가족 캘린더에도 넣었어요.';
