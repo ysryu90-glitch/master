@@ -139,6 +139,27 @@ $weekTotal = array_sum($weekSpend);
 </section>
 <?php endif; ?>
 
+<?php
+// 이번 주 할 일: 누가 몇 개 했는지 · 남은 것
+$stmt = db()->prepare('SELECT done_by, COUNT(*) n FROM todos WHERE done = 1 AND DATE(done_at) BETWEEN ? AND ? GROUP BY done_by ORDER BY n DESC');
+$stmt->execute([$monday, $sunday]);
+$doneBy = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+$openLate = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND due_day < CURDATE()')->fetchColumn();
+$memberById = [];
+foreach (members() as $m) $memberById[(int) $m['id']] = $m;
+?>
+<?php if ($doneBy || $openLate): ?>
+<section class="card">
+  <div class="card-head"><h2>✅ 이번 주 할 일</h2><a class="more" href="todo.php">할 일 ›</a></div>
+  <?php if ($doneBy): $maxN = max($doneBy); ?>
+    <?php foreach ($doneBy as $mid => $n): $m = $memberById[(int) $mid] ?? null; ?>
+      <div class="catbars"><a href="todo.php"><span class="n"><?= $m ? h($m['emoji'] . ' ' . $m['name']) : '누군가' ?></span><span class="bar"><i style="width:<?= max(6, $n / $maxN * 100) ?>%;background:var(--accent)"></i></span><span class="v"><?= (int) $n ?>개 했어요</span></a></div>
+    <?php endforeach; ?>
+  <?php else: ?><p class="small muted">이번 주에 끝낸 할 일이 아직 없어요.</p><?php endif; ?>
+  <?php if ($openLate): ?><p class="small" style="margin:10px 0 0;color:var(--red)">밀린 할 일 <?= $openLate ?>개가 있어요.</p><?php endif; ?>
+</section>
+<?php endif; ?>
+
 <section class="card">
   <h2>📅 다음 주</h2>
   <?php if (!$nextEvents && !$nextDinners): ?><div class="empty">아직 잡힌 일정이 없어요.</div><?php endif; ?>

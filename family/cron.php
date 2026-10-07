@@ -84,7 +84,13 @@ foreach (members('adult') as $m) {
     if ($prefs['weekly'] && date('N') === '7' && due('20:00', $now) && notify_once($id, 'weekly', $today)) {
         $stmt = db()->prepare("SELECT COUNT(*) FROM dinner_outcomes WHERE together = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
         $stmt->execute();
-        $log[] = "$m[name] 주간 리포트 → " . push_to_member($id, '📊 이번 주 가족 리포트', '이번 주 함께한 저녁 ' . $stmt->fetchColumn() . '번 · 한 주를 돌아봐요', 'report.php', 'weekly');
+        $together = (int) $stmt->fetchColumn();
+        $weekOut = (int) db()->query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE kind = 'out' AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
+        $doneN = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 1 AND done_at > DATE_SUB(NOW(), INTERVAL 7 DAY)')->fetchColumn();
+        $parts = ['함께한 저녁 ' . $together . '번'];
+        if ($doneN) $parts[] = '끝낸 할 일 ' . $doneN . '개';
+        if ($weekOut) $parts[] = '쓴 돈 ' . won($weekOut, true);
+        $log[] = "$m[name] 주간 리포트 → " . push_to_member($id, '📊 이번 주 가족 리포트', implode(' · ', $parts) . ' · 한 주를 돌아봐요', 'report.php', 'weekly');
     }
 
     // 🤒 아이 해열제 다시 먹일 수 있는 시각 (최근 3시간 안에 38도 이상일 때만)
