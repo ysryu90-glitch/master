@@ -1058,3 +1058,5 @@ body.scrolled .topbar { box-shadow: 0 1px 0 var(--line); }
 .weekstrip .wd i.t { background: var(--blue); }
 .weekstrip .wd i.p { background: var(--accent); }
 .weekcard .list .time { font-size: 12px; line-height: 1.3; }
+.ccal .evl { text-overflow: ellipsis; max-width: 100%; }
+.lcal .wk, .lcal .grid { grid-template-columns: repeat(7, minmax(0, 1fr)); } .lcal .grid a { min-width: 0; overflow: hidden; }

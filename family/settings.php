@@ -136,7 +136,7 @@ page_start('설정');
     </div>
     <button class="btn primary">저장</button>
   </form>
-  <details style="margin-top:12px"><summary class="small" style="color:var(--blue)">비밀번호 바꾸기</summary>
+  <details class="fold" style="margin-top:12px"><summary>비밀번호 바꾸기</summary>
     <form method="post" class="form" style="margin-top:10px">
       <?= csrf_field() ?><input type="hidden" name="action" value="password">
       <label>지금 비밀번호<input name="current" type="password" autocomplete="current-password"></label>
@@ -185,7 +185,7 @@ page_start('설정');
     <form method="post" data-confirm="토큰을 새로 만들면 기존 단축어는 다시 설정해야 해요. 계속할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="token"><button class="btn">토큰 새로 만들기</button></form>
   </div>
   <p class="small muted" style="margin-top:10px">마지막으로 받은 기록: <?= $last ? h(date('n월 j일 H:i', strtotime($last['received_at']))) : '아직 없음' ?></p>
-  <?php if ($last): ?><details><summary class="small muted">받은 내용 보기 (문제 확인용)</summary><pre class="small" style="white-space:pre-wrap;word-break:break-all"><?= h($last['body']) ?></pre></details><?php endif; ?>
+  <?php if ($last): ?><details class="fold"><summary>받은 내용 보기 (문제 확인용)</summary><pre class="small" style="white-space:pre-wrap;word-break:break-all"><?= h($last['body']) ?></pre></details><?php endif; ?>
 </section>
 
 <section class="card" id="kid">

@@ -169,8 +169,8 @@ page_start('가족 일정', 'family');
       <a class="<?= $cls ?>" href="<?= h($q(['d' => $d])) ?>" data-day="<?= $d ?>">
         <span class="n"><?= $dn ?></span>
         <?php if (isset(HOLIDAYS[$d])): ?><span class="hol"><?= h(mb_strimwidth(HOLIDAYS[$d], 0, 8, '')) ?></span><?php endif; ?>
-        <?php foreach (array_slice($it['ev'] ?? [], 0, 2) as $e): ?><span class="evl" style="--c:<?= h($e['color']) ?>"><?= h(mb_strimwidth($e['title'], 0, 10, '')) ?></span><?php endforeach; ?>
-        <?php foreach (array_slice($it['plan'] ?? [], 0, max(0, 2 - count($it['ev'] ?? []))) as $pl): ?><span class="evl" style="--c:var(--accent)">🧺<?= h(mb_strimwidth($pl['name'], 0, 8, '')) ?></span><?php endforeach; ?>
+        <?php foreach (array_slice($it['ev'] ?? [], 0, 2) as $e): ?><span class="evl" style="--c:<?= h($e['color']) ?>"><?= h(mb_strimwidth($e['title'], 0, 30, '')) ?></span><?php endforeach; ?>
+        <?php foreach (array_slice($it['plan'] ?? [], 0, max(0, 2 - count($it['ev'] ?? []))) as $pl): ?><span class="evl" style="--c:var(--accent)">🧺<?= h(mb_strimwidth($pl['name'], 0, 30, '')) ?></span><?php endforeach; ?>
         <?php $more = count($it['ev'] ?? []) + count($it['plan'] ?? []) - 2; if ($more > 0): ?><span class="evmore">+<?= $more ?></span><?php endif; ?>
         <span class="dots"><?php if (array_filter($it['todo'] ?? [], fn($t) => !$t['done'])): ?><i class="t"></i><?php endif; ?><?php if (!empty($it['diary'])): ?><i class="d"></i><?php endif; ?></span>
       </a>

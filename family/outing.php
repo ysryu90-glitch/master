@@ -379,7 +379,7 @@ $spendAvg = outing_spend_avg();
     <div class="person"><span class="who" style="width:auto;flex:1"><?= h($c['name']) ?> <span class="small muted"><?= ['in' => '실내', 'out' => '야외', 'mix' => '실내외'][$c['type']] ?? '' ?> · 약 <?= (int) $c['minutes'] ?>분</span></span>
       <form method="post" data-confirm="이 장소를 뺄까요?"><?= csrf_field() ?><input type="hidden" name="action" value="custom_delete"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="btn small danger">빼기</button></form></div>
   <?php endforeach; ?>
-  <details style="margin-top:8px"><summary class="small" style="color:var(--blue)">+ 장소 추가</summary>
+  <details class="fold" style="margin-top:8px"><summary>＋ 장소 추가</summary>
     <form method="post" class="form" style="margin-top:10px">
       <?= csrf_field() ?><input type="hidden" name="action" value="custom_add">
       <label>이름<input name="name" required placeholder="예: 연신내 ○○ 키즈카페"></label>
