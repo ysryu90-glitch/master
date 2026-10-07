@@ -670,11 +670,11 @@ function check_csrf(): void
  */
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
-    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲']]],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
     'ledger' => ['가계부', '💰', 'ledger.php', [['ledger.php', '가계부', '💰'], ['ledger_guide.php', '가계부 설정', '⚙︎']]],
     'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '리포트', '📊']]],
-    'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['calendar.php', '일정', '📅'], ['settings.php', '설정', '⚙︎']]],
+    'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
 ];
 
 /** 아래 탭에 보이는 묶음 (더보기는 오른쪽 위 ☰ 버튼) */
@@ -689,7 +689,7 @@ const NAV_PAGES = [
     'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'ledger.php' => ['ledger', 'ledger.php'], 'ledger_guide.php' => ['ledger', 'ledger_guide.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
-    'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['more', 'calendar.php'],
+    'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
     'settings.php' => ['more', 'settings.php'], 'shortcut.php' => ['more', 'settings.php'],
 ];
 

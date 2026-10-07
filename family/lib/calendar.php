@@ -122,13 +122,13 @@ function caldav_selected(): array
     return array_values(array_filter($all, fn($c) => in_array($c['name'], $names, true)));
 }
 
-/** 일정 복사본 새로 받기 (지난 7일 ~ 앞으로 45일)
+/** 일정 복사본 새로 받기 (지난달 1일 ~ 석 달 뒤까지: 달력 보기용)
  *  반복 일정은 iCloud에 펼쳐 달라고(expand) 부탁하고, iCloud가 거절하면(501 등) 그냥 받아서 여기서 펼친다.
  *  캘린더 하나가 실패해도 나머지는 받는다. */
 function caldav_sync(): int
 {
-    $fromTs = strtotime('-7 day');
-    $toTs = strtotime('+45 day');
+    $fromTs = strtotime(date('Y-m-01') . ' -1 month');
+    $toTs = strtotime(date('Y-m-01') . ' +3 month');
     $start = gmdate('Ymd\THis\Z', $fromTs);
     $end = gmdate('Ymd\THis\Z', $toTs);
     $filter = '<c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT">'

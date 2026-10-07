@@ -40,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 elseif (!$owner) todo_notify(other_adults((int) $me['id']), '👨‍👩‍👧 같이 할 일이 생겼어요', $title . $when . ' · ' . $me['name'] . '님이 적음');
                 flash(($owner && $owner !== (int) $me['id'] ? ($names[$owner]['name'] ?? '') . '에게 부탁했어요' : (!$owner ? '같이 할 일로 넣었어요' : '넣었어요')) . ($day ? ' · ' . todo_day_label($day) : ''));
             }
+            if (post('back') === 'cal' && $day) redirect('calendar.php?m=' . substr($day, 0, 7) . '&d=' . $day);
             redirect(post('back') === 'home' ? 'index.php#todo' : $back);
         case 'toggle':
             $r = todo_toggle($id, (int) $me['id']);
@@ -102,7 +103,9 @@ page_start('할 일', 'home');
 ?>
 <form method="post" class="tadd" id="quickadd">
   <?= csrf_field() ?><input type="hidden" name="action" value="add">
-  <input name="title" placeholder="할 일 추가 · 예: 내일 세탁소 맡기기" autocomplete="off" enterkeyhint="done" required>
+  <?php $addDay = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['add_day'] ?? '')) ? $_GET['add_day'] : ''; ?>
+  <?php if ($addDay): ?><input type="hidden" name="day" value="<?= h($addDay) ?>"><input type="hidden" name="back" value="cal"><?php endif; ?>
+  <input name="title"<?= $addDay ? ' autofocus' : '' ?> placeholder="<?= $addDay ? h(todo_day_label($addDay)) . ' 할 일 추가' : '할 일 추가 · 예: 내일 세탁소 맡기기' ?>" autocomplete="off" enterkeyhint="done" required>
   <button class="tadd-btn" aria-label="추가"><?= nav_icon('plus') ?></button>
   <div class="towner" role="radiogroup" aria-label="누가">
     <?php $defOwner = $who === 'both' ? 'both' : (ctype_digit($who) ? $who : (string) $me['id']); ?>

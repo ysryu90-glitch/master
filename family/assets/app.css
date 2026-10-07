@@ -1021,3 +1021,27 @@ body.scrolled .topbar { box-shadow: 0 1px 0 var(--line); }
 .card-head h2, .sheet-head h2, .card > h2 { gap: 6px; }
 .card-head h2 .hic, .card > h2 .hic, .sheet-head h2 .hic { margin-right: 3px; }
 .evrow { cursor: pointer; } .evrow:active { opacity: 0.6; }
+
+/* ───────── 가족 일정 달력 ───────── */
+.ccal .grid a { min-height: 70px; padding: 4px 2px 3px; gap: 1px; justify-content: flex-start; }
+.ccal .grid a .n { font-size: 12.5px; padding-left: 3px; }
+.ccal .grid a.today .n { color: var(--accent-ink); }
+.ccal .hol { font-size: 9px; color: var(--red); line-height: 1.2; padding-left: 3px; white-space: nowrap; overflow: hidden; }
+.ccal .evl { display: block; font-size: 9.5px; line-height: 1.35; font-weight: 600; padding: 0 3px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: clip;
+  background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--text); border-left: 2px solid var(--c); }
+.ccal .evmore { font-size: 9px; color: var(--sub); padding-left: 3px; }
+.ccal .dots { display: flex; gap: 3px; padding-left: 3px; margin-top: auto; }
+.ccal .dots i, .ccal .legend i { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+.ccal i.t { background: var(--blue); }
+.ccal i.d { background: var(--pink); }
+.ccal .grid a.sel .evl { background: rgba(255, 255, 255, 0.18); color: var(--bg); }
+.ccal .grid a.sel .hol, .ccal .grid a.sel .evmore { color: var(--bg); }
+.ccal .legend { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; padding: 0 4px; }
+.ccal .legend span { display: inline-flex; align-items: center; gap: 4px; }
+@media (min-width: 640px) { .ccal .grid a { min-height: 92px; } .ccal .evl { font-size: 11px; } }
+.agrow { display: flex; align-items: center; gap: 12px; padding: 10px 0; color: var(--text); text-decoration: none; border-top: 1px solid var(--line); }
+.agrow:first-child { border-top: 0; }
+.agrow .ai2 { width: 34px; height: 34px; border-radius: 11px; background: var(--card-2); display: flex; align-items: center; justify-content: center; font-size: 17px; flex: none; }
+.agrow .chev { color: var(--dim); font-size: 20px; }
+#day .trow, .daylist .trow { padding: 0; margin-left: -10px; border-top: 1px solid var(--line); }
+.daylist { padding: 8px 18px; }
