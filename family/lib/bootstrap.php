@@ -690,7 +690,7 @@ const NAV_PAGES = [
     'ledger.php' => ['ledger', 'ledger.php'], 'ledger_guide.php' => ['ledger', 'ledger_guide.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
-    'settings.php' => ['more', 'settings.php'], 'shortcut.php' => ['more', 'settings.php'],
+    'settings.php' => ['more', 'settings.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['more', 'settings.php'],
 ];
 
 /** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */
@@ -710,6 +710,7 @@ function nav_icon(string $key, bool $on = false): string
                         : '<path d="M12 20s-7.5-4.5-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.5-7.5 10-7.5 10z"/><path d="M3 12h4l2-3 3 6 2-3h7"/>',
         'more' => '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
         'menu' => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+        'search' => '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
         'back' => '<path d="M15 5l-7 7 7 7"/>',
         'plus' => '<path d="M12 5v14M5 12h14"/>',
     ];
@@ -774,6 +775,7 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <?php if ($nav): ?>
 <aside class="sidenav" aria-label="메뉴">
   <a class="brand" href="index.php"><img src="assets/icon.png" alt="" width="28" height="28"> 우리집</a>
+  <a class="g sidesearch" href="search.php"><span class="i"><?= nav_icon('search') ?></span>찾기</a>
   <?php foreach (NAV as $key => [$label, $icon, $href, $items]): ?>
     <a class="g<?= $key === $group ? ' on' : '' ?>" href="<?= $href ?>"><span class="i"><?= nav_icon($key, $key === $group) ?></span><?= $label ?></a>
     <?php if (count($items) > 1): ?><div class="subs"><?php foreach ($items as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $il ?></a><?php endforeach; ?></div><?php endif; ?>
@@ -785,7 +787,8 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <header class="topbar">
   <div class="topbar-title"><?php if ($back): ?><a class="back" href="<?= h($back) ?>" aria-label="뒤로" data-back onclick="if (document.referrer.indexOf(location.host) > 0 && history.length > 1) { history.back(); return false; }"><?= nav_icon('back') ?></a><?php endif; ?><?= h($title) ?></div>
   <?php if ($me): ?>
-  <a class="topbar-me<?= $group === 'more' ? ' on' : '' ?>" href="more.php" aria-label="더보기 · 설정"><span class="av"><?= h($me['emoji']) ?></span><span class="nm"><?= h($me['name']) ?></span><?= nav_icon('menu') ?></a>
+  <span class="topbar-r"><a class="topbar-search" href="search.php" aria-label="찾기"><?= nav_icon('search') ?></a>
+  <a class="topbar-me<?= $group === 'more' ? ' on' : '' ?>" href="more.php" aria-label="더보기 · 설정"><span class="av"><?= h($me['emoji']) ?></span><span class="nm"><?= h($me['name']) ?></span><?= nav_icon('menu') ?></a></span>
   <?php endif; ?>
 </header>
 <?php if ($nav && !$back && count(NAV[$group][3]) > 1): ?>

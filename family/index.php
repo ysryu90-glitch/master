@@ -161,7 +161,7 @@ $budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
 <a href="sick.php?m=<?= (int) $k['id'] ?>" class="card sickcard">
   <div class="card-head"><h2>🤒 <?= h($k['name']) ?> 돌보는 중</h2><span class="more">기록 ›</span></div>
   <?php if ($t): ?><p><b style="font-size:22px"><?= number_format((float) $t['temp'], 1) ?>°</b> <span class="small muted"><?= date('H:i', strtotime($t['at'])) ?> 측정</span></p><?php endif; ?>
-  <p class="small"><?php foreach ($next as $n): ?><?= h($n['name']) ?> <b><?= $n['at'] <= time() ? '지금 가능' : date('H:i', $n['at']) . '부터' ?></b> &nbsp; <?php endforeach; ?></p>
+  <div class="medpills"><?php foreach ($next as $n): $ok = $n['at'] <= time(); ?><span class="<?= $ok ? 'ok' : '' ?>"><?= h($n['name']) ?> <b><?= $ok ? '지금 가능' : date('H:i', $n['at']) . '부터' ?></b></span><?php endforeach; ?></div>
 </a>
 <?php endforeach; ?>
 
