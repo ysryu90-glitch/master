@@ -73,6 +73,7 @@ page_start('컨디션', 'health');
   <?php endforeach; ?>
 </div>
 
+<?php if ($rows && $isMe): ?><a class="card alert" href="shortcut.php" style="padding:12px 16px"><span class="ai">⌚️</span><span class="grow"><b>건강 자동 연결</b><span class="small muted" style="display:block">어떤 항목이 들어오는지 확인 · 단축어 다시 보기</span></span><span class="chev">›</span></a><?php endif; ?>
 <?php if (!$rows): ?>
 <section class="card tempty">
   <div class="big">⌚️</div>

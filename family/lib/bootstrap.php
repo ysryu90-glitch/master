@@ -690,7 +690,7 @@ const NAV_PAGES = [
     'ledger.php' => ['ledger', 'ledger.php'], 'ledger_guide.php' => ['ledger', 'ledger_guide.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
-    'settings.php' => ['more', 'settings.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['more', 'settings.php'],
+    'settings.php' => ['more', 'settings.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],
 ];
 
 /** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */

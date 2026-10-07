@@ -1080,3 +1080,6 @@ input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; dis
 body:not(.with-nav) .topbar { display: none; }
 .ccal .evl { text-overflow: clip; }
 @media (min-width: 640px) { .ccal .evl { text-overflow: ellipsis; } }
+.topbar-me .nm { white-space: nowrap; }
+.topbar-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-r { flex: none; }
