@@ -157,11 +157,18 @@ function caldav_sync(): int
                 }
             }
             if ($xml === null) [, $xml] = caldav_request('REPORT', $cal['url'], $plain, [], 1);
-            foreach (caldav_xml($xml)->xpath('//c:calendar-data') as $data) {
-                foreach (ics_events((string) $data, $expanded ? null : [$fromTs, $toTs]) as $event) {
-                    $event['calendar'] = $cal['name'];
-                    $event['color'] = $cal['color'];
-                    $events[] = $event;
+            $doc = caldav_xml($xml);
+            foreach ($doc->xpath('//d:response') as $resp) {
+                $resp->registerXPathNamespace('d', 'DAV:');
+                $resp->registerXPathNamespace('c', 'urn:ietf:params:xml:ns:caldav');
+                $href = caldav_absolute($cal['url'], (string) ($resp->xpath('./d:href')[0] ?? ''));
+                foreach ($resp->xpath('.//c:calendar-data') as $data) {
+                    foreach (ics_events((string) $data, $expanded ? null : [$fromTs, $toTs]) as $event) {
+                        $event['calendar'] = $cal['name'];
+                        $event['color'] = $cal['color'];
+                        $event['href'] = $href;
+                        $events[] = $event;
+                    }
                 }
             }
         } catch (RuntimeException $e) {
@@ -174,11 +181,12 @@ function caldav_sync(): int
     $pdo = db();
     $pdo->beginTransaction();
     $pdo->exec('DELETE FROM calendar_events');
-    $insert = $pdo->prepare('REPLACE INTO calendar_events (uid, start_at, end_at, all_day, title, location, calendar, color, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())');
+    $insert = $pdo->prepare('REPLACE INTO calendar_events (uid, start_at, end_at, all_day, title, location, calendar, color, href, recurring, occ, note, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())');
     foreach ($events as $e) {
         $insert->execute([mb_substr($e['uid'], 0, 255), $e['start'], $e['end'], $e['all_day'] ? 1 : 0,
-            mb_substr($e['title'], 0, 300), mb_substr($e['location'], 0, 300), $e['calendar'], $e['color']]);
+            mb_substr($e['title'], 0, 300), mb_substr($e['location'], 0, 300), $e['calendar'], $e['color'],
+            mb_substr($e['href'] ?? '', 0, 500), !empty($e['recurring']) ? 1 : 0, $e['occ'] ?? '', mb_substr($e['note'] ?? '', 0, 500)]);
     }
     $pdo->commit();
     set_setting('calendar_synced_at', date('Y-m-d H:i:s'));
@@ -273,10 +281,12 @@ function ics_events(string $ics, ?array $window = null): array
             'all_day' => $allDay,
             'title' => $unescape($props['SUMMARY']['value'] ?? '(제목 없음)'),
             'location' => $unescape($props['LOCATION']['value'] ?? ''),
+            'note' => $unescape($props['DESCRIPTION']['value'] ?? ''),
+            'recurring' => isset($props['RRULE']) || isset($props['RECURRENCE-ID']),
         ];
         $rid = isset($props['RECURRENCE-ID']) ? '#' . $props['RECURRENCE-ID']['value'] : '';
         if ($window === null || !isset($props['RRULE']) || $rid !== '') {
-            $events[] = $base + ['uid' => $uid . $rid, 'start' => $start, 'end' => $end];
+            $events[] = $base + ['uid' => $uid . $rid, 'start' => $start, 'end' => $end, 'occ' => isset($props['RECURRENCE-ID']) ? ics_time($props['RECURRENCE-ID'])[0] : ''];
             continue;
         }
         // 여기서 반복 펼치기
@@ -288,7 +298,7 @@ function ics_events(string $ics, ?array $window = null): array
         foreach (rrule_occurrences(strtotime($start), $props['RRULE']['value'], $window[0] - max($len, 86400), $window[1]) as $ts) {
             if (in_array($ts, $skip, true)) continue;
             if ($ts + $len < $window[0]) continue;
-            $events[] = $base + ['uid' => $uid . '#' . date('Ymd\THis', $ts), 'start' => date('Y-m-d H:i:s', $ts), 'end' => date('Y-m-d H:i:s', $ts + $len)];
+            $events[] = $base + ['uid' => $uid . '#' . date('Ymd\THis', $ts), 'start' => date('Y-m-d H:i:s', $ts), 'end' => date('Y-m-d H:i:s', $ts + $len), 'occ' => date('Y-m-d H:i:s', $ts)];
         }
     }
     return $events;
@@ -383,4 +393,156 @@ function ics_time(array $prop): array
     }
     $dt->setTimezone(new DateTimeZone('Asia/Seoul'));
     return [$dt->format('Y-m-d H:i:s'), false];
+}
+
+// ───────── 일정 고치기 · 지우기 ─────────
+
+function ics_escape(string $s): string
+{
+    return str_replace(["\\", ';', ',', "\r\n", "\n"], ["\\\\", '\;', '\,', '\n', '\n'], $s);
+}
+
+/** 우리가 받아 둔 일정 한 줄 (uid + 시작) */
+function calendar_event_row(string $uid, string $start): ?array
+{
+    $stmt = db()->prepare('SELECT * FROM calendar_events WHERE uid = ? AND start_at = ?');
+    $stmt->execute([$uid, $start]);
+    return $stmt->fetch() ?: null;
+}
+
+/** 일정 파일을 받아 줄 목록으로 (접힌 줄은 펴서) */
+function caldav_get_lines(string $href): array
+{
+    [, $ics] = caldav_request('GET', $href, '', ['Accept: text/calendar']);
+    $ics = preg_replace("/\r?\n[ \t]/", '', (string) $ics);
+    $lines = preg_split("/\r?\n/", trim($ics));
+    if (!$lines || !in_array('BEGIN:VCALENDAR', $lines, true)) throw new RuntimeException('iCloud에서 일정 내용을 읽지 못했어요.');
+    return $lines;
+}
+
+/** VEVENT 블록 위치 [[시작 줄, 끝 줄], ...] */
+function ics_blocks(array $lines): array
+{
+    $out = [];
+    $start = null;
+    foreach ($lines as $i => $l) {
+        if ($l === 'BEGIN:VEVENT') $start = $i;
+        if ($l === 'END:VEVENT' && $start !== null) { $out[] = [$start, $i]; $start = null; }
+    }
+    return $out;
+}
+
+function ics_prop_name(string $line): string
+{
+    return preg_match('/^([A-Z-]+)[;:]/', $line, $m) ? $m[1] : '';
+}
+
+/** 블록 안의 속성들을 바꾸기: $set = [이름 => 새 줄(들) | null(지우기)] */
+function ics_block_set(array $block, array $set): array
+{
+    $out = [];
+    $depth = 0; // 알람(VALARM) 같은 안쪽 묶음은 건드리지 않기
+    foreach ($block as $i => $l) {
+        if ($i > 0 && str_starts_with($l, 'BEGIN:')) $depth++;
+        $inner = $depth > 0;
+        if ($i > 0 && str_starts_with($l, 'END:') && $l !== 'END:VEVENT') $depth--;
+        if (!$inner && array_key_exists(ics_prop_name($l), $set)) continue;
+        if ($l === 'END:VEVENT') foreach ($set as $lines) foreach ((array) $lines as $nl) if ($nl !== null) $out[] = $nl;
+        $out[] = $l;
+    }
+    return $out;
+}
+
+function ics_put(string $href, array $lines): void
+{
+    caldav_request('PUT', $href, implode("\r\n", $lines) . "\r\n", ['Content-Type: text/calendar; charset=utf-8']);
+    set_setting('calendar_synced_at', '');
+}
+
+/** 일정 고치기. 반복 일정은 제목 · 장소 · 메모만 (반복 전체에) */
+function caldav_update_event(array $ev, array $f): void
+{
+    if ($ev['href'] === '') throw new RuntimeException('이 일정은 고칠 수 있는 정보가 아직 없어요. 「지금 새로 받기」를 누른 뒤 다시 해 주세요.');
+    $lines = caldav_get_lines($ev['href']);
+    $baseUid = strtok($ev['uid'], '#');
+    $now = gmdate('Ymd\THis\Z');
+    $common = [
+        'SUMMARY' => 'SUMMARY:' . ics_escape($f['title']),
+        'LOCATION' => $f['location'] !== '' ? 'LOCATION:' . ics_escape($f['location']) : null,
+        'DESCRIPTION' => $f['note'] !== '' ? 'DESCRIPTION:' . ics_escape($f['note']) : null,
+        'DTSTAMP' => 'DTSTAMP:' . $now,
+        'LAST-MODIFIED' => 'LAST-MODIFIED:' . $now,
+    ];
+    $out = [];
+    $cursor = 0;
+    foreach (ics_blocks($lines) as [$a, $b]) {
+        $block = array_slice($lines, $a, $b - $a + 1);
+        $out = array_merge($out, array_slice($lines, $cursor, $a - $cursor));
+        $uidLine = current(array_filter($block, fn($l) => str_starts_with($l, 'UID:')));
+        if ($uidLine !== false && substr($uidLine, 4) !== $baseUid) { $out = array_merge($out, $block); $cursor = $b + 1; continue; }
+        $set = $common;
+        $seq = 0;
+        foreach ($block as $l) if (str_starts_with($l, 'SEQUENCE:')) $seq = (int) substr($l, 9);
+        $set['SEQUENCE'] = 'SEQUENCE:' . ($seq + 1);
+        if (!$ev['recurring']) {
+            if ($f['all_day']) {
+                $set['DTSTART'] = 'DTSTART;VALUE=DATE:' . date('Ymd', strtotime($f['date']));
+                $set['DTEND'] = 'DTEND;VALUE=DATE:' . date('Ymd', strtotime($f['date'] . ' +1 day'));
+            } else {
+                $st = strtotime($f['date'] . ' ' . $f['start']);
+                $en = $f['end'] !== '' ? strtotime($f['date'] . ' ' . $f['end']) : $st + 3600;
+                if ($en <= $st) $en = $st + 3600;
+                $set['DTSTART'] = 'DTSTART:' . gmdate('Ymd\THis\Z', $st);
+                $set['DTEND'] = 'DTEND:' . gmdate('Ymd\THis\Z', $en);
+            }
+            $set['DURATION'] = null;
+        }
+        $out = array_merge($out, ics_block_set($block, $set));
+        $cursor = $b + 1;
+    }
+    $out = array_merge($out, array_slice($lines, $cursor));
+    ics_put($ev['href'], $out);
+}
+
+/** 일정 지우기. $only = 반복 일정에서 이 날만 */
+function caldav_delete_event(array $ev, bool $only = false): void
+{
+    if ($ev['href'] === '') throw new RuntimeException('이 일정은 지울 수 있는 정보가 아직 없어요. 「지금 새로 받기」를 누른 뒤 다시 해 주세요.');
+    if (!$ev['recurring'] || !$only) {
+        caldav_request('DELETE', $ev['href'], '', []);
+        set_setting('calendar_synced_at', '');
+        return;
+    }
+    // 반복 중 이 날만: 원래 일정에 EXDATE 더하고, 따로 고친 회차가 있으면 그것도 빼기
+    $occ = $ev['occ'] !== '' ? $ev['occ'] : $ev['start_at'];
+    $lines = caldav_get_lines($ev['href']);
+    $out = [];
+    $cursor = 0;
+    foreach (ics_blocks($lines) as [$a, $b]) {
+        $block = array_slice($lines, $a, $b - $a + 1);
+        $out = array_merge($out, array_slice($lines, $cursor, $a - $cursor));
+        $cursor = $b + 1;
+        $rid = current(array_filter($block, fn($l) => ics_prop_name($l) === 'RECURRENCE-ID'));
+        if ($rid !== false) {
+            [$p, $v] = explode(':', $rid, 2) + [1 => ''];
+            if (ics_time(['params' => substr($p, strlen('RECURRENCE-ID')), 'value' => $v])[0] === $occ) continue; // 이 회차의 따로 고친 일정 빼기
+            $out = array_merge($out, $block);
+            continue;
+        }
+        $dt = current(array_filter($block, fn($l) => ics_prop_name($l) === 'DTSTART'));
+        $hasRule = (bool) array_filter($block, fn($l) => ics_prop_name($l) === 'RRULE');
+        if ($dt === false || !$hasRule) { $out = array_merge($out, $block); continue; }
+        [$params] = explode(':', $dt, 2);
+        $params = substr($params, strlen('DTSTART'));
+        $ts = strtotime($occ);
+        if (str_contains($params, 'VALUE=DATE')) $ex = 'EXDATE;VALUE=DATE:' . date('Ymd', $ts);
+        elseif (preg_match('/TZID=([^;:]+)/', $params, $m)) {
+            try { $d = new DateTime('@' . $ts); $d->setTimezone(new DateTimeZone(trim($m[1], '"'))); $ex = 'EXDATE;TZID=' . $m[1] . ':' . $d->format('Ymd\THis'); }
+            catch (Throwable $e) { $ex = 'EXDATE:' . gmdate('Ymd\THis\Z', $ts); }
+        } else $ex = 'EXDATE:' . gmdate('Ymd\THis\Z', $ts);
+        $block = array_merge(array_slice($block, 0, -1), [$ex, 'END:VEVENT']);
+        $out = array_merge($out, $block);
+    }
+    $out = array_merge($out, array_slice($lines, $cursor));
+    ics_put($ev['href'], $out);
 }

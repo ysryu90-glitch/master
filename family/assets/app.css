@@ -1020,3 +1020,4 @@ body.scrolled .topbar { box-shadow: 0 1px 0 var(--line); }
 .meter { border-radius: 99px; }
 .card-head h2, .sheet-head h2, .card > h2 { gap: 6px; }
 .card-head h2 .hic, .card > h2 .hic, .sheet-head h2 .hic { margin-right: 3px; }
+.evrow { cursor: pointer; } .evrow:active { opacity: 0.6; }

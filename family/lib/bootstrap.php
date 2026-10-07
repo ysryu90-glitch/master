@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -447,6 +447,11 @@ function migrate(PDO $pdo): void
     $pdo->exec('ALTER TABLE outing_logs ADD COLUMN IF NOT EXISTS budget INT NULL');
     $pdo->exec('ALTER TABLE shopping ADD COLUMN IF NOT EXISTS expense_id INT NULL');
     $pdo->exec('ALTER TABLE shopping ADD COLUMN IF NOT EXISTS done_by INT NULL');
+    // iCloud 일정 고치기 · 지우기에 필요한 것 (일정 파일 주소 · 반복 여부 · 원래 회차 · 메모)
+    $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS href VARCHAR(500) NOT NULL DEFAULT ''");
+    $pdo->exec('ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS recurring TINYINT NOT NULL DEFAULT 0');
+    $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS occ VARCHAR(30) NOT NULL DEFAULT ''");
+    $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS note VARCHAR(500) NOT NULL DEFAULT ''");
     $pdo->prepare("REPLACE INTO settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
 }
 
