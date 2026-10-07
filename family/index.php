@@ -261,27 +261,6 @@ $budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
 </section>
 <?php endif; ?>
 
-<section class="card tonight">
-  <div class="card-head"><h2>🍲 오늘 저녁 <span class="small muted"><?= h(dinner_time()) ?></span></h2><a class="more" href="table.php">저녁 ›</a></div>
-  <div class="dish"><?= $plan ? h($plan['dish']) : '<span class="muted" style="font-size:17px">아직 메뉴를 안 정했어요 · <a href="table.php">정하기</a></span>' ?></div>
-  <?php foreach ($conflicts as $c): ?><p class="small" style="color:var(--orange)">⚠️ <?= h($c) ?></p><?php endforeach; ?>
-  <div class="attend">
-    <?php foreach (members() as $m): $a = $att[(int) $m['id']] ?? null; ?>
-      <span class="chip <?= $a ? 'st-' . h($a['status']) : '' ?>"><?= h($m['emoji'] . ' ' . $m['name']) ?> · <?= $a ? h(ATTENDANCE[$a['status']][1]) . ($a['late_time'] ? ' ' . h($a['late_time']) : '') : ($m['role'] === 'child' ? '함께' : '?') ?></span>
-    <?php endforeach; ?>
-  </div>
-  <?php if ($myAtt): ?>
-    <form method="post" class="btn-row" style="margin-top:10px">
-      <?= csrf_field() ?>
-      <span class="small muted" style="align-self:center">내 답 바꾸기</span>
-      <button class="btn small" name="status" value="home">🏠</button>
-      <button class="btn small" name="status" value="late" onclick="var t=prompt('몇 시쯤 도착해요? (예: 20:30)','20:00'); if(t===null) return false; this.form.late_time.value=t;">🕗</button>
-      <button class="btn small" name="status" value="out">🙅</button>
-      <input type="hidden" name="late_time" value="">
-    </form>
-  <?php endif; ?>
-</section>
-
 <?php
 // 이번 주: 오늘부터 7일 (일정 · 할 일 · 나들이)
 $weekTo = date('Y-m-d', strtotime('+6 day'));
@@ -324,6 +303,28 @@ $wdn = ['일', '월', '화', '수', '목', '금', '토'];
     <p class="small muted" style="margin:8px 0 0">오늘 · 내일은 일정이 없어요.</p>
   <?php endif; ?>
 </section>
+
+<section class="card tonight">
+  <div class="card-head"><h2>🍲 오늘 저녁 <span class="small muted"><?= h(dinner_time()) ?></span></h2><a class="more" href="table.php">저녁 ›</a></div>
+  <div class="dish"><?= $plan ? h($plan['dish']) : '<span class="muted" style="font-size:17px">아직 메뉴를 안 정했어요 · <a href="table.php">정하기</a></span>' ?></div>
+  <?php foreach ($conflicts as $c): ?><p class="small" style="color:var(--orange)">⚠️ <?= h($c) ?></p><?php endforeach; ?>
+  <div class="attend">
+    <?php foreach (members() as $m): $a = $att[(int) $m['id']] ?? null; ?>
+      <span class="chip <?= $a ? 'st-' . h($a['status']) : '' ?>"><?= h($m['emoji'] . ' ' . $m['name']) ?> · <?= $a ? h(ATTENDANCE[$a['status']][1]) . ($a['late_time'] ? ' ' . h($a['late_time']) : '') : ($m['role'] === 'child' ? '함께' : '?') ?></span>
+    <?php endforeach; ?>
+  </div>
+  <?php if ($myAtt): ?>
+    <form method="post" class="btn-row" style="margin-top:10px">
+      <?= csrf_field() ?>
+      <span class="small muted" style="align-self:center">내 답 바꾸기</span>
+      <button class="btn small" name="status" value="home">🏠</button>
+      <button class="btn small" name="status" value="late" onclick="var t=prompt('몇 시쯤 도착해요? (예: 20:30)','20:00'); if(t===null) return false; this.form.late_time.value=t;">🕗</button>
+      <button class="btn small" name="status" value="out">🙅</button>
+      <input type="hidden" name="late_time" value="">
+    </form>
+  <?php endif; ?>
+</section>
+
 
 <section class="card">
   <div class="card-head"><h2>❤️ 오늘 건강</h2><a class="more" href="health.php">건강 ›</a></div>
