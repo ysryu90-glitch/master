@@ -1078,3 +1078,5 @@ input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; dis
 .login { margin-top: max(40px, 10vh); padding: 28px 22px 22px; }
 .login > h2 { justify-content: center; font-size: 24px; margin: 14px 0 4px; }
 body:not(.with-nav) .topbar { display: none; }
+.ccal .evl { text-overflow: clip; }
+@media (min-width: 640px) { .ccal .evl { text-overflow: ellipsis; } }
