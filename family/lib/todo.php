@@ -45,7 +45,7 @@ function todo_notify(array $memberIds, string $title, string $body, string $tag 
 {
     try {
         require_once __DIR__ . '/push.php';
-        foreach (array_unique($memberIds) as $mid) if ($mid && has_push((int) $mid)) push_to_member((int) $mid, $title, $body, 'todo.php', $tag);
+        foreach (array_unique($memberIds) as $mid) if ($mid && has_push((int) $mid) && (notify_prefs((int) $mid)['todo'] ?? true)) push_to_member((int) $mid, $title, $body, 'todo.php', $tag);
     } catch (Throwable $e) {}
 }
 

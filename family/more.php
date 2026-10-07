@@ -4,7 +4,7 @@ require __DIR__ . '/lib/bootstrap.php';
 $me = require_login();
 $groups = [
     '가족' => [
-        ['calendar.php', '📅', '가족 일정', 'iCloud 캘린더 · 일정 추가'],
+        ['search.php', '🔍', '찾기', '일기 · 할 일 · 일정 · 가계부를 한 번에'],
         ['board/', '📺', '전광판', '아이패드에 띄우는 가족 화면'],
         ['diary_share.php', '🔗', '일기 공유', '할머니 · 할아버지께 보내는 링크'],
     ],

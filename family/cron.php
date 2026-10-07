@@ -111,7 +111,7 @@ foreach ($stmt->fetchAll() as $t) {
     if (!due($t['due_time'], $now)) continue;
     $targets = $t['owner_id'] ? [(int) $t['owner_id']] : array_map(fn($m) => (int) $m['id'], members('adult'));
     foreach ($targets as $mid) {
-        if (!has_push($mid) || !notify_once($mid, 'todo', $t['id'] . ':' . $today)) continue;
+        if (!has_push($mid) || !(notify_prefs($mid)['todo'] ?? true) || !notify_once($mid, 'todo', $t['id'] . ':' . $today)) continue;
         $log[] = "할 일 알림 → " . push_to_member($mid, '✅ ' . $t['title'], $t['due_time'] . ($t['note'] !== '' ? ' · ' . $t['note'] : '') . ' · 다 하면 동그라미를 눌러 주세요', 'todo.php', 'todo' . $t['id']);
     }
 }

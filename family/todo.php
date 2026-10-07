@@ -49,6 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($ajax) json_out(['ok' => (bool) $r, 'done' => $r['now_done'] ?? false, 'next' => isset($r['next']) && $r['next'] ? todo_day_label($r['next']) : null]);
             redirect(post('back') === 'home' ? 'index.php#todo' : $back);
+        case 'move':
+            $to = post('to') === 'tomorrow' ? date('Y-m-d', strtotime('+1 day')) : today();
+            db()->prepare('UPDATE todos SET due_day = ? WHERE id = ?')->execute([$to, $id]);
+            if ($ajax) json_out(['ok' => true]);
+            redirect(post('back') === 'home' ? 'index.php#todo' : $back);
         case 'delete':
             db()->prepare('DELETE FROM todos WHERE id = ?')->execute([$id]);
             flash('지웠어요.');
@@ -95,6 +100,10 @@ function todo_row(array $t, array $names, int $meId, string $who): void
           <?php if ($t['note'] !== ''): ?><span>📝 <?= h(mb_strimwidth($t['note'], 0, 30, '…')) ?></span><?php endif; ?>
         </span>
       </a>
+      <?php if ($late): ?>
+        <form method="post" class="tmove"><?= csrf_field() ?><input type="hidden" name="action" value="move"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>">
+          <button name="to" value="today">오늘로</button><button name="to" value="tomorrow">내일로</button></form>
+      <?php endif; ?>
     </div>
     <?php
 }

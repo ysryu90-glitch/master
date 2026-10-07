@@ -175,6 +175,7 @@ $budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
       <form method="post" action="todo.php" class="tcheck-f"><?= csrf_field() ?><input type="hidden" name="action" value="toggle"><input type="hidden" name="back" value="home"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><button class="tcheck" aria-label="다 했어요"></button></form>
       <a class="tbody" href="todo.php?edit=<?= (int) $t['id'] ?>#form"><span class="tt"><?= h($t['title']) ?></span>
         <span class="tm"><?php if ($t['due_day'] < today()): ?><span class="late"><?= h(todo_day_label($t['due_day'])) ?>까지였어요</span><?php elseif ($t['due_time']): ?><span><?= h($t['due_time']) ?></span><?php endif; ?><?php if (!$t['owner_id']): ?><span class="who both">같이</span><?php endif; ?></span></a>
+      <?php if ($t['due_day'] < today()): ?><form method="post" action="todo.php" class="tmove"><?= csrf_field() ?><input type="hidden" name="action" value="move"><input type="hidden" name="back" value="home"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><button name="to" value="today">오늘로</button><button name="to" value="tomorrow">내일로</button></form><?php endif; ?>
     </div>
   <?php endforeach; ?>
   <?php
