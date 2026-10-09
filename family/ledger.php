@@ -336,7 +336,7 @@ page_start('가계부', 'ledger');
   <section class="card"><p class="muted" style="margin:0"><?= $search !== '' ? '찾은 기록이 없어요.' : ($cat ? '이 항목의 기록이 없어요.' : '이번 달 기록이 아직 없어요. ＋를 눌러 적거나, 카드 결제를 자동으로 받아 보세요.') ?></p></section>
 <?php endif; ?>
 <?php foreach ($byDay as $day => $rows): $dOut = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, $rows)); ?>
-  <h3 class="lday"><span><?= date('n월 j일', strtotime($day)) ?> (<?= weekday_short($day) ?>)<?= $day === today() ? ' · 오늘' : '' ?></span><span><?= $dOut ? '-' . won($dOut) : '' ?></span></h3>
+  <h3 class="lday"><span><?= date('n월 j일', strtotime($day)) ?> (<?= weekday_short($day) ?>)<?= $day === today() ? ' · 오늘' : '' ?></span><span><?= $dOut ? ($dOut > 0 ? '-' . won($dOut) : '+' . won(-$dOut)) : '' ?></span></h3>
   <div class="card lrows">
     <?php foreach ($rows as $x): [$cn, $ci] = ledger_cat($x['category']); $payer = $names[(int) $x['member_id']] ?? null; ?>
       <a class="lrow<?= (int) $x['amount'] < 0 ? ' cancel' : '' ?>" href="<?= h($q(['edit' => $x['id']])) ?>#form">

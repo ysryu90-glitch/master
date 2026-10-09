@@ -132,6 +132,8 @@ page_start('가계부 설정', 'ledger');
 
 <h3 class="dmonth" style="margin-top:6px">📲 카드 결제 자동으로 받기</h3>
 
+<a class="card alert" href="ledger_import.php" style="text-decoration:none;color:inherit"><span class="ai">📥</span><span class="grow"><b>카드가 여러 개라 번거롭다면</b><span class="small muted" style="display:block">뱅크샐러드 엑셀 하나로 모든 카드 결제를 한 번에 가져와요</span></span><span class="muted">›</span></a>
+
 <section class="card">
   <h2>📲 어떻게 들어오나요?</h2>
   <p class="small">카드사 앱을 직접 연결하는 건 개인 사이트로는 할 수 없어서, <b>아이폰 단축어 자동화</b>가 결제 소식을 받아 이 사이트로 보내 주는 방식이에요. 두 가지 중 쓰시는 쪽으로 만들면 돼요 (둘 다 만들어도 돼요).</p>

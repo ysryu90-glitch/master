@@ -14,7 +14,7 @@ $stmt = db()->prepare('SELECT * FROM expenses WHERE day BETWEEN ? AND ? ORDER BY
 $stmt->execute([$from, $to]);
 $names = [];
 foreach (members() as $m) $names[(int) $m['id']] = $m['name'];
-$src = ['manual' => '직접', 'sms' => '카드 문자', 'screen' => '화면 캡처', 'wallet' => '애플페이', 'fixed' => '고정'];
+$src = ['manual' => '직접', 'sms' => '카드 문자', 'screen' => '화면 캡처', 'wallet' => '애플페이', 'fixed' => '고정', 'import' => '가져오기'];
 
 header('Content-Type: text/csv; charset=utf-8');
 header("Content-Disposition: attachment; filename*=UTF-8''" . rawurlencode('가계부 ' . $label . '.csv'));

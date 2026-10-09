@@ -1083,3 +1083,7 @@ body:not(.with-nav) .topbar { display: none; }
 .topbar-me .nm { white-space: nowrap; }
 .topbar-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar-r { flex: none; }
+.form label.lrow.imp { display: flex; margin: 0; font-size: 15px; font-weight: 400; color: var(--text); cursor: pointer; }
+.form .lrow.imp input[type=checkbox] { width: 22px; height: 22px; margin: 0; padding: 0; flex: none; accent-color: var(--accent); }
+.lrow.imp.dupe { opacity: 0.5; }
+.impchips .chip { background: var(--card); box-shadow: var(--shadow); color: var(--text); }
