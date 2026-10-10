@@ -37,10 +37,6 @@ foreach (members('adult') as $a) {
     $stmt->execute([$a['id'], $monday, $sunday]);
     $rows = $stmt->fetchAll();
     $avg = function (string $f) use ($rows) { $v = array_filter(array_column($rows, $f), fn($x) => $x !== null); return $v ? array_sum($v) / count($v) : null; };
-    $stmt = db()->prepare('SELECT m.day, SUM(i.kcal * i.servings) kcal, SUM(i.protein * i.servings) protein FROM meals m JOIN meal_items i ON i.meal_id = m.id
-        WHERE m.member_id = ? AND m.day BETWEEN ? AND ? GROUP BY m.day');
-    $stmt->execute([$a['id'], $monday, $sunday]);
-    $mealDays = $stmt->fetchAll();
     $stmt = db()->prepare('SELECT COUNT(*) FROM medication_logs l JOIN medications m ON m.id = l.med_id WHERE m.member_id = ? AND l.day BETWEEN ? AND ?');
     $stmt->execute([$a['id'], $monday, $sunday]);
     $medTaken = (int) $stmt->fetchColumn();
@@ -53,9 +49,6 @@ foreach (members('adult') as $a) {
         'best' => $best,
         'sleep' => $avg('sleep_min'),
         'steps' => $avg('steps'),
-        'mealDays' => count($mealDays),
-        'kcal' => $mealDays ? array_sum(array_column($mealDays, 'kcal')) / count($mealDays) : null,
-        'protein' => $mealDays ? array_sum(array_column($mealDays, 'protein')) / count($mealDays) : null,
         'med' => $medCount ? [$medTaken, $medCount * $daysElapsed] : null,
     ];
 }
@@ -110,8 +103,6 @@ page_start('주간 리포트', 'family');
       <?php if ($p['best']): ?><div class="d">최고 <?= $weekdays[(int) date('w', strtotime($p['best']['day']))] ?>요일 <?= number_format($p['best']['score'], 1) ?></div><?php endif; ?></div>
     <div class="stat"><div class="k">평균 수면</div><div class="v"><?= $p['sleep'] !== null ? intdiv((int) $p['sleep'], 60) . '<small>시간</small> ' . ((int) $p['sleep'] % 60) . '<small>분</small>' : '-' ?></div></div>
     <div class="stat"><div class="k">평균 걸음</div><div class="v"><?= num($p['steps']) ?></div></div>
-    <div class="stat"><div class="k">식단 기록</div><div class="v"><?= $p['mealDays'] ?><small>일</small></div>
-      <?php if ($p['kcal'] !== null): ?><div class="d">하루 <?= num($p['kcal']) ?>kcal · 단백질 <?= num($p['protein']) ?>g</div><?php endif; ?></div>
   </div>
   <?php if ($p['med']): ?><p class="small" style="margin-top:10px">💊 약 챙김 <b><?= $p['med'][0] ?>/<?= $p['med'][1] ?></b><?= $p['med'][0] >= $p['med'][1] ? ' 👏' : '' ?></p><?php endif; ?>
 </section>

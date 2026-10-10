@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -494,6 +494,17 @@ function migrate(PDO $pdo): void
             sort INT NOT NULL DEFAULT 0,
             KEY (list_id)
         )",
+        // 메뉴 보관함 (식단 계획 · 자동 채우기 · 재료 장보기)
+        "CREATE TABLE IF NOT EXISTS recipes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            ingredients VARCHAR(500) NOT NULL DEFAULT '',
+            note VARCHAR(300) NOT NULL DEFAULT '',
+            url VARCHAR(500) NOT NULL DEFAULT '',
+            kid_ok TINYINT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL
+        )",
         // 아이 성장 기록 (키 · 몸무게)
         "CREATE TABLE IF NOT EXISTS growth (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -525,6 +536,8 @@ function migrate(PDO $pdo): void
     $pdo->exec('ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS recurring TINYINT NOT NULL DEFAULT 0');
     $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS occ VARCHAR(30) NOT NULL DEFAULT ''");
     $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS note VARCHAR(500) NOT NULL DEFAULT ''");
+    // 메뉴 보관함: 지금까지 정했던 저녁 메뉴로 시작
+    $pdo->exec("INSERT IGNORE INTO recipes (name, ingredients, created_at, updated_at) SELECT dish, MAX(ingredients), NOW(), NOW() FROM dinner_plans WHERE dish <> '' GROUP BY dish");
     // 반복 할 일을 번갈아 (다 하면 다음 차례는 다른 사람)
     $pdo->exec('ALTER TABLE todos ADD COLUMN IF NOT EXISTS rotate TINYINT NOT NULL DEFAULT 0');
     $pdo->prepare("REPLACE INTO settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
@@ -745,9 +758,9 @@ function check_csrf(): void
  */
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
-    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲'], ['sticker.php', '루틴 · 스티커', '⭐'], ['anniv.php', '기념일', '🎂']]],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '식단', '🍲'], ['sticker.php', '루틴 · 스티커', '⭐'], ['anniv.php', '기념일', '🎂']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['quotes.php', '아이 어록', '💬'], ['outing.php', '나들이 추천', '🧺']]],
-    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['growth.php', '성장', '🌱'], ['report.php', '리포트', '📊']]],
+    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['growth.php', '성장', '🌱'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
 ];
 
@@ -758,12 +771,12 @@ const TABBAR = ['home', 'family', 'diary', 'health'];
 const NAV_PAGES = [
     'index.php' => ['home', 'index.php'],
     'todo.php' => ['family', 'todo.php'], 'shop.php' => ['family', 'shop.php'],
-    'table.php' => ['family', 'table.php'], 'meals.php' => ['health', 'meals.php'], 'meal_edit.php' => ['health', 'meals.php'],
+    'table.php' => ['family', 'table.php'],
     'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
     'outing.php' => ['diary', 'outing.php'], 'quotes.php' => ['diary', 'quotes.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
-    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'sticker.php' => ['family', 'sticker.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'notes.php' => ['more', 'more.php'], 'pack.php' => ['family', 'shop.php'], 'shortcut.php' => ['health', 'health.php'],
+    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'sticker.php' => ['family', 'sticker.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'notes.php' => ['more', 'more.php'], 'pack.php' => ['family', 'shop.php'], 'recipes.php' => ['family', 'table.php'], 'shortcut.php' => ['health', 'health.php'],
 ];
 
 /** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */
@@ -908,14 +921,6 @@ function flash(string $message): void
 {
     setcookie('flash', $message, ['expires' => time() + 30, 'path' => '/', 'samesite' => 'Lax']);
 }
-
-const MEAL_TYPES = [
-    'breakfast' => ['아침', '🌅'],
-    'lunch' => ['점심', '☀️'],
-    'dinner' => ['저녁', '🌇'],
-    'snack' => ['간식', '🍪'],
-    'late' => ['야식', '🌙'],
-];
 
 function readiness_level(float $score): array
 {

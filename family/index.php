@@ -11,7 +11,6 @@ require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
 require __DIR__ . '/lib/discover.php';
 require __DIR__ . '/lib/todo.php';
-require __DIR__ . '/lib/foods.php';
 
 $me = require_login();
 check_csrf();
@@ -46,10 +45,6 @@ $att = attendance($today);
 $events = calendar_events($today, $today);
 $conflicts = dinner_conflicts($today);
 
-$stmt = db()->prepare('SELECT COALESCE(SUM(i.kcal * i.servings),0) kcal, COALESCE(SUM(i.protein * i.servings),0) protein, COUNT(DISTINCT m.id) meals
-    FROM meals m LEFT JOIN meal_items i ON i.meal_id = m.id WHERE m.member_id = ? AND m.day = ?');
-$stmt->execute([$me['id'], $today]);
-$food = $stmt->fetch();
 
 $others = array_filter(members('adult'), fn($m) => (int) $m['id'] !== (int) $me['id']);
 $meds = medications_of((int) $me['id']);
@@ -364,11 +359,6 @@ $mem = $memId ? diary_entry((int) $memId) : null;
   <?php else: ?>
     <a class="mealline" href="shortcut.php"><span>⌚️ 건강 기록 연결하기</span><span class="grow"></span><span class="small muted">수면 · 걸음 ›</span></a>
   <?php endif; ?>
-  <a class="mealline" href="meals.php">
-    <span>🍚 식단 <?= (int) $food['meals'] ?>끼</span>
-    <span class="meter orange"><i style="width:<?= min(100, $food['kcal'] / max(1, $me['kcal_target']) * 100) ?>%"></i></span>
-    <span class="small muted"><?= num($food['kcal']) ?> / <?= num($me['kcal_target']) ?> kcal ›</span>
-  </a>
   <?php foreach ($others as $o): $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; if (!$oh && !health_days_count((int) $o['id'])) continue; ?>
     <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>
   <?php endforeach; ?>
@@ -395,8 +385,7 @@ $mem = $memId ? diary_entry((int) $memId) : null;
   <div class="panel">
     <div class="sheet-head"><h2 id="quick-title">무엇을 적을까요?</h2><button type="button" class="x" data-sheet-close aria-label="닫기">✕</button></div>
     <div class="quickgrid">
-      <a href="meal_edit.php?m=<?= (int) $me['id'] ?>"><span class="ic">🍚</span><b>내 식단</b><span><?= h(MEAL_TYPES[meal_type_for_now()][0]) ?> 기록</span></a>
-      <?php if ($kid0): ?><a href="meal_edit.php?m=<?= (int) $kid0['id'] ?>"><span class="ic"><?= h($kid0['emoji']) ?></span><b><?= h($kid0['name']) ?> 식단</b><span>먹은 것 기록</span></a><?php endif; ?>
+      <a href="table.php#plan"><span class="ic">🍲</span><b>저녁 메뉴</b><span>이번 주 식단 정하기</span></a>
       <a href="diary_edit.php?cat=daily"><span class="ic">📔</span><b>일기</b><span>사진 · 한 줄</span></a>
       <?php if ($kid0): ?><a href="sick.php?m=<?= (int) $kid0['id'] ?>"><span class="ic">🌡</span><b>체온 · 해열제</b><span><?= h($kid0['name']) ?> 아플 때</span></a><?php endif; ?>
       <a href="todo.php"><span class="ic">✅</span><b>할 일</b><span>나 · 가족에게</span></a>

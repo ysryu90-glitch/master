@@ -21,8 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         switch (post('action')) {
             case 'profile':
-                $pdo->prepare('UPDATE members SET name = ?, emoji = ?, kcal_target = ?, protein_target = ? WHERE id = ?')
-                    ->execute([mb_substr(post('name') ?: $me['name'], 0, 40), mb_substr(post('emoji'), 0, 8), max(800, min(5000, (int) post('kcal'))), max(10, min(300, (int) post('protein'))), $me['id']]);
+                $pdo->prepare('UPDATE members SET name = ?, emoji = ? WHERE id = ?')
+                    ->execute([mb_substr(post('name') ?: $me['name'], 0, 40), mb_substr(post('emoji'), 0, 8), $me['id']]);
                 $message = '내 정보를 저장했어요.';
                 break;
             case 'password':
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $kid = $pdo->query("SELECT id FROM members WHERE role = 'child' ORDER BY id LIMIT 1")->fetchColumn();
                 if (post('kid_name') === '') break;
                 if ($kid) {
-                    $pdo->prepare('UPDATE members SET name = ?, kcal_target = ?, protein_target = ? WHERE id = ?')->execute([mb_substr(post('kid_name'), 0, 40), (int) post('kid_kcal') ?: 1400, (int) post('kid_protein') ?: 20, $kid]);
+                    $pdo->prepare('UPDATE members SET name = ? WHERE id = ?')->execute([mb_substr(post('kid_name'), 0, 40), $kid]);
                 } else {
                     $pdo->prepare("INSERT INTO members (slug, name, emoji, role, kcal_target, protein_target, sort) VALUES ('kid', ?, '👧', 'child', 1400, 20, 2)")->execute([mb_substr(post('kid_name'), 0, 40)]);
                 }
@@ -131,8 +131,6 @@ page_start('설정');
     <div class="grid2">
       <label>이름<input name="name" value="<?= h($me['name']) ?>"></label>
       <label>이모지<input name="emoji" value="<?= h($me['emoji']) ?>"></label>
-      <label>하루 칼로리 목표<input name="kcal" type="number" inputmode="numeric" value="<?= (int) $me['kcal_target'] ?>"></label>
-      <label>단백질 목표 (g)<input name="protein" type="number" inputmode="numeric" value="<?= (int) $me['protein_target'] ?>"></label>
     </div>
     <button class="btn primary">저장</button>
   </form>
@@ -192,13 +190,8 @@ page_start('설정');
   <h2>👧 아이</h2>
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="kid">
-    <div class="grid3">
-      <label>이름<input name="kid_name" value="<?= h($kid['name'] ?? '') ?>" placeholder="딸"></label>
-      <label>칼로리 목표<input name="kid_kcal" type="number" value="<?= (int) ($kid['kcal_target'] ?? 1400) ?>"></label>
-      <label>단백질 (g)<input name="kid_protein" type="number" value="<?= (int) ($kid['protein_target'] ?? 20) ?>"></label>
-    </div>
+    <label>이름<input name="kid_name" value="<?= h($kid['name'] ?? '') ?>" placeholder="딸"></label>
     <button class="btn primary">저장</button>
-    <p class="small muted" style="margin-top:8px">만 5세 기준 하루 약 1,400kcal · 단백질 20g (한국인 영양소 섭취기준)</p>
   </form>
 </section>
 
@@ -265,7 +258,7 @@ page_start('설정');
 
 <section class="card">
   <a class="btn danger" href="logout.php">로그아웃</a>
-  <p class="small muted" style="margin-top:8px">모든 기록(건강 · 식단과 사진 · 식탁 · 설정)은 NAS의 MariaDB(family_board)에 저장돼요.</p>
+  <p class="small muted" style="margin-top:8px">모든 기록(건강 · 일기와 사진 · 식단 · 설정)은 NAS의 MariaDB(family_board)에 저장돼요.</p>
 </section>
 <script>
 (function () {

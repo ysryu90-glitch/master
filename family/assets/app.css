@@ -1009,3 +1009,22 @@ body:not(.with-nav) .topbar { display: none; }
 .nedit { padding: 0 0 12px; }
 .nedit input, .nadd input { margin: 0 0 8px; }
 .nadd .btn { margin-top: 0; }
+/* 식단: 이번 주 계획 · 메뉴 보관함 */
+.wplan { display: flex; flex-direction: column; }
+.wplan .wp { display: flex; align-items: center; gap: 12px; padding: 11px 4px; border-bottom: 1px solid var(--line); color: var(--text); text-decoration: none; border-radius: 10px; }
+.wplan .wp:last-child { border-bottom: 0; }
+.wplan .wp.sel { background: var(--accent-soft); }
+.wplan .d { flex: none; width: 40px; font-size: 13px; font-weight: 700; color: var(--sub); text-align: center; }
+.wplan .d.we { color: var(--red); }
+.wplan .m { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wplan .m.none { color: var(--accent-ink); font-weight: 600; font-size: 14px; }
+.rcp { border-top: 1px solid var(--line); }
+.rcp:first-child { border-top: 0; }
+.rcp > summary { list-style: none; cursor: pointer; }
+.rcp > summary::-webkit-details-marker { display: none; }
+.rcp[open] > summary .chev { transform: rotate(90deg); }
+.rcp-b { padding: 0 18px 14px 72px; }
+.rcp-b p { margin: 0 0 8px; }
+.searchbar input { margin: 0; }
+.searchbar input { width: 100%; padding: 12px 14px; border: 0; border-radius: 14px; background: var(--card); box-shadow: var(--shadow); font: inherit; color: var(--text); }
+.searchbar input:focus { outline: 2px solid var(--accent); }

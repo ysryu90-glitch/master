@@ -13,7 +13,7 @@ $groups = [
         ['settings.php#profile', '🙂', '내 정보', '이름 · 목표 · 비밀번호'],
         ['settings.php#notify', '🔔', '알림', '이 기기에서 알림 받기 · 알림 종류'],
         ['shortcut.php', '📲', '단축어 연결', '아이폰 건강 기록 자동으로 보내기'],
-        ['settings.php#kid', '👧', '아이', '이름 · 하루 목표 칼로리'],
+        ['settings.php#kid', '👧', '아이', '이름'],
         ['settings.php#home', '🏠', '우리집', '저녁 시간 · 위치'],
         ['settings.php#calendar', '📅', 'iCloud 캘린더', '연결 · 볼 캘린더 고르기'],
         ['settings.php#discover', '🧺', '나들이 데이터', '축제 · 행사 받아오기 키'],
@@ -42,5 +42,5 @@ page_start('더보기', 'more');
   <?php endforeach; ?>
 </div>
 <?php endforeach; ?>
-<p class="small muted" style="margin:16px 4px 0">모든 기록(건강 · 식단 · 일기와 사진 · 식탁 · 설정)은 NAS의 MariaDB(family_board)에 저장돼요.</p>
+<p class="small muted" style="margin:16px 4px 0">모든 기록(건강 · 일기와 사진 · 식단 · 설정)은 NAS의 MariaDB(family_board)에 저장돼요.</p>
 <?php page_end('more');

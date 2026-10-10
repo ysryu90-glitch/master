@@ -1,5 +1,5 @@
 <?php
-// 찾기: 일기 · 할 일 · 일정 · 수첩 · 장보기 · 식단을 한 번에
+// 찾기: 일기 · 할 일 · 일정 · 수첩 · 장보기을 한 번에
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/todo.php';
 
@@ -27,8 +27,6 @@ if (mb_strlen($q) >= 1) {
     $res['event'] = array_slice($pick, 0, 20);
     $res['note'] = $run('SELECT * FROM notes WHERE label LIKE ? OR value LIKE ? ORDER BY id LIMIT 10', 2);
     $res['shop'] = $run('SELECT * FROM shopping WHERE name LIKE ? ORDER BY done, id DESC LIMIT 10', 1);
-    $res['meal'] = $run('SELECT m.id, m.day, m.meal_type, m.member_id, GROUP_CONCAT(i.name SEPARATOR ", ") foods FROM meals m JOIN meal_items i ON i.meal_id = m.id
-        WHERE i.name LIKE ? GROUP BY m.id ORDER BY m.day DESC LIMIT 10', 1);
 }
 $total = array_sum(array_map('count', $res));
 $names = [];
@@ -47,12 +45,12 @@ $snip = function (string $text) use ($q): string {
 page_start('찾기', 'more', ['back' => 'index.php']);
 ?>
 <form method="get" class="lsearch" role="search">
-  <input type="search" name="q" value="<?= h($q) ?>" placeholder="일기 · 할 일 · 일정 · 수첩 · 장보기 · 식단" enterkeyhint="search" autofocus aria-label="찾기">
+  <input type="search" name="q" value="<?= h($q) ?>" placeholder="일기 · 할 일 · 일정 · 수첩 · 장보기" enterkeyhint="search" autofocus aria-label="찾기">
   <?php if ($q !== ''): ?><a class="x" href="search.php" aria-label="지우기">✕</a><?php endif; ?>
 </form>
 
 <?php if ($q === ''): ?>
-  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「하린」처럼 적으면 일기 · 할 일 · 일정 · 수첩 · 장보기 · 식단에서 한꺼번에 찾아요.</p></section>
+  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「하린」처럼 적으면 일기 · 할 일 · 일정 · 수첩 · 장보기에서 한꺼번에 찾아요.</p></section>
 <?php elseif (!$total): ?>
   <section class="card tempty"><div class="big">🤔</div><b>「<?= h($q) ?>」 찾은 것이 없어요</b></section>
 <?php else: ?>
@@ -107,14 +105,5 @@ page_start('찾기', 'more', ['back' => 'index.php']);
     </div>
   <?php endif; ?>
 
-  <?php if ($res['meal']): ?>
-    <h3 class="listhead">🍚 식단 <span><?= count($res['meal']) ?></span></h3>
-    <div class="card rows">
-      <?php foreach ($res['meal'] as $m): $who = $names[(int) $m['member_id']] ?? null; ?>
-        <a class="row" href="meals.php?m=<?= (int) $m['member_id'] ?>&day=<?= h($m['day']) ?>"><span class="ic"><?= $who ? h($who['emoji']) : '🍚' ?></span>
-          <span class="grow"><span class="t"><?= $hl(mb_strimwidth($m['foods'], 0, 40, '…')) ?></span><span class="s"><?= date('Y.n.j', strtotime($m['day'])) ?> · <?= h(MEAL_TYPES[$m['meal_type']][0] ?? '') ?></span></span><span class="chev">›</span></a>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
 <?php endif; ?>
 <?php page_end('more');

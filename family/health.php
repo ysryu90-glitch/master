@@ -82,7 +82,6 @@ page_start('컨디션', 'health');
   <?php if ((int) $view['id'] === (int) $me['id']): ?><a class="btn primary" href="shortcut.php">단축어 연결하기</a><?php endif; ?>
 </section>
 <div class="card rows">
-  <a class="row" href="meals.php"><span class="ic">🍚</span><span class="grow"><span class="t">식단</span><span class="s">먹은 것 · 칼로리 · 영양</span></span><span class="chev">›</span></a>
   <a class="row" href="meds.php"><span class="ic">💊</span><span class="grow"><span class="t">약</span><span class="s">먹을 시간 알림 · 먹었어요</span></span><span class="chev">›</span></a>
   <a class="row" href="sick.php"><span class="ic">🤒</span><span class="grow"><span class="t">아플 때</span><span class="s">체온 · 해열제 간격</span></span><span class="chev">›</span></a>
 </div>

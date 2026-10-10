@@ -1,7 +1,6 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/table.php';
-require __DIR__ . '/lib/foods.php';
 require __DIR__ . '/lib/calendar.php';
 
 $me = require_login();
@@ -20,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $pdo->prepare('REPLACE INTO dinner_plans (day, dish, ingredients, note, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, NOW())')
                     ->execute([$day, mb_substr(post('dish'), 0, 200), mb_substr(post('ingredients'), 0, 500), mb_substr(post('note'), 0, 300), $me['id']]);
+                recipe_remember(mb_substr(post('dish'), 0, 100), (string) post('ingredients'));
                 if (post('add_shopping') && post('ingredients') !== '') {
                     foreach (preg_split('/[,，\n]+/u', post('ingredients')) as $name) {
                         if (($name = trim($name)) !== '') $pdo->prepare('INSERT INTO shopping (name, created_by, created_at) VALUES (?, ?, NOW())')->execute([mb_substr($name, 0, 100), $me['id']]);
@@ -27,6 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 flash('저녁 메뉴를 저장했어요.');
             }
+            break;
+        case 'autofill':
+            $n = week_autofill(today(), date('Y-m-d', strtotime('+6 day')), (int) $me['id']);
+            flash($n ? "빈 {$n}일을 메뉴 보관함에서 채웠어요. 마음에 안 들면 그 날을 눌러 바꾸세요." : '채울 빈 날이 없어요.');
+            $back = 'table.php#plan';
+            break;
+        case 'week_shop':
+            $items = week_ingredients(today(), date('Y-m-d', strtotime('+6 day')));
+            foreach ($items as $name) $pdo->prepare('INSERT INTO shopping (name, created_by, created_at) VALUES (?, ?, NOW())')->execute([mb_substr($name, 0, 100), $me['id']]);
+            flash($items ? '이번 주 재료 ' . count($items) . '가지를 장보기에 넣었어요.' : '새로 넣을 재료가 없어요 (이미 장보기에 있어요).');
+            $back = 'table.php#plan';
             break;
         case 'attend':
             if (isset(ATTENDANCE[post('status')]) && member((int) post('member'))) {
@@ -39,23 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dish = mb_substr(post('dish') ?: (dinner_plan($day)['dish'] ?? ''), 0, 200);
             $pdo->prepare('REPLACE INTO dinner_outcomes (day, together, place, dish, note, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW())')
                 ->execute([$day, $place === 'apart' ? 0 : 1, $place, $dish, mb_substr(post('note'), 0, 300), $me['id']]);
-            // 내 식단에도 저녁으로 기록 (메뉴 이름으로 음식 목록에서 영양 정보 찾기)
-            if (post('log_meal') && $dish !== '') {
-                $choices = [];
-                foreach (food_choices() as $f) $choices[$f['name']] = $f;
-                $pdo->prepare('INSERT INTO meals (member_id, day, eaten_at, meal_type, memo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())')
-                    ->execute([$me['id'], $day, dinner_time() . ':00', 'dinner', $place === 'out' ? '외식' : '가족 식탁']);
-                $mealId = (int) $pdo->lastInsertId();
-                $insert = $pdo->prepare('INSERT INTO meal_items (meal_id, name, amount, servings, kcal, carbs, protein, fat, sodium, sort) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?)');
-                foreach (preg_split('/\s*[·,+&]\s*/u', $dish) as $i => $name) {
-                    if ($name === '') continue;
-                    $f = $choices[$name] ?? ['amount' => '1인분', 'kcal' => 0, 'carbs' => 0, 'protein' => 0, 'fat' => 0, 'sodium' => 0];
-                    $insert->execute([$mealId, $name, $f['amount'], $f['kcal'], $f['carbs'], $f['protein'], $f['fat'], $f['sodium'], $i]);
-                }
-                flash('저녁을 기록하고 내 식단에도 넣었어요. 양이나 영양 정보는 식단 탭에서 고칠 수 있어요.');
-            } else {
-                flash('저녁 결과를 기록했어요.');
-            }
+            flash('저녁 결과를 기록했어요.');
             break;
         case 'kid':
             if (isset(REACTIONS[post('reaction')]) && post('food') !== '') {
@@ -106,29 +101,37 @@ $challenges = db()->query("SELECT food, COUNT(*) tries, SUM(reaction = 'good') g
 $together = (int) db()->query("SELECT COUNT(*) FROM dinner_outcomes WHERE together = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
 $shopping = db()->query('SELECT s.* FROM shopping s ORDER BY s.done, s.id DESC')->fetchAll();
 
-page_start('오늘 저녁', 'family');
+page_start('식단', 'family');
+$recipes = recipes_all();
+$weekIngr = week_ingredients($today, date('Y-m-d', strtotime('+6 day')));
+$emptyDays = 7 - count($plans);
 ?>
-<div class="week" style="margin-bottom:14px">
-  <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("$weekStart +$i day")); $p = $plans[$d] ?? null; ?>
-    <a href="table.php?day=<?= $d ?>" class="<?= $d === $today ? 'today' : '' ?> <?= $d === $day ? 'sel' : '' ?>">
-      <div class="d"><?= $i === 0 ? '오늘' : weekday_short($d) . ' ' . (int) substr($d, 8) ?></div>
-      <div class="m <?= $p ? '' : 'none' ?>"><?= $p ? h(preg_split('/\s*[·,]\s*/u', $p['dish'])[0]) : '·' ?></div>
-    </a>
-  <?php endfor; ?>
-</div>
+<section class="card" id="plan">
+  <div class="card-head"><h2>🗓 이번 주 저녁</h2><a class="more" href="recipes.php">메뉴 보관함 <?= count($recipes) ?> ›</a></div>
+  <div class="wplan">
+    <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("$weekStart +$i day")); $p = $plans[$d] ?? null; ?>
+      <a class="wp<?= $d === $day ? ' sel' : '' ?>" href="table.php?day=<?= $d ?>#tonight"><span class="d<?= in_array((int) date('w', strtotime($d)), [0, 6], true) ? ' we' : '' ?>"><?= $i === 0 ? '오늘' : ($i === 1 ? '내일' : weekday_short($d)) ?></span><span class="m<?= $p ? '' : ' none' ?>"><?= $p ? h($p['dish']) : '+ 정하기' ?></span></a>
+    <?php endfor; ?>
+  </div>
+  <div class="btn-row" style="margin-top:12px">
+    <?php if ($emptyDays > 0): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="autofill"><button class="btn small primary">✨ 빈 <?= $emptyDays ?>일 채우기</button></form><?php endif; ?>
+    <?php if ($weekIngr): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="week_shop"><button class="btn small">🛒 재료 <?= count($weekIngr) ?>가지 장보기에</button></form><?php endif; ?>
+  </div>
+  <?php if ($weekIngr): ?><p class="small muted" style="margin:8px 0 0">재료: <?= h(mb_strimwidth(implode(', ', $weekIngr), 0, 120, '…')) ?></p><?php endif; ?>
+</section>
 
-<section class="card tonight">
+<section class="card tonight" id="tonight">
   <div class="card-head"><h2><?= h(day_label($day)) ?> 저녁 <?= h(dinner_time()) ?></h2></div>
   <div class="dish"><?= $plan ? h($plan['dish']) : '<span class="muted" style="font-size:18px">메뉴를 정해 볼까요?</span>' ?></div>
   <?php if ($plan && $plan['ingredients']): ?><p class="small muted">재료: <?= h($plan['ingredients']) ?></p><?php endif; ?>
   <?php if ($plan && $plan['note']): ?><p class="small muted">📝 <?= h($plan['note']) ?></p><?php endif; ?>
   <?php foreach ($conflicts as $c): ?><p class="small" style="color:var(--orange)">⚠️ <?= h($c) ?></p><?php endforeach; ?>
-  <?php $pastDishes = db()->query("SELECT dish FROM dinner_plans WHERE dish <> '' AND day > DATE_SUB(CURDATE(), INTERVAL 90 DAY) GROUP BY dish ORDER BY COUNT(*) DESC, MAX(day) DESC LIMIT 12")->fetchAll(PDO::FETCH_COLUMN); ?>
+  <?php usort($recipes, fn($a, $b) => [$b['kid_like'], (int) $b['times']] <=> [$a['kid_like'], (int) $a['times']]); ?>
   <details class="fold" style="margin-top:8px"<?= $plan ? '' : ' open' ?>>
     <summary><?= $plan ? '메뉴 바꾸기' : '메뉴 정하기' ?></summary>
     <form method="post" class="form" style="margin-top:10px">
-      <?php if ($pastDishes): ?>
-        <div class="chips scrollx" style="margin:0 -16px 4px;padding:0 16px"><span class="small muted" style="flex:none;align-self:center">자주:</span><?php foreach ($pastDishes as $pd): ?><button type="button" class="chip" onclick="this.form.dish.value=this.textContent"><?= h($pd) ?></button><?php endforeach; ?></div>
+      <?php if ($recipes): ?>
+        <div class="chips scrollx" style="margin:0 -16px 4px;padding:0 16px"><span class="small muted" style="flex:none;align-self:center">보관함:</span><?php foreach (array_slice($recipes, 0, 20) as $rc): ?><button type="button" class="chip" data-ing="<?= h($rc['ingredients']) ?>" onclick="this.form.dish.value=this.dataset.name;this.form.ingredients.value=this.dataset.ing" data-name="<?= h($rc['name']) ?>"><?= $rc['kid_like'] ? '😋 ' : '' ?><?= h($rc['name']) ?></button><?php endforeach; ?></div>
       <?php endif; ?>
       <?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="day" value="<?= $day ?>">
       <label>메뉴 (여러 개면 · 로 구분)<input name="dish" value="<?= h($plan['dish'] ?? '') ?>" placeholder="예: 된장찌개 · 계란말이"></label>
@@ -173,7 +176,6 @@ $afterDinner = $day < today() || ($day === today() && time() >= strtotime(today(
     <?= csrf_field() ?><input type="hidden" name="action" value="outcome"><input type="hidden" name="day" value="<?= $day ?>">
     <label>먹은 메뉴<input name="dish" value="<?= h($outcome['dish'] ?? $plan['dish'] ?? '') ?>" placeholder="계획과 다르면 고쳐 주세요"></label>
     <label>메모<input name="note" value="<?= h($outcome['note'] ?? '') ?>" placeholder="예: 딸이 처음으로 김치를 먹었어요"></label>
-    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="log_meal" value="1" checked style="width:auto;margin:0"> 내 식단에도 저녁으로 기록</label>
     <div class="btn-row">
       <button class="btn primary" name="place" value="home">🏠 함께 먹었어요</button>
       <button class="btn orange" name="place" value="out">🍽 외식했어요</button>
