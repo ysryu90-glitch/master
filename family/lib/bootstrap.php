@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -444,6 +444,16 @@ function migrate(PDO $pdo): void
             created_by INT NULL,
             created_at DATETIME NOT NULL
         )",
+        // 칭찬 스티커 (아이별, 다 모으면 보상)
+        "CREATE TABLE IF NOT EXISTS stickers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NOT NULL,
+            reason VARCHAR(60) NOT NULL DEFAULT '',
+            used TINYINT NOT NULL DEFAULT 0,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL,
+            KEY (member_id, used)
+        )",
         // 아이 성장 기록 (키 · 몸무게)
         "CREATE TABLE IF NOT EXISTS growth (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -693,7 +703,7 @@ function check_csrf(): void
  */
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
-    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲'], ['anniv.php', '기념일', '🎂']]],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲'], ['sticker.php', '칭찬 스티커', '⭐'], ['anniv.php', '기념일', '🎂']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
     'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['growth.php', '성장', '🌱'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
@@ -711,7 +721,7 @@ const NAV_PAGES = [
     'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
-    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],
+    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'sticker.php' => ['family', 'sticker.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],
 ];
 
 /** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */

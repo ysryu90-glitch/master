@@ -187,3 +187,4 @@ html, body {
 .todos .todo .tt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .todos .todo .tm { opacity: 0.6; font-size: 0.85em; flex: none; }
 .todos .todo.late .tm { color: #f87171; opacity: 1; }
+.todos .todo .st-empty { font-style: normal; opacity: 0.35; margin: 0 1px; }

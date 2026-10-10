@@ -319,9 +319,13 @@
             (t.time ? '<span class="tm">' + esc(t.time) + '</span>' : (t.late ? '<span class="tm">밀림</span>' : '')) + '</div>';
         }).join('') + (items.length > 3 ? '<div class="empty">+' + (items.length - 3) + '개 더</div>' : '')
       : '<div class="empty">오늘 할 일을 다 했어요 🎉</div>';
-    // 다가오는 기념일 (2주 안)
+    // 칭찬 스티커판 · 다가오는 기념일 (2주 안)
+    var sk = (state.data && state.data.stickers) || [];
     var dd = (state.data && state.data.ddays) || [];
-    $('todos').innerHTML = dd.map(function (a) {
+    $('todos').innerHTML = sk.filter(function (k) { return k.count > 0 || k.done > 0; }).map(function (k) {
+      var stars = ''; for (var i = 0; i < k.goal; i++) stars += i < k.count ? '⭐' : '<i class="st-empty">○</i>';
+      return '<div class="todo"><span class="who">' + esc(k.emoji) + '</span><span class="tt">' + stars + '</span><span class="tm">' + (k.count >= k.goal ? '🎁 ' + esc(k.reward || '선물') + '!' : k.count + '/' + k.goal) + '</span></div>';
+    }).join('') + dd.map(function (a) {
       return '<div class="todo"><span class="who">' + esc(a.emoji) + '</span><span class="tt">' + esc(a.label) + '</span><span class="tm">' + (a.dday ? 'D-' + a.dday : '오늘') + '</span></div>';
     }).join('') + $('todos').innerHTML;
   }
