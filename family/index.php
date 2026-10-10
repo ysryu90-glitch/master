@@ -2,6 +2,7 @@
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/days.php';
 require_once __DIR__ . '/lib/diary.php';
+require_once __DIR__ . '/lib/sticker.php';
 require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/table.php';
@@ -211,6 +212,17 @@ foreach ($events as $ev) if ($ev['all_day'] || strtotime($ev['end_at']) > time()
       <span class="ic">📔</span><span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pl['name']) ?></b> 일기 쓰기<div class="small muted">사진 · 별점 남기기</div></span><span class="more">›</span>
     </a>
   <?php endif; ?>
+  <?php
+  // 아이 루틴 (아침 6~10시 · 저녁 5시 반~9시 반, 다 하기 전까지)
+  $kidR = members('child')[0] ?? null; $mNow = (int) date('G') * 60 + (int) date('i');
+  if ($kidR && (($mNow >= 360 && $mNow < 600) || ($mNow >= 1050 && $mNow < 1290))):
+      $rSlot = routine_slot_now(); $rItems = array_filter(routines_of((int) $kidR['id']), fn($r) => $r['slot'] === $rSlot); $rDone = routine_checked((int) $kidR['id'], $today);
+      $rLeft = array_filter($rItems, fn($r) => !isset($rDone[(int) $r['id']]));
+      if ($rItems && $rLeft): ?>
+    <a class="todo-row" href="sticker.php?m=<?= (int) $kidR['id'] ?>&slot=<?= $rSlot ?>">
+      <span class="ic"><?= ROUTINE_SLOTS[$rSlot][1] ?></span><span class="grow"><b><?= h($kidR['name']) ?> <?= ROUTINE_SLOTS[$rSlot][0] ?></b> <?= count($rItems) - count($rLeft) ?>/<?= count($rItems) ?><div class="small muted">남은 것: <?= h(implode(' · ', array_map(fn($r) => $r['emoji'] . $r['title'], array_slice($rLeft, 0, 3)))) ?></div></span><span class="more">›</span>
+    </a>
+  <?php endif; endif; ?>
   <?php if (!$todoMeds && $myAtt && !$pendingDiary && !$myTodos): ?>
     <p class="done">🎉 오늘 할 일을 다 했어요<?= $doneMeds ? ' · 💊 약 ' . $doneMeds . '개 먹음' : '' ?></p>
   <?php elseif ($doneMeds): ?>
@@ -237,7 +249,7 @@ foreach ($events as $ev) if ($ev['all_day'] || strtotime($ev['end_at']) > time()
     </div>
   </details>
 </section>
-<?php elseif ($counted > 0): ?>
+<?php elseif ($counted > 0 && $todayRow): ?>
 <section class="readiness none slim">
   <div class="label">오늘의 준비 점수</div>
   <?php if ($counted === 0): ?>
