@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/days.php';
+require_once __DIR__ . '/lib/diary.php';
 require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/table.php';
@@ -321,15 +322,33 @@ $wdn = ['일', '월', '화', '수', '목', '금', '토'];
 </section>
 
 
+<?php
+// 📸 추억: 몇 년 전 이맘때(앞뒤 3일) 일기, 없으면 두 달 넘은 사진 일기 하나 (하루 동안 같은 것)
+$memId = db()->query("SELECT id FROM diary_entries WHERE YEAR(day) < YEAR(CURDATE())
+    AND ABS(DATEDIFF(DATE_ADD(day, INTERVAL (YEAR(CURDATE()) - YEAR(day)) YEAR), CURDATE())) <= 3 ORDER BY day DESC LIMIT 1")->fetchColumn();
+$memLabel = $memId ? null : '지난 추억';
+if (!$memId) $memId = db()->query('SELECT e.id FROM diary_entries e WHERE e.day < DATE_SUB(CURDATE(), INTERVAL 60 DAY) AND EXISTS (SELECT 1 FROM diary_photos p WHERE p.entry_id = e.id) ORDER BY RAND(' . crc32($today) . ') LIMIT 1')->fetchColumn();
+$mem = $memId ? diary_entry((int) $memId) : null;
+?>
+<?php if ($mem): $ago = (int) date('Y') - (int) substr($mem['day'], 0, 4); ?>
+<a class="card memory" href="diary_view.php?id=<?= (int) $mem['id'] ?>">
+  <?php if ($mem['cover']): ?><img src="diary_photo.php?id=<?= $mem['cover'] ?>&t=1" alt="" loading="lazy"><?php endif; ?>
+  <span><span class="small muted">📸 <?= $memLabel ?: $ago . '년 전 이맘때' ?> · <?= date('Y.n.j', strtotime($mem['day'])) ?></span><br><b><?= h($mem['title'] ?: $mem['place_name'] ?: '일기') ?></b><?php if ($mem['kid_said']): ?><br><span class="small">👧 “<?= h(mb_strimwidth(trim($mem['kid_said'], " \"“”"), 0, 40, '…')) ?>”</span><?php endif; ?></span>
+</a>
+<?php endif; ?>
+
 <section class="card">
   <div class="card-head"><h2>❤️ 오늘 건강</h2><a class="more" href="health.php">건강 ›</a></div>
-  <?php if ($counted > 0): ?>
+  <?php $hasToday = $todayRow && array_filter([$todayRow['steps'] ?? null, $todayRow['sleep_min'] ?? null, $todayRow['hrv'] ?? null, $todayRow['rhr'] ?? null], fn($v) => $v !== null && $v !== '');
+  if ($hasToday): ?>
   <div class="minis">
     <div><span class="k">걸음</span><b><?= num($todayRow['steps'] ?? null) ?></b></div>
     <div><span class="k">수면</span><b><?= isset($todayRow['sleep_min']) ? intdiv((int) $todayRow['sleep_min'], 60) . '<small>h</small>' . ((int) $todayRow['sleep_min'] % 60) . '<small>m</small>' : '-' ?></b></div>
     <div><span class="k">HRV</span><b><?= num($todayRow['hrv'] ?? null) ?><small>ms</small></b></div>
     <div><span class="k">심박</span><b><?= num($todayRow['rhr'] ?? null) ?><small>bpm</small></b></div>
   </div>
+  <?php elseif ($counted > 0): ?>
+    <a class="mealline" href="shortcut.php"><span>⌚️ 오늘 기록이 아직 안 왔어요</span><span class="grow"></span><span class="small muted">연결 확인 ›</span></a>
   <?php else: ?>
     <a class="mealline" href="shortcut.php"><span>⌚️ 건강 기록 연결하기</span><span class="grow"></span><span class="small muted">수면 · 걸음 ›</span></a>
   <?php endif; ?>
