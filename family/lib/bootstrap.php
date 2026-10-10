@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -432,6 +432,29 @@ function migrate(PDO $pdo): void
             last_ym CHAR(7) NOT NULL DEFAULT '',
             created_at DATETIME NOT NULL
         )",
+        // 기념일 · 생일 (매년 같은 날, year는 처음 해 → 몇 번째 · 몇 주년)
+        "CREATE TABLE IF NOT EXISTS anniversaries (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(60) NOT NULL,
+            emoji VARCHAR(16) NOT NULL DEFAULT '🎉',
+            kind VARCHAR(8) NOT NULL DEFAULT 'day',
+            month TINYINT NOT NULL,
+            day TINYINT NOT NULL,
+            year SMALLINT NULL,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL
+        )",
+        // 아이 성장 기록 (키 · 몸무게)
+        "CREATE TABLE IF NOT EXISTS growth (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NOT NULL,
+            day DATE NOT NULL,
+            height DECIMAL(4,1) NULL,
+            weight DECIMAL(4,1) NULL,
+            memo VARCHAR(100) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            KEY (member_id, day)
+        )",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql . ' DEFAULT CHARSET = utf8mb4');
@@ -670,9 +693,9 @@ function check_csrf(): void
  */
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
-    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲']]],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲'], ['anniv.php', '기념일', '🎂']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
-    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '리포트', '📊']]],
+    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['growth.php', '성장', '🌱'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
 ];
 
@@ -688,7 +711,7 @@ const NAV_PAGES = [
     'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
-    'settings.php' => ['more', 'settings.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],
+    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],
 ];
 
 /** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */

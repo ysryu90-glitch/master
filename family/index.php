@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/days.php';
 require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/table.php';
@@ -271,6 +272,9 @@ $wdn = ['일', '월', '화', '수', '목', '금', '토'];
 ?>
 <section class="card weekcard">
   <div class="card-head"><h2>📅 이번 주</h2><a class="more" href="calendar.php">달력 ›</a></div>
+  <?php foreach (array_slice(array_filter(anniv_upcoming(30), fn($a) => $a['dday'] <= 30), 0, 2) as $a): ?>
+    <a class="ddline" href="anniv.php" style="margin:0 0 10px"><span style="font-size:20px"><?= h($a['emoji']) ?></span><span class="grow"><b><?= h($a['label']) ?></b> <span class="small muted"><?= date('n/j', strtotime($a['date'])) ?> (<?= weekday_short($a['date']) ?>)</span></span><b class="ddsm<?= $a['dday'] <= 7 ? ' soon' : '' ?>"><?= dday_text($a['dday']) ?></b></a>
+  <?php endforeach; ?>
   <div class="weekstrip">
     <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("+$i day")); $w = (int) date('w', strtotime($d)); $it = $week[$d] ?? []; ?>
       <a href="calendar.php?m=<?= substr($d, 0, 7) ?>&d=<?= $d ?>" class="<?= $i === 0 ? 'today' : '' ?> <?= $w === 0 || isset(HOLIDAYS[$d]) ? 'sun' : ($w === 6 ? 'sat' : '') ?>">

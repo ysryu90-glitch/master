@@ -16,6 +16,7 @@ if (!hash_equals((string) (cfg()['secret'] ?? ''), (string) ($_GET['key'] ?? '')
 }
 calendar_refresh_if_stale();
 require_once __DIR__ . '/lib/todo.php';
+require_once __DIR__ . '/lib/days.php';
 
 $now = time();
 $today = today();
@@ -56,6 +57,7 @@ foreach (members('adult') as $m) {
         $parts[] = $events ? '일정 ' . count($events) . '개: ' . implode(', ', array_slice(array_map(fn($e) => ($e['all_day'] ? '' : substr($e['start_at'], 11, 5) . ' ') . $e['title'], $events), 0, 3)) : '오늘 일정 없음';
         if ($plan) $parts[] = '저녁 ' . $plan['dish'];
         $tds = todos_due_today($id);
+        foreach (anniv_upcoming(7) as $a) if (in_array($a['dday'], [0, 1, 7], true)) $parts[] = $a['emoji'] . ' ' . $a['label'] . ' ' . ($a['dday'] ? dday_text($a['dday']) : '오늘');
         if ($tds) $parts[] = '할 일 ' . count($tds) . '개' . (count($tds) <= 2 ? ': ' . implode(', ', array_map(fn($t) => $t['title'], $tds)) : '');
         $log[] = "$m[name] 아침 요약 → " . push_to_member($id, "☀️ 좋은 아침이에요, {$m['name']}님", implode(' · ', $parts), 'index.php', 'morning');
     }
@@ -113,6 +115,17 @@ foreach ($stmt->fetchAll() as $t) {
     foreach ($targets as $mid) {
         if (!has_push($mid) || !(notify_prefs($mid)['todo'] ?? true) || !notify_once($mid, 'todo', $t['id'] . ':' . $today)) continue;
         $log[] = "할 일 알림 → " . push_to_member($mid, '✅ ' . $t['title'], $t['due_time'] . ($t['note'] !== '' ? ' · ' . $t['note'] : '') . ' · 다 하면 동그라미를 눌러 주세요', 'todo.php', 'todo' . $t['id']);
+    }
+}
+
+// 🎂 기념일: 일주일 전 · 하루 전 · 당일 오전 9시에 어른 모두에게
+foreach (anniv_upcoming(7) as $a) {
+    if (!in_array($a['dday'], [0, 1, 7], true) || !due('09:00', $now)) continue;
+    foreach (members('adult') as $m) {
+        if (!has_push((int) $m['id']) || !notify_once((int) $m['id'], 'anniv', $a['id'] . ':' . $a['date'] . ':' . $a['dday'])) continue;
+        $title = $a['dday'] === 0 ? $a['emoji'] . ' 오늘은 ' . $a['label'] : $a['emoji'] . ' ' . $a['label'] . ' ' . dday_text($a['dday']);
+        $body = $a['dday'] === 0 ? '축하해요! 사진 한 장 남겨 볼까요?' : date('n월 j일', strtotime($a['date'])) . ' (' . weekday_short($a['date']) . ') · ' . ($a['dday'] === 7 ? '선물 · 예약 미리 챙기세요' : '내일이에요');
+        $log[] = "$m[name] 기념일 → " . push_to_member((int) $m['id'], $title, $body, $a['dday'] === 0 ? 'diary_edit.php?cat=daily' : 'anniv.php', 'anniv' . $a['id']);
     }
 }
 

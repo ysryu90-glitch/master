@@ -1087,3 +1087,20 @@ body:not(.with-nav) .topbar { display: none; }
 .form .lrow.imp input[type=checkbox] { width: 22px; height: 22px; margin: 0; padding: 0; flex: none; accent-color: var(--accent); }
 .lrow.imp.dupe { opacity: 0.5; }
 .impchips .chip { background: var(--card); box-shadow: var(--shadow); color: var(--text); }
+
+/* 기념일 D-day · 성장 */
+.ddhero { display: flex; align-items: center; gap: 14px; }
+.ddhero .e { font-size: 34px; width: 56px; height: 56px; border-radius: 18px; background: var(--card-2); display: flex; align-items: center; justify-content: center; flex: none; }
+.ddhero b { display: block; font-size: 18px; margin-top: 2px; }
+.ddhero .dd, .ddsm { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--sub); }
+.ddhero .dd { font-size: 22px; letter-spacing: -0.03em; }
+.ddhero .dd.soon, .ddsm.soon { color: var(--accent-ink); }
+.ddline { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+.ddline .grow { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gstats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gstats > div { background: var(--card-2); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; }
+.gstats .k { font-size: 13px; color: var(--sub); font-weight: 600; }
+.gstats b { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.gstats b small { font-size: 14px; font-weight: 600; margin-left: 2px; color: var(--sub); }
+.gstats .s { font-size: 12px; color: var(--accent-ink); font-weight: 600; min-height: 16px; }
+.gsvg { width: 100%; height: auto; display: block; color: var(--text); overflow: visible; }
