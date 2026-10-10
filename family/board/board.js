@@ -319,6 +319,11 @@
             (t.time ? '<span class="tm">' + esc(t.time) + '</span>' : (t.late ? '<span class="tm">밀림</span>' : '')) + '</div>';
         }).join('') + (items.length > 3 ? '<div class="empty">+' + (items.length - 3) + '개 더</div>' : '')
       : '<div class="empty">오늘 할 일을 다 했어요 🎉</div>';
+    // 다가오는 기념일 (2주 안)
+    var dd = (state.data && state.data.ddays) || [];
+    $('todos').innerHTML = dd.map(function (a) {
+      return '<div class="todo"><span class="who">' + esc(a.emoji) + '</span><span class="tt">' + esc(a.label) + '</span><span class="tm">' + (a.dday ? 'D-' + a.dday : '오늘') + '</span></div>';
+    }).join('') + $('todos').innerHTML;
   }
 
   function ring(score, key) {

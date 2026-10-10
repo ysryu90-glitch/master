@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/days.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/weather.php'; // 공휴일
 require __DIR__ . '/lib/places.php';
@@ -86,6 +87,13 @@ foreach ($stmt as $r) {
 $stmt = db()->prepare('SELECT id, day, title, place_name, category FROM diary_entries WHERE day BETWEEN ? AND ? ORDER BY id');
 $stmt->execute([$from, $to]);
 foreach ($stmt as $r) $byDay[$r['day']]['diary'][] = $r;
+// 기념일 · 생일
+foreach (db()->query('SELECT * FROM anniversaries') as $a) {
+    foreach (array_unique([(int) substr($from, 0, 4), (int) substr($to, 0, 4)]) as $yy) {
+        $dd = sprintf('%04d-%02d-%02d', $yy, $a['month'], $a['month'] == 2 && $a['day'] == 29 && !checkdate(2, 29, $yy) ? 28 : $a['day']);
+        if ($dd >= $from && $dd <= $to) $byDay[$dd]['ann'][] = $a + ['label' => anniv_label($a, $a['year'] ? $yy - (int) $a['year'] : null)];
+    }
+}
 ksort($byDay);
 $names = [];
 foreach (members() as $m) $names[(int) $m['id']] = $m;
@@ -115,6 +123,9 @@ function cal_event_li(array $e, string $d, array $writableNames): void
 function cal_day_items(string $d, array $items, array $writableNames, array $names, int $meId): void
 {
     $any = false;
+    foreach ($items['ann'] ?? [] as $a) { $any = true; ?>
+      <a class="agrow" href="anniv.php"><span class="ai2"><?= h($a['emoji']) ?></span><span class="grow"><b><?= h($a['label']) ?></b></span><span class="chev">›</span></a>
+    <?php }
     if (!empty($items['ev'])) { $any = true; echo '<ul class="list">'; foreach ($items['ev'] as $e) cal_event_li($e, $d, $writableNames); echo '</ul>'; }
     foreach ($items['plan'] ?? [] as $pl) { $any = true; ?>
       <a class="agrow" href="outing.php#d<?= h($d) ?>"><span class="ai2">🧺</span><span class="grow"><b><?= h($pl['name']) ?></b> 나들이</span><span class="chev">›</span></a>
@@ -176,6 +187,7 @@ page_start('가족 일정', 'family');
       <a class="<?= $cls ?>" href="<?= h($q(['d' => $d])) ?>" data-day="<?= $d ?>">
         <span class="n"><?= $dn ?></span>
         <?php if (isset(HOLIDAYS[$d])): ?><span class="hol"><?= h(mb_strimwidth(HOLIDAYS[$d], 0, 8, '')) ?></span><?php endif; ?>
+        <?php foreach ($it['ann'] ?? [] as $a): ?><span class="evl" style="--c:#f04438"><?= h($a['emoji'] . mb_strimwidth($a['title'], 0, 30, '')) ?></span><?php endforeach; ?>
         <?php foreach (array_slice($it['ev'] ?? [], 0, 2) as $e): ?><span class="evl" style="--c:<?= h($e['color']) ?>"><?= h(mb_strimwidth($e['title'], 0, 30, '')) ?></span><?php endforeach; ?>
         <?php foreach (array_slice($it['plan'] ?? [], 0, max(0, 2 - count($it['ev'] ?? []))) as $pl): ?><span class="evl" style="--c:var(--accent)">🧺<?= h(mb_strimwidth($pl['name'], 0, 30, '')) ?></span><?php endforeach; ?>
         <?php $more = count($it['ev'] ?? []) + count($it['plan'] ?? []) - 2; if ($more > 0): ?><span class="evmore">+<?= $more ?></span><?php endif; ?>

@@ -1,6 +1,7 @@
 <?php
 // 전광판(board/)이 15초마다 읽는 가족 요약. version 이 같으면 화면을 다시 그리지 않는다.
 require dirname(__DIR__) . '/lib/bootstrap.php';
+require dirname(__DIR__) . '/lib/days.php';
 require dirname(__DIR__) . '/lib/readiness.php';
 require dirname(__DIR__) . '/lib/calendar.php';
 require dirname(__DIR__) . '/lib/table.php';
@@ -89,6 +90,7 @@ $data = [
     'newFoods' => $newFoods,
     'shopping' => $shopping,
     'todos' => $todos,
+    'ddays' => array_map(fn($a) => ['emoji' => $a['emoji'], 'label' => $a['label'], 'dday' => $a['dday']], array_slice(anniv_upcoming(14), 0, 2)),
     'people' => $people,
     'locations' => locations(),
 ];
