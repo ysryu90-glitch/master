@@ -1124,3 +1124,13 @@ body:not(.with-nav) .topbar { display: none; }
 .rt:active { transform: scale(0.96); }
 .rchip { display: inline-flex; align-items: center; gap: 2px; margin: 0; background: var(--card-2); border-radius: 999px; padding: 4px 4px 4px 12px; font-size: 14px; font-weight: 600; }
 .rchip button { border: 0; background: none; color: var(--sub); font-size: 13px; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; }
+/* 가족 수첩 */
+.nlist { margin: 0 0 10px; }
+.nrow { border-bottom: 1px solid var(--line); }
+.nrow summary { list-style: none; display: flex; gap: 12px; padding: 11px 0; cursor: pointer; }
+.nrow summary::-webkit-details-marker { display: none; }
+.nrow .k { flex: none; width: 34%; color: var(--sub); font-size: 14px; font-weight: 600; }
+.nrow .v { flex: 1; min-width: 0; font-weight: 700; word-break: break-all; }
+.nedit { padding: 0 0 12px; }
+.nedit input, .nadd input { margin: 0 0 8px; }
+.nadd .btn { margin-top: 0; }

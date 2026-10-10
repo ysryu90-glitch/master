@@ -1,5 +1,5 @@
 <?php
-// 찾기: 일기 · 할 일 · 일정 · 장보기 · 식단을 한 번에
+// 찾기: 일기 · 할 일 · 일정 · 수첩 · 장보기 · 식단을 한 번에
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/todo.php';
 
@@ -25,6 +25,7 @@ if (mb_strlen($q) >= 1) {
     }
     usort($pick, fn($a, $b) => [!$a['_up'], $a['_up'] ? $a['start_at'] : -strtotime($a['start_at'])] <=> [!$b['_up'], $b['_up'] ? $b['start_at'] : -strtotime($b['start_at'])]);
     $res['event'] = array_slice($pick, 0, 20);
+    $res['note'] = $run('SELECT * FROM notes WHERE label LIKE ? OR value LIKE ? ORDER BY id LIMIT 10', 2);
     $res['shop'] = $run('SELECT * FROM shopping WHERE name LIKE ? ORDER BY done, id DESC LIMIT 10', 1);
     $res['meal'] = $run('SELECT m.id, m.day, m.meal_type, m.member_id, GROUP_CONCAT(i.name SEPARATOR ", ") foods FROM meals m JOIN meal_items i ON i.meal_id = m.id
         WHERE i.name LIKE ? GROUP BY m.id ORDER BY m.day DESC LIMIT 10', 1);
@@ -46,12 +47,12 @@ $snip = function (string $text) use ($q): string {
 page_start('찾기', 'more', ['back' => 'index.php']);
 ?>
 <form method="get" class="lsearch" role="search">
-  <input type="search" name="q" value="<?= h($q) ?>" placeholder="일기 · 할 일 · 일정 · 장보기 · 식단" enterkeyhint="search" autofocus aria-label="찾기">
+  <input type="search" name="q" value="<?= h($q) ?>" placeholder="일기 · 할 일 · 일정 · 수첩 · 장보기 · 식단" enterkeyhint="search" autofocus aria-label="찾기">
   <?php if ($q !== ''): ?><a class="x" href="search.php" aria-label="지우기">✕</a><?php endif; ?>
 </form>
 
 <?php if ($q === ''): ?>
-  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「하린」처럼 적으면 일기 · 할 일 · 일정 · 장보기 · 식단에서 한꺼번에 찾아요.</p></section>
+  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「하린」처럼 적으면 일기 · 할 일 · 일정 · 수첩 · 장보기 · 식단에서 한꺼번에 찾아요.</p></section>
 <?php elseif (!$total): ?>
   <section class="card tempty"><div class="big">🤔</div><b>「<?= h($q) ?>」 찾은 것이 없어요</b></section>
 <?php else: ?>
@@ -83,6 +84,16 @@ page_start('찾기', 'more', ['back' => 'index.php']);
       <?php foreach ($res['event'] as $e): $d = substr($e['start_at'], 0, 10); ?>
         <a class="row" href="calendar.php?m=<?= substr($d, 0, 7) ?>&d=<?= $d ?>"><span class="ic" style="color:<?= h($e['color']) ?>">●</span>
           <span class="grow"><span class="t"><?= $hl($e['title']) ?></span><span class="s"><?= !empty($e['recurring']) ? '🔁 ' : '' ?><?= h(day_label($d)) ?><?= $e['all_day'] ? ' · 종일' : ' ' . substr($e['start_at'], 11, 5) ?><?= $e['location'] ? ' · ' . $hl($e['location']) : '' ?></span></span><span class="chev">›</span></a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($res['note']): ?>
+    <h3 class="listhead">📒 가족 수첩 <span><?= count($res['note']) ?></span></h3>
+    <div class="card rows">
+      <?php foreach ($res['note'] as $n): $nm = $n['member_id'] ? ($names[(int) $n['member_id']] ?? null) : null; ?>
+        <a class="row" href="notes.php#<?= $n['member_id'] ? 'm' . (int) $n['member_id'] : 'home' ?>"><span class="ic"><?= $nm ? h($nm['emoji']) : '🏠' ?></span>
+          <span class="grow"><span class="t"><?= $hl($n['label']) ?></span><span class="s"><?= $hl($n['value']) ?></span></span><span class="chev">›</span></a>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
