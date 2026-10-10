@@ -43,22 +43,6 @@
     });
   });
 
-  // 💰 이날 쓴 돈: 줄 추가 · 금액 쉼표
-  var spendNew = document.getElementById('spend-new'), spendMore = document.getElementById('spend-more');
-  if (spendNew && spendMore) {
-    spendMore.addEventListener('click', function () {
-      var row = spendNew.firstElementChild.cloneNode(true);
-      row.querySelectorAll('input').forEach(function (i) { i.value = ''; });
-      spendNew.appendChild(row);
-      row.querySelector('input').focus();
-    });
-    spendNew.addEventListener('input', function (ev) {
-      if (ev.target.name !== 'new_amt[]') return;
-      var n = ev.target.value.replace(/[^\d]/g, '');
-      ev.target.value = n ? Number(n).toLocaleString('ko-KR') : '';
-    });
-  }
-
   // 기존 사진 지우기 표시
   grid.addEventListener('change', function (ev) {
     if (ev.target.name === 'remove_photo[]') ev.target.closest('.dph').classList.toggle('removing', ev.target.checked);

@@ -3,7 +3,6 @@ require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/weather.php'; // 공휴일
 require __DIR__ . '/lib/places.php';
-require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 check_csrf();
@@ -118,7 +117,7 @@ function cal_day_items(string $d, array $items, array $writableNames, array $nam
     $any = false;
     if (!empty($items['ev'])) { $any = true; echo '<ul class="list">'; foreach ($items['ev'] as $e) cal_event_li($e, $d, $writableNames); echo '</ul>'; }
     foreach ($items['plan'] ?? [] as $pl) { $any = true; ?>
-      <a class="agrow" href="outing.php#d<?= h($d) ?>"><span class="ai2">🧺</span><span class="grow"><b><?= h($pl['name']) ?></b> 나들이<?= $pl['budget'] ? ' <span class="small muted">· 예산 ' . won((int) $pl['budget'], true) . '</span>' : '' ?></span><span class="chev">›</span></a>
+      <a class="agrow" href="outing.php#d<?= h($d) ?>"><span class="ai2">🧺</span><span class="grow"><b><?= h($pl['name']) ?></b> 나들이</span><span class="chev">›</span></a>
     <?php }
     foreach ($items['todo'] ?? [] as $t) { $any = true; $o = $t['owner_id'] ? ($names[(int) $t['owner_id']] ?? null) : null; ?>
       <div class="trow<?= $t['done'] ? ' done' : '' ?>">

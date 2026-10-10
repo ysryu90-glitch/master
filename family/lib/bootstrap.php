@@ -672,13 +672,12 @@ const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
     'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
-    'ledger' => ['가계부', '💰', 'ledger.php', [['ledger.php', '가계부', '💰'], ['ledger_import.php', '한 번에 가져오기', '📥'], ['ledger_guide.php', '가계부 설정', '⚙︎']]],
     'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
 ];
 
 /** 아래 탭에 보이는 묶음 (더보기는 오른쪽 위 ☰ 버튼) */
-const TABBAR = ['home', 'family', 'diary', 'ledger', 'health'];
+const TABBAR = ['home', 'family', 'diary', 'health'];
 
 /** 화면 → [묶음, 작은 탭 화면] (일기 쓰기 화면은 '일기' 탭에 속하는 식) */
 const NAV_PAGES = [
@@ -687,7 +686,6 @@ const NAV_PAGES = [
     'table.php' => ['family', 'table.php'], 'meals.php' => ['health', 'meals.php'], 'meal_edit.php' => ['health', 'meals.php'],
     'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
     'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary.php'],
-    'ledger.php' => ['ledger', 'ledger.php'], 'ledger_guide.php' => ['ledger', 'ledger_guide.php'], 'ledger_import.php' => ['ledger', 'ledger_import.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
     'settings.php' => ['more', 'settings.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],
@@ -704,8 +702,6 @@ function nav_icon(string $key, bool $on = false): string
         'meal' => '<path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M17 21V3c-2.2 1.2-3.5 3.6-3.5 7v3H17"/>',
         'diary' => $on ? '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" fill="currentColor"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/>'
                        : '<path d="M5 19.5V4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zm0 0A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6"/>',
-        'ledger' => $on ? '<rect x="3" y="6" width="18" height="14" rx="3" fill="currentColor"/><path d="M6 6V5a2 2 0 0 1 2-2h9" /><circle cx="16.5" cy="13" r="1.5" fill="var(--card)" stroke="none"/>'
-                        : '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M6 6V5a2 2 0 0 1 2-2h9M16 13h.01"/><path d="M21 10h-4a3 3 0 0 0 0 6h4"/>',
         'health' => $on ? '<path d="M12 20s-7.5-4.5-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.5-7.5 10-7.5 10z" fill="currentColor"/>'
                         : '<path d="M12 20s-7.5-4.5-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.5-7.5 10-7.5 10z"/><path d="M3 12h4l2-3 3 6 2-3h7"/>',
         'more' => '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
@@ -807,13 +803,10 @@ function page_end(string $tab = ''): void
     echo '</main></div>';
     if (current_member() && $group !== '' && empty($GLOBALS['page_back'])) {
         echo '<nav class="tabbar" aria-label="메뉴">';
-        // 확인할 것이 있으면 탭에 빨간 점 (가계부: 항목을 못 정한 자동 기록)
-        $dots = [];
-        try { $dots['ledger'] = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')->fetchColumn() > 0; } catch (Throwable $e) {}
         foreach (TABBAR as $key) {
             [$label, $icon] = NAV[$key];
-            $href = $key === 'ledger' && !empty($dots['ledger']) ? 'ledger.php?review=1#review' : NAV[$key][2];
-            $icon = nav_icon($key, $key === $group) . (!empty($dots[$key]) ? '<i class="dot"></i>' : '');
+            $href = NAV[$key][2];
+            $icon = nav_icon($key, $key === $group);
             echo '<a href="' . $href . '" class="' . ($key === $group ? 'on' : '') . '"' . ($key === $group ? ' aria-current="page"' : '') . '><span class="i">' . $icon . '</span>' . $label . '</a>';
         }
         echo '</nav>';

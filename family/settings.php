@@ -71,7 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'stale' => (bool) post('stale'),
                     'weekly' => (bool) post('weekly'),
                     'sick' => (bool) post('sick'),
-                    'budget' => (bool) post('budget'),
                     'todo' => (bool) post('todo'),
                 ]);
                 $message = '알림 설정을 저장했어요.';
@@ -170,7 +169,6 @@ page_start('설정');
     <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="stale" value="1" <?= $prefs['stale'] ? 'checked' : '' ?> style="width:auto;margin:0"> 건강 기록이 이틀 넘게 안 들어오면</label>
     <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="weekly" value="1" <?= $prefs['weekly'] ? 'checked' : '' ?> style="width:auto;margin:0"> 일요일 저녁 8시 주간 가족 리포트</label>
     <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="sick" value="1" <?= $prefs['sick'] ? 'checked' : '' ?> style="width:auto;margin:0"> 아이 열날 때 해열제 다시 먹일 수 있는 시각</label>
-    <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="budget" value="1" <?= $prefs['budget'] ? 'checked' : '' ?> style="width:auto;margin:0"> 이번 달 지출이 예산의 80% · 100%를 넘으면</label>
     <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="todo" value="1" <?= $prefs['todo'] ? 'checked' : '' ?> style="width:auto;margin:0"> 할 일 (정한 시각 · 가족이 부탁할 때 · 다 했을 때)</label>
     <button class="btn primary">저장</button>
   </form>

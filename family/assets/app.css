@@ -974,7 +974,7 @@ h2 .hic { display: inline-flex; align-items: center; justify-content: center; wi
 .glance a:active { transform: scale(0.98); }
 .glance .gi { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: var(--card-2); }
 .glance .g-todo .gi { background: var(--accent-soft); }
-.glance .g-money .gi { background: rgba(255, 196, 0, 0.16); }
+.glance .g-cal .gi { background: rgba(255, 196, 0, 0.16); }
 .glance .g-shop .gi { background: var(--blue-soft); }
 .glance .g-dinner .gi { background: var(--orange-soft); }
 .glance .gk { font-size: 13px; font-weight: 600; color: var(--sub); padding-right: 36px; }

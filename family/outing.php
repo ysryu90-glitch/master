@@ -6,7 +6,6 @@ require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
 require __DIR__ . '/lib/discover.php';
-require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 check_csrf();
@@ -48,13 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash($msg);
             }
             break;
-        case 'plan_budget':
-            // 나들이 예산 (같은 날 같은 곳 계획 모두)
-            $b = (int) preg_replace('/[^\d]/', '', (string) post('budget'));
-            db()->prepare("UPDATE outing_logs l JOIN (SELECT place_id, day FROM outing_logs WHERE id = ? AND kind = 'plan') x
-                ON x.place_id = l.place_id AND x.day = l.day SET l.budget = ? WHERE l.kind = 'plan'")->execute([(int) post('id'), $b > 0 ? $b : null]);
-            flash($b > 0 ? '나들이 예산을 ' . won($b, true) . '으로 정했어요. 다녀와서 쓴 돈과 비교해 드려요.' : '나들이 예산을 지웠어요.');
-            break;
         case 'cancel':
             // 같은 날 같은 곳 계획이 겹쳐 있으면 함께 취소
             db()->prepare("DELETE l FROM outing_logs l JOIN (SELECT place_id, day FROM outing_logs WHERE id = ? AND kind = 'plan') x
@@ -94,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('부모님 댁 방문을 기록했어요.');
             break;
     }
-    redirect('outing.php' . (post('pt') ? '?pt=' . urlencode(post('pt')) : '') . (in_array(post('action'), ['plan', 'like', 'plan_budget'], true) && preg_match('/^\d{4}-\d{2}-\d{2}$/', post('day')) ? '#d' . post('day') : ''));
+    redirect('outing.php' . (post('pt') ? '?pt=' . urlencode(post('pt')) : '') . (in_array(post('action'), ['plan', 'like'], true) && preg_match('/^\d{4}-\d{2}-\d{2}$/', post('day')) ? '#d' . post('day') : ''));
 }
 
 calendar_refresh_if_stale();
@@ -189,7 +181,6 @@ page_start('나들이 추천', 'family');
   .planchip { display: inline-flex; align-items: center; gap: 2px; margin: 0; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 4px 4px 4px 12px; font-size: 14px; font-weight: 700; }
   .daycard .planrow { flex-direction: column; gap: 6px; }
   .planchip > span { white-space: normal; }
-  .planchip .bud { white-space: nowrap; flex: none; width: auto !important; padding: 0 8px; margin-left: 4px; background: var(--card) !important; border-radius: 999px !important; font-size: 12px !important; font-weight: 700; color: var(--text) !important; }
   .money { background: var(--blue-soft); color: var(--blue); }
   .planchip button { border: 0; background: none; color: inherit; font-size: 13px; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; }
   .daytabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 10px; padding: 4px 16px 8px; background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); position: sticky; top: calc(52px + env(safe-area-inset-top)); z-index: 15; }
@@ -233,14 +224,13 @@ page_start('나들이 추천', 'family');
 $plansByDay = [];
 foreach ($plans as $pl) if (($pp = place($pl['place_id']))) $plansByDay[$pl['day']][] = $pl + ['name' => $pp['name']];
 $allDays = array_merge($days, $nextWeekend);
-$spendAvg = outing_spend_avg();
 ?>
 <?php $otherPlans = array_diff_key($plansByDay, array_flip($allDays)); if ($otherPlans): ?>
 <section class="card">
   <h2>📌 다른 날 정한 나들이</h2>
   <?php foreach ($otherPlans as $pd => $pls): ?>
     <div class="planrow"><b class="d"><?= date('n/j', strtotime($pd)) ?> (<?= $weekdays[(int) date('w', strtotime($pd))] ?>)</b>
-      <span class="chips"><?php foreach ($pls as $pl): ?><form method="post" class="planchip" data-confirm="<?= h($pl['name']) ?> 나들이를 취소할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><span><?= h($pl['name']) ?></span><button type="button" class="bud" data-plan="<?= (int) $pl['id'] ?>" data-cur="<?= (int) $pl['budget'] ?>" data-sug="<?= (int) ($spendAvg[$pl['place_id']]['avg'] ?? 100000) ?>" title="나들이 예산"><?= $pl['budget'] ? '💰 ' . won((int) $pl['budget'], true) : '💰 예산' ?></button><button aria-label="취소" title="취소">✕</button></form><?php endforeach; ?></span></div>
+      <span class="chips"><?php foreach ($pls as $pl): ?><form method="post" class="planchip" data-confirm="<?= h($pl['name']) ?> 나들이를 취소할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><span><?= h($pl['name']) ?></span><button aria-label="취소" title="취소">✕</button></form><?php endforeach; ?></span></div>
   <?php endforeach; ?>
 </section>
 <?php endif; ?>
@@ -277,7 +267,7 @@ $spendAvg = outing_spend_avg();
     <p class="small muted">아직 날씨 예보가 없어요 (10일 이후이거나 불러오지 못함). 날씨 없이 추천해요.</p>
   <?php endif; ?>
   <?php if (!empty($plansByDay[$d])): ?>
-    <div class="planrow" style="border:0;padding-top:0"><b class="d">📌 가기로 한 곳</b><span class="chips"><?php foreach ($plansByDay[$d] as $pl): ?><form method="post" class="planchip" data-confirm="<?= h($pl['name']) ?> 나들이를 취소할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><span><?= h($pl['name']) ?></span><button type="button" class="bud" data-plan="<?= (int) $pl['id'] ?>" data-cur="<?= (int) $pl['budget'] ?>" data-sug="<?= (int) ($spendAvg[$pl['place_id']]['avg'] ?? 100000) ?>" title="나들이 예산"><?= $pl['budget'] ? '💰 ' . won((int) $pl['budget'], true) : '💰 예산' ?></button><button aria-label="취소" title="취소">✕</button></form><?php endforeach; ?></span></div>
+    <div class="planrow" style="border:0;padding-top:0"><b class="d">📌 가기로 한 곳</b><span class="chips"><?php foreach ($plansByDay[$d] as $pl): ?><form method="post" class="planchip" data-confirm="<?= h($pl['name']) ?> 나들이를 취소할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><span><?= h($pl['name']) ?></span><button aria-label="취소" title="취소">✕</button></form><?php endforeach; ?></span></div>
   <?php endif; ?>
   <?php if ($ctx['events']): ?>
     <p class="small">📅 <?= h(implode(' · ', array_map(fn($e) => ($e['all_day'] ? '' : substr($e['start_at'], 11, 5) . ' ') . $e['title'], $ctx['events']))) ?></p>
@@ -287,7 +277,7 @@ $spendAvg = outing_spend_avg();
     <div class="pick">
       <div class="top"><span class="nm"><span class="rank"><?= $i + 1 ?></span><?= h($p['name']) ?></span><span class="meta"><?= $typeLabel[$p['type']] ?> · 약 <?= (int) $p['minutes'] ?>분</span></div>
       <div class="note"><?= h($p['note']) ?></div>
-      <div><?php foreach ($p['why'] as $w): ?><span class="tag why"><?= h($w) ?></span><?php endforeach; ?><?php if (isset($spendAvg[$p['id']])): ?><span class="tag money">💰 지난번 <?= won($spendAvg[$p['id']]['avg'], true) ?><?= $spendAvg[$p['id']]['n'] > 1 ? ' (평균 ' . $spendAvg[$p['id']]['n'] . '번)' : '' ?></span><?php endif; ?><?php foreach ($p['minus'] as $w): ?><span class="tag minus"><?= h($w) ?></span><?php endforeach; ?></div>
+      <div><?php foreach ($p['why'] as $w): ?><span class="tag why"><?= h($w) ?></span><?php endforeach; ?><?php foreach ($p['minus'] as $w): ?><span class="tag minus"><?= h($w) ?></span><?php endforeach; ?></div>
       <?php if ($p['tip']): ?><div class="small muted">💡 <?= h($p['tip']) ?></div><?php endif; ?>
       <div class="acts">
         <a class="btn small" href="https://map.naver.com/p/search/<?= rawurlencode($p['name']) ?>" target="_blank" rel="noopener">🗺 지도</a>
@@ -315,22 +305,7 @@ $spendAvg = outing_spend_avg();
 </section>
 <?php endforeach; ?>
 
-<form method="post" id="budget-form" hidden><?= csrf_field() ?><input type="hidden" name="action" value="plan_budget"><input type="hidden" name="id"><input type="hidden" name="budget"><input type="hidden" name="day"></form>
 <script>
-(function () {
-  // 나들이 예산 정하기
-  document.querySelectorAll('.planchip .bud').forEach(function (b) {
-    b.addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      var cur = +b.getAttribute('data-cur'), sug = +b.getAttribute('data-sug');
-      var v = prompt('이 나들이에 쓸 예산 (원, 비우면 지움)' + (cur ? '' : '\n지난번이나 보통 이 정도: ' + sug.toLocaleString('ko-KR') + '원'), (cur || sug).toLocaleString('ko-KR'));
-      if (v === null) return;
-      var f = document.getElementById('budget-form'), card = b.closest('.daycard');
-      f.elements['id'].value = b.getAttribute('data-plan'); f.elements['budget'].value = v; f.elements['day'].value = card ? card.getAttribute('data-day') : '';
-      f.submit();
-    });
-  });
-})();
 (function () {
   var tabs = document.querySelectorAll('#daytabs a'), cards = document.querySelectorAll('.daycard');
   if (!tabs.length) return;

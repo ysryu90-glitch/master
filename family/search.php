@@ -1,7 +1,6 @@
 <?php
-// 찾기: 일기 · 할 일 · 일정 · 가계부 · 장보기 · 식단을 한 번에
+// 찾기: 일기 · 할 일 · 일정 · 장보기 · 식단을 한 번에
 require __DIR__ . '/lib/bootstrap.php';
-require __DIR__ . '/lib/ledger.php';
 require __DIR__ . '/lib/todo.php';
 
 $me = require_login();
@@ -26,7 +25,6 @@ if (mb_strlen($q) >= 1) {
     }
     usort($pick, fn($a, $b) => [!$a['_up'], $a['_up'] ? $a['start_at'] : -strtotime($a['start_at'])] <=> [!$b['_up'], $b['_up'] ? $b['start_at'] : -strtotime($b['start_at'])]);
     $res['event'] = array_slice($pick, 0, 20);
-    $res['money'] = $run('SELECT * FROM expenses WHERE merchant LIKE ? OR memo LIKE ? ORDER BY day DESC, id DESC LIMIT 20', 2);
     $res['shop'] = $run('SELECT * FROM shopping WHERE name LIKE ? ORDER BY done, id DESC LIMIT 10', 1);
     $res['meal'] = $run('SELECT m.id, m.day, m.meal_type, m.member_id, GROUP_CONCAT(i.name SEPARATOR ", ") foods FROM meals m JOIN meal_items i ON i.meal_id = m.id
         WHERE i.name LIKE ? GROUP BY m.id ORDER BY m.day DESC LIMIT 10', 1);
@@ -48,12 +46,12 @@ $snip = function (string $text) use ($q): string {
 page_start('찾기', 'more', ['back' => 'index.php']);
 ?>
 <form method="get" class="lsearch" role="search">
-  <input type="search" name="q" value="<?= h($q) ?>" placeholder="일기 · 할 일 · 일정 · 가계부 · 장보기 · 식단" enterkeyhint="search" autofocus aria-label="찾기">
+  <input type="search" name="q" value="<?= h($q) ?>" placeholder="일기 · 할 일 · 일정 · 장보기 · 식단" enterkeyhint="search" autofocus aria-label="찾기">
   <?php if ($q !== ''): ?><a class="x" href="search.php" aria-label="지우기">✕</a><?php endif; ?>
 </form>
 
 <?php if ($q === ''): ?>
-  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「하린」처럼 적으면 일기 · 할 일 · 일정 · 가계부 · 장보기 · 식단에서 한꺼번에 찾아요.</p></section>
+  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「하린」처럼 적으면 일기 · 할 일 · 일정 · 장보기 · 식단에서 한꺼번에 찾아요.</p></section>
 <?php elseif (!$total): ?>
   <section class="card tempty"><div class="big">🤔</div><b>「<?= h($q) ?>」 찾은 것이 없어요</b></section>
 <?php else: ?>
@@ -87,18 +85,6 @@ page_start('찾기', 'more', ['back' => 'index.php']);
           <span class="grow"><span class="t"><?= $hl($e['title']) ?></span><span class="s"><?= !empty($e['recurring']) ? '🔁 ' : '' ?><?= h(day_label($d)) ?><?= $e['all_day'] ? ' · 종일' : ' ' . substr($e['start_at'], 11, 5) ?><?= $e['location'] ? ' · ' . $hl($e['location']) : '' ?></span></span><span class="chev">›</span></a>
       <?php endforeach; ?>
     </div>
-  <?php endif; ?>
-
-  <?php if ($res['money']): $sum = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, $res['money'])); ?>
-    <h3 class="listhead">💰 가계부 <span><?= count($res['money']) ?> · <?= won($sum) ?></span></h3>
-    <div class="card rows">
-      <?php foreach ($res['money'] as $x): [$cn, $ci] = ledger_cat($x['category']); ?>
-        <a class="row" href="ledger.php?m=<?= substr($x['day'], 0, 7) ?>&d=<?= h($x['day']) ?>#day"><span class="ic"><?= $ci ?></span>
-          <span class="grow"><span class="t"><?= $hl($x['merchant'] ?: $cn) ?></span><span class="s"><?= date('Y.n.j', strtotime($x['day'])) ?> · <?= h($cn) ?><?= $x['memo'] !== '' ? ' · ' . $hl(mb_strimwidth($x['memo'], 0, 30, '…')) : '' ?></span></span>
-          <b style="white-space:nowrap<?= $x['kind'] === 'in' ? ';color:var(--blue)' : '' ?>"><?= $x['kind'] === 'in' ? '+' : '' ?><?= won((int) $x['amount']) ?></b></a>
-      <?php endforeach; ?>
-    </div>
-    <?php if (count($res['money']) >= 20): ?><p class="small muted" style="margin:-4px 6px 10px"><a href="ledger.php?v=list&q=<?= rawurlencode($q) ?>">가계부에서 최근 1년 전부 보기 ›</a></p><?php endif; ?>
   <?php endif; ?>
 
   <?php if ($res['shop']): ?>

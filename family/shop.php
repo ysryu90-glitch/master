@@ -1,7 +1,6 @@
 <?php
 // 장보기: 가족이 같이 쓰는 살 것 목록 (체크하면 그 앞뒤 장보기 결제 메모에 붙음)
 require __DIR__ . '/lib/bootstrap.php';
-require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 check_csrf();
@@ -24,11 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect('shop.php');
         case 'toggle':
-            $pdo->prepare('UPDATE shopping SET done_at = IF(done = 0, NOW(), NULL), done_by = IF(done = 0, ?, NULL), done = 1 - done, expense_id = IF(done = 1, expense_id, NULL) WHERE id = ?')->execute([$me['id'], $id]);
+            $pdo->prepare('UPDATE shopping SET done_at = IF(done = 0, NOW(), NULL), done_by = IF(done = 0, ?, NULL), done = 1 - done WHERE id = ?')->execute([$me['id'], $id]);
             $st = $pdo->prepare('SELECT done FROM shopping WHERE id = ?');
             $st->execute([$id]);
             $done = (int) $st->fetchColumn() === 1;
-            if ($done) shopping_attach_item($id);
             if ($ajax) json_out(['ok' => true, 'done' => $done]);
             redirect('shop.php');
         case 'delete':
@@ -42,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('shop.php');
 }
 
-$items = db()->query('SELECT s.*, x.merchant x_merchant, x.amount x_amount, x.day x_day FROM shopping s LEFT JOIN expenses x ON x.id = s.expense_id ORDER BY s.done, s.done_at DESC, s.id DESC')->fetchAll();
+$items = db()->query('SELECT s.* FROM shopping s ORDER BY s.done, s.done_at DESC, s.id DESC')->fetchAll();
 $todo = array_values(array_filter($items, fn($s) => !$s['done']));
 $done = array_values(array_filter($items, fn($s) => $s['done']));
 $names = [];
@@ -89,12 +87,10 @@ page_start('장보기', 'family');
       <div class="trow done" data-id="<?= (int) $s['id'] ?>">
         <form method="post" action="shop.php" class="tcheck-f"><?= csrf_field() ?><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="tcheck" aria-label="아직 안 샀어요"></button></form>
         <div class="tbody"><span class="tt"><?= h($s['name']) ?></span>
-          <span class="tm"><?php if ($by): ?><span class="by">✓ <?= h($by['name']) ?><?= $s['done_at'] ? ' ' . date('n/j H:i', strtotime($s['done_at'])) : '' ?></span><?php endif; ?>
-            <?php if ($s['x_amount'] !== null): ?><a class="who" href="ledger.php?m=<?= substr($s['x_day'], 0, 7) ?>&d=<?= h($s['x_day']) ?>#day">🧾 <?= h(mb_strimwidth($s['x_merchant'] ?: '결제', 0, 14, '…')) ?> <?= won((int) $s['x_amount'], true) ?></a><?php endif; ?></span></div>
+          <span class="tm"><?php if ($by): ?><span class="by">✓ <?= h($by['name']) ?><?= $s['done_at'] ? ' ' . date('n/j H:i', strtotime($s['done_at'])) : '' ?></span><?php endif; ?></span></div>
       </div>
     <?php endforeach; ?>
   </div>
   <form method="post" style="margin:0 6px 12px"><?= csrf_field() ?><input type="hidden" name="action" value="clear"><button class="btn small">산 것 목록에서 지우기</button></form>
 <?php endif; ?>
-<p class="small muted" style="margin:4px 6px">장 보면서 체크하면, 그 앞뒤 6시간 안에 들어온 장보기 · 생활용품 결제 메모에 산 것이 붙어요 (가계부에서 보여요).</p>
 <?php page_end('family');

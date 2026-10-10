@@ -7,7 +7,6 @@ require __DIR__ . '/lib/care.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
 require __DIR__ . '/lib/discover.php';
-require __DIR__ . '/lib/ledger.php';
 require __DIR__ . '/lib/todo.php';
 require __DIR__ . '/lib/foods.php';
 
@@ -104,10 +103,6 @@ $myAtt = $att[(int) $me['id']] ?? null;
 $todoMeds = array_values(array_filter($meds, fn($m) => !$m['taken_at']));
 $doneMeds = count($meds) - count($todoMeds);
 $homeLoc = array_values(array_filter(locations(), fn($l) => $l['role'] === 'home'));
-$monthSpent = expenses_summary(date('Y-m'))['out'];
-$todaySpent = array_sum(array_map(fn($x) => $x['kind'] === 'out' ? (int) $x['amount'] : 0, expenses_of_day($today)));
-$budget = ledger_budget();
-$toReview = (int) db()->query('SELECT COUNT(*) FROM expenses WHERE checked = 0')->fetchColumn();
 $myTodos = todos_due_today((int) $me['id']);
 $otherTodos = [];
 foreach (db()->query("SELECT owner_id, COUNT(*) n FROM todos WHERE done = 0 AND (due_day IS NULL OR due_day <= CURDATE() + INTERVAL 1 DAY) AND (owner_id IS NULL OR owner_id <> " . (int) $me['id'] . ") GROUP BY owner_id") as $r) $otherTodos[$r['owner_id'] === null ? 'both' : (int) $r['owner_id']] = (int) $r['n'];
@@ -122,7 +117,9 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
 
 <?php
 $attHome = count(array_filter($att, fn($a) => in_array($a['status'], ['home', 'late'], true)));
-$budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
+// 오늘 일정: 지금 이후 첫 일정 (종일 일정은 맨 앞)
+$nextEv = null;
+foreach ($events as $ev) if ($ev['all_day'] || strtotime($ev['end_at']) > time()) { $nextEv = $ev; break; }
 ?>
 <nav class="glance" aria-label="한눈에">
   <a href="todo.php" class="g-todo">
@@ -130,11 +127,10 @@ $budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
     <b><?= count($myTodos) ?><small>개</small></b>
     <span class="gs"><?= $myTodos ? h(mb_strimwidth($myTodos[0]['title'], 0, 16, '…')) : ($laterTodos ? '다음 할 일 ' . $laterTodos . '개' : '모두 끝냈어요') ?></span>
   </a>
-  <a href="ledger.php" class="g-money">
-    <span class="gi">💰</span><span class="gk"><?= (int) date('n') ?>월 쓴 돈</span>
-    <b><?= won($monthSpent, true) ?></b>
-    <?php if ($budgetPct !== null): ?><span class="gbar <?= $budgetPct >= 100 ? 'red' : ($budgetPct >= 80 ? 'orange' : '') ?>"><i style="width:<?= $budgetPct ?>%"></i></span><span class="gs">예산의 <?= round($budgetPct) ?>%</span>
-    <?php else: ?><span class="gs">오늘 <?= won($todaySpent, true) ?></span><?php endif; ?>
+  <a href="calendar.php" class="g-cal">
+    <span class="gi">📅</span><span class="gk">오늘 일정</span>
+    <b><?= count($events) ?><small>개</small></b>
+    <span class="gs"><?= $nextEv ? ($nextEv['all_day'] ? '' : date('G:i', strtotime($nextEv['start_at'])) . ' ') . h(mb_strimwidth($nextEv['title'], 0, 14, '…')) : ($events ? '모두 지났어요' : '일정 없음') ?></span>
   </a>
   <a href="shop.php" class="g-shop">
     <span class="gi">🛒</span><span class="gk">장보기</span>
@@ -213,12 +209,7 @@ $budgetPct = $budget ? min(100, $monthSpent / $budget * 100) : null;
       <span class="ic">📔</span><span class="grow"><b><?= date('n/j', strtotime($pl['day'])) ?> <?= h($pl['name']) ?></b> 일기 쓰기<div class="small muted">사진 · 별점 남기기</div></span><span class="more">›</span>
     </a>
   <?php endif; ?>
-  <?php if ($toReview): ?>
-    <a class="todo-row" href="ledger.php?review=1#review">
-      <span class="ic">📲</span><span class="grow"><b>카드 기록 <?= $toReview ?>건</b> 항목 확인<div class="small muted">자동으로 들어왔는데 항목을 못 정했어요</div></span><span class="more">›</span>
-    </a>
-  <?php endif; ?>
-  <?php if (!$todoMeds && $myAtt && !$pendingDiary && !$toReview && !$myTodos): ?>
+  <?php if (!$todoMeds && $myAtt && !$pendingDiary && !$myTodos): ?>
     <p class="done">🎉 오늘 할 일을 다 했어요<?= $doneMeds ? ' · 💊 약 ' . $doneMeds . '개 먹음' : '' ?></p>
   <?php elseif ($doneMeds): ?>
     <p class="small muted" style="margin:8px 0 0">💊 오늘 약 <?= $doneMeds ?>개 먹음 · <a href="meds.php">약 기록 ›</a></p>
@@ -369,7 +360,6 @@ $wdn = ['일', '월', '화', '수', '목', '금', '토'];
   <div class="panel">
     <div class="sheet-head"><h2 id="quick-title">무엇을 적을까요?</h2><button type="button" class="x" data-sheet-close aria-label="닫기">✕</button></div>
     <div class="quickgrid">
-      <a href="ledger.php?add=1#form"><span class="ic">💰</span><b>쓴 돈</b><span>가계부에 적기</span></a>
       <a href="meal_edit.php?m=<?= (int) $me['id'] ?>"><span class="ic">🍚</span><b>내 식단</b><span><?= h(MEAL_TYPES[meal_type_for_now()][0]) ?> 기록</span></a>
       <?php if ($kid0): ?><a href="meal_edit.php?m=<?= (int) $kid0['id'] ?>"><span class="ic"><?= h($kid0['emoji']) ?></span><b><?= h($kid0['name']) ?> 식단</b><span>먹은 것 기록</span></a><?php endif; ?>
       <a href="diary_edit.php?cat=daily"><span class="ic">📔</span><b>일기</b><span>사진 · 한 줄</span></a>

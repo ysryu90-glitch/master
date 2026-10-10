@@ -29,7 +29,7 @@ page_start('로그인');
 <section class="card login">
   <div class="login-logo"><img src="assets/icon.png" alt="" width="72" height="72" style="border-radius:17px;display:block;margin:0 auto"></div>
   <h2>우리집</h2>
-  <p class="small muted" style="margin:-2px 0 18px">우리 가족 할 일 · 일정 · 일기 · 가계부 · 건강</p>
+  <p class="small muted" style="margin:-2px 0 18px">우리 가족 할 일 · 일정 · 일기 · 건강</p>
   <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
   <form method="post" class="form">
     <input type="hidden" name="next" value="<?= h($next) ?>">

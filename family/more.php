@@ -4,7 +4,7 @@ require __DIR__ . '/lib/bootstrap.php';
 $me = require_login();
 $groups = [
     '가족' => [
-        ['search.php', '🔍', '찾기', '일기 · 할 일 · 일정 · 가계부를 한 번에'],
+        ['search.php', '🔍', '찾기', '일기 · 할 일 · 일정 · 장보기를 한 번에'],
         ['board/', '📺', '전광판', '아이패드에 띄우는 가족 화면'],
         ['diary_share.php', '🔗', '일기 공유', '할머니 · 할아버지께 보내는 링크'],
     ],
@@ -16,7 +16,6 @@ $groups = [
         ['settings.php#home', '🏠', '우리집', '저녁 시간 · 위치'],
         ['settings.php#calendar', '📅', 'iCloud 캘린더', '연결 · 볼 캘린더 고르기'],
         ['settings.php#discover', '🧺', '나들이 데이터', '축제 · 행사 받아오기 키'],
-        ['ledger_guide.php', '💰', '가계부 설정', '예산 · 고정 지출 · 카드 자동 입력'],
     ],
     '도움' => [
         ['check.php', '🩺', '설치 점검', 'DB · 정기 작업 · 알림 서버 상태'],

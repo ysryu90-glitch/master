@@ -3,7 +3,6 @@ require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/table.php';
 require __DIR__ . '/lib/foods.php';
 require __DIR__ . '/lib/calendar.php';
-require __DIR__ . '/lib/ledger.php';
 
 $me = require_login();
 check_csrf();
@@ -74,11 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $back .= '#shopping';
             break;
         case 'shop_toggle':
-            $pdo->prepare('UPDATE shopping SET done_at = IF(done = 0, NOW(), NULL), done = 1 - done, expense_id = IF(done = 1, expense_id, NULL) WHERE id = ?')->execute([(int) post('id')]);
-            // 산 것으로 체크하면, 앞뒤 6시간 안의 장보기 결제 메모에 붙임
-            $st = $pdo->prepare('SELECT done FROM shopping WHERE id = ?');
-            $st->execute([(int) post('id')]);
-            if ((int) $st->fetchColumn() === 1) shopping_attach_item((int) post('id'));
+            $pdo->prepare('UPDATE shopping SET done_at = IF(done = 0, NOW(), NULL), done = 1 - done WHERE id = ?')->execute([(int) post('id')]);
             $back .= '#shopping';
             break;
         case 'shop_clear':
@@ -109,7 +104,7 @@ $challenges = db()->query("SELECT food, COUNT(*) tries, SUM(reaction = 'good') g
     WHERE day > DATE_SUB(CURDATE(), INTERVAL 90 DAY) GROUP BY food HAVING SUM(reaction <> 'good') > 0 ORDER BY last DESC LIMIT 8")->fetchAll();
 
 $together = (int) db()->query("SELECT COUNT(*) FROM dinner_outcomes WHERE together = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
-$shopping = db()->query('SELECT s.*, x.merchant x_merchant, x.amount x_amount, x.day x_day FROM shopping s LEFT JOIN expenses x ON x.id = s.expense_id ORDER BY s.done, s.id DESC')->fetchAll();
+$shopping = db()->query('SELECT s.* FROM shopping s ORDER BY s.done, s.id DESC')->fetchAll();
 
 page_start('오늘 저녁', 'family');
 ?>

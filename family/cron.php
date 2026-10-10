@@ -15,9 +15,7 @@ if (!hash_equals((string) (cfg()['secret'] ?? ''), (string) ($_GET['key'] ?? '')
     exit;
 }
 calendar_refresh_if_stale();
-require_once __DIR__ . '/lib/ledger.php';
 require_once __DIR__ . '/lib/todo.php';
-if (($fixed = ledger_recurring_fill()) > 0) echo "가계부 고정 지출 {$fixed}건\n";
 
 $now = time();
 $today = today();
@@ -59,8 +57,6 @@ foreach (members('adult') as $m) {
         if ($plan) $parts[] = '저녁 ' . $plan['dish'];
         $tds = todos_due_today($id);
         if ($tds) $parts[] = '할 일 ' . count($tds) . '개' . (count($tds) <= 2 ? ': ' . implode(', ', array_map(fn($t) => $t['title'], $tds)) : '');
-        $yOut = array_sum(array_map(fn($x) => (int) $x['amount'], expenses_of_day(date('Y-m-d', strtotime('-1 day')))));
-        if ($yOut) $parts[] = '어제 쓴 돈 ' . won($yOut);
         $log[] = "$m[name] 아침 요약 → " . push_to_member($id, "☀️ 좋은 아침이에요, {$m['name']}님", implode(' · ', $parts), 'index.php', 'morning');
     }
 
@@ -85,11 +81,9 @@ foreach (members('adult') as $m) {
         $stmt = db()->prepare("SELECT COUNT(*) FROM dinner_outcomes WHERE together = 1 AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
         $stmt->execute();
         $together = (int) $stmt->fetchColumn();
-        $weekOut = (int) db()->query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE kind = 'out' AND day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
         $doneN = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 1 AND done_at > DATE_SUB(NOW(), INTERVAL 7 DAY)')->fetchColumn();
         $parts = ['함께한 저녁 ' . $together . '번'];
         if ($doneN) $parts[] = '끝낸 할 일 ' . $doneN . '개';
-        if ($weekOut) $parts[] = '쓴 돈 ' . won($weekOut, true);
         $log[] = "$m[name] 주간 리포트 → " . push_to_member($id, '📊 이번 주 가족 리포트', implode(' · ', $parts) . ' · 한 주를 돌아봐요', 'report.php', 'weekly');
     }
 
@@ -119,20 +113,6 @@ foreach ($stmt->fetchAll() as $t) {
     foreach ($targets as $mid) {
         if (!has_push($mid) || !(notify_prefs($mid)['todo'] ?? true) || !notify_once($mid, 'todo', $t['id'] . ':' . $today)) continue;
         $log[] = "할 일 알림 → " . push_to_member($mid, '✅ ' . $t['title'], $t['due_time'] . ($t['note'] !== '' ? ' · ' . $t['note'] : '') . ' · 다 하면 동그라미를 눌러 주세요', 'todo.php', 'todo' . $t['id']);
-    }
-}
-
-// 💰 이번 달 예산 80% · 100% 넘으면 한 번씩 알려 주기 (낮 시간에만)
-$budget = ledger_budget();
-if ($budget && (int) date('G') >= 9 && (int) date('G') < 21) {
-    $spent = expenses_summary(date('Y-m'))['out'];
-    $level = $spent >= $budget ? 100 : ($spent >= $budget * 0.8 ? 80 : 0);
-    if ($level) foreach (members('adult') as $m) {
-        if (!has_push((int) $m['id']) || !notify_prefs((int) $m['id'])['budget'] || !notify_once((int) $m['id'], 'budget', date('Y-m') . ':' . $level)) continue;
-        $daysLeft = (int) date('t') - (int) date('j') + 1;
-        $body = $level === 100 ? '이번 달 예산 ' . won($budget, true) . '을 ' . won($spent - $budget, true) . ' 넘었어요.'
-            : '이번 달 ' . won($spent, true) . ' 썼어요 (예산의 ' . floor($spent / $budget * 100) . '%). 남은 ' . $daysLeft . '일 동안 ' . won($budget - $spent, true) . '이에요.';
-        $log[] = "$m[name] 예산 {$level}% → " . push_to_member((int) $m['id'], $level === 100 ? '💸 예산을 넘었어요' : '💰 예산의 80%를 썼어요', $body, 'ledger.php?v=stats', 'budget');
     }
 }
 
