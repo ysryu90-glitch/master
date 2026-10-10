@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -454,6 +454,46 @@ function migrate(PDO $pdo): void
             created_at DATETIME NOT NULL,
             KEY (member_id, used)
         )",
+        // 아이 루틴 (아침 · 잘 때 체크, 다 하면 스티커)
+        "CREATE TABLE IF NOT EXISTS routines (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NOT NULL,
+            slot VARCHAR(2) NOT NULL DEFAULT 'am',
+            title VARCHAR(30) NOT NULL,
+            emoji VARCHAR(16) NOT NULL DEFAULT '✅',
+            sort INT NOT NULL DEFAULT 0
+        )",
+        "CREATE TABLE IF NOT EXISTS routine_checks (
+            routine_id INT NOT NULL,
+            day DATE NOT NULL,
+            checked_at DATETIME NOT NULL,
+            PRIMARY KEY (routine_id, day)
+        )",
+        // 가족 수첩 (사이즈 · 알레르기 · 연락처 같은 자주 찾는 정보)
+        "CREATE TABLE IF NOT EXISTS notes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NULL,
+            label VARCHAR(40) NOT NULL,
+            value VARCHAR(300) NOT NULL DEFAULT '',
+            sort INT NOT NULL DEFAULT 0,
+            updated_by INT NULL,
+            updated_at DATETIME NOT NULL
+        )",
+        // 챙길 것 목록 (여행 짐 · 나들이 준비물처럼 다시 쓰는 체크리스트)
+        "CREATE TABLE IF NOT EXISTS packlists (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(40) NOT NULL,
+            emoji VARCHAR(16) NOT NULL DEFAULT '🎒',
+            created_at DATETIME NOT NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS packitems (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            list_id INT NOT NULL,
+            name VARCHAR(60) NOT NULL,
+            done TINYINT NOT NULL DEFAULT 0,
+            sort INT NOT NULL DEFAULT 0,
+            KEY (list_id)
+        )",
         // 아이 성장 기록 (키 · 몸무게)
         "CREATE TABLE IF NOT EXISTS growth (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -703,7 +743,7 @@ function check_csrf(): void
  */
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
-    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲'], ['sticker.php', '칭찬 스티커', '⭐'], ['anniv.php', '기념일', '🎂']]],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲'], ['sticker.php', '루틴 · 스티커', '⭐'], ['anniv.php', '기념일', '🎂']]],
     'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['quotes.php', '아이 어록', '💬'], ['outing.php', '나들이 추천', '🧺']]],
     'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['growth.php', '성장', '🌱'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],

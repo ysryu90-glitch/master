@@ -92,8 +92,17 @@ $data = [
     'shopping' => $shopping,
     'todos' => $todos,
     'stickers' => array_map(fn($k) => ['name' => $k['name'], 'emoji' => $k['emoji']] + sticker_state((int) $k['id']), members('child')),
+    // 루틴은 아침 6~10시 · 저녁 5시 반~9시 반에만, 다 하면 사라짐 (할 일 칸이 비좁지 않게)
+    'routines' => array_values(array_filter(array_map(function ($k) {
+        $slot = routine_slot_now();
+        $done = routine_checked((int) $k['id'], today());
+        return ['name' => $k['name'], 'emoji' => $k['emoji'], 'slot' => ROUTINE_SLOTS[$slot][1] . ' ' . ROUTINE_SLOTS[$slot][0],
+            'items' => array_values(array_map(fn($r) => ['id' => (int) $r['id'], 'emoji' => $r['emoji'], 'title' => $r['title'], 'on' => isset($done[(int) $r['id']])],
+                array_filter(routines_of((int) $k['id']), fn($r) => $r['slot'] === $slot)))];
+    }, ((fn($m) => ($m >= 360 && $m < 600) || ($m >= 1050 && $m < 1290))((int) date('G') * 60 + (int) date('i'))) ? members('child') : []),
+        fn($k) => $k['items'] && array_filter($k['items'], fn($r) => !$r['on']))),
     'ddays' => array_map(fn($a) => ['emoji' => $a['emoji'], 'label' => $a['label'], 'dday' => $a['dday']], array_slice(anniv_upcoming(14), 0, 2)),
     'people' => $people,
     'locations' => locations(),
 ];
-json_out(['ok' => true, 'version' => md5(json_encode($data, JSON_UNESCAPED_UNICODE))] + $data);
+json_out(['ok' => true, 'version' => md5(json_encode($data, JSON_UNESCAPED_UNICODE)), 'csrf' => csrf_token()] + $data);

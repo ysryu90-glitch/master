@@ -322,7 +322,12 @@
     // 칭찬 스티커판 · 다가오는 기념일 (2주 안)
     var sk = (state.data && state.data.stickers) || [];
     var dd = (state.data && state.data.ddays) || [];
-    $('todos').innerHTML = sk.filter(function (k) { return k.count > 0 || k.done > 0; }).map(function (k) {
+    var rt = (state.data && state.data.routines) || [];
+    $('todos').innerHTML = rt.filter(function (k) { return k.items.length; }).map(function (k) {
+      return '<div class="rtline"><div class="rtl-h">' + esc(k.emoji + ' ' + k.name + ' ' + k.slot) + '</div><div class="rtl-b">' + k.items.map(function (r) {
+        return '<button type="button" class="rtb' + (r.on ? ' on' : '') + '" data-rid="' + r.id + '"><span class="e">' + esc(r.emoji) + '</span>' + esc(r.title) + '</button>';
+      }).join('') + '</div></div>';
+    }).join('') + sk.filter(function (k) { return k.count > 0 || k.done > 0; }).map(function (k) {
       var stars = ''; for (var i = 0; i < k.goal; i++) stars += i < k.count ? '⭐' : '<i class="st-empty">○</i>';
       return '<div class="todo"><span class="who">' + esc(k.emoji) + '</span><span class="tt">' + stars + '</span><span class="tm">' + (k.count >= k.goal ? '🎁 ' + esc(k.reward || '선물') + '!' : k.count + '/' + k.goal) + '</span></div>';
     }).join('') + dd.map(function (a) {
@@ -408,6 +413,23 @@
   renderClock(new Date());
   loadData();
   requestWakeLock();
+  // 아이 루틴 누르기 → 다 하면 스티커 축하
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.rtb');
+    if (!b || !state.data) return;
+    b.classList.toggle('on');
+    var fd = new FormData(); fd.append('rid', b.getAttribute('data-rid'));
+    fetch('../api/routine.php', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF': state.data.csrf || '' } })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res && res.gave) {
+          var c = document.createElement('div'); c.className = 'cheer'; c.innerHTML = '<span>⭐</span><b>다 했어요! 스티커 한 장!</b>';
+          document.body.appendChild(c); setTimeout(function () { c.remove(); }, 3500);
+        }
+        state.version = null; loadData();
+      }).catch(function () { b.classList.toggle('on'); });
+  });
+
   setInterval(tick, 1000);
   setInterval(loadData, POLL_MS);
   setInterval(loadWeather, WEATHER_MS);

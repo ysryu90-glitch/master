@@ -1,5 +1,5 @@
 <?php
-// 가족 › 칭찬 스티커: 잘한 일에 스티커 한 장, 목표만큼 모으면 약속한 선물 (전광판에도 보임)
+// 가족 › 루틴 · 스티커: 아침 · 잘 때 루틴 체크(다 하면 스티커), 잘한 일에 스티커 한 장, 목표만큼 모으면 선물 (전광판에도 보임)
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/sticker.php';
 
@@ -14,6 +14,19 @@ $ajax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
     $kidId = (int) $kid['id'];
     switch (post('action')) {
+        case 'rtoggle':
+            [$on, $complete, $gave] = routine_toggle((int) post('rid'), (int) $me['id']);
+            if ($ajax) json_out(['ok' => true, 'checked' => $on, 'complete' => $complete, 'gave' => $gave]);
+            if ($gave) flash('🎉 루틴을 다 해서 스티커를 한 장 붙였어요!');
+            redirect('sticker.php?m=' . $kidId . '&slot=' . (post('slot') === 'pm' ? 'pm' : 'am'));
+        case 'radd':
+            $t = mb_substr(trim(post('title')), 0, 30);
+            $slot = post('slot') === 'pm' ? 'pm' : 'am';
+            if ($t !== '') db()->prepare('INSERT INTO routines (member_id, slot, title, emoji, sort) VALUES (?, ?, ?, ?, 99)')->execute([$kidId, $slot, $t, mb_substr(trim(post('emoji')), 0, 4) ?: '✅']);
+            redirect('sticker.php?m=' . $kidId . '&slot=' . $slot . '#routine-edit');
+        case 'rdel':
+            db()->prepare('DELETE FROM routines WHERE id = ? AND member_id = ?')->execute([(int) post('rid'), $kidId]);
+            redirect('sticker.php?m=' . $kidId . '&slot=' . (post('slot') === 'pm' ? 'pm' : 'am') . '#routine-edit');
         case 'add':
             $reason = mb_substr(trim(post('reason')), 0, 60);
             db()->prepare('INSERT INTO stickers (member_id, reason, created_by, created_at) VALUES (?, ?, ?, NOW())')->execute([$kidId, $reason, $me['id']]);
@@ -43,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
     redirect('sticker.php?m=' . $kidId);
 }
 
-page_start('칭찬 스티커', 'family');
+page_start('루틴 · 스티커', 'family');
 if (!$kid): ?>
   <section class="card tempty"><div class="big">⭐</div><b>아이가 없어요</b><p class="small muted">설정에서 아이를 추가해 주세요.</p></section>
 <?php page_end('family'); exit; endif;
@@ -55,8 +68,28 @@ $recent = $recent->fetchAll();
 $names = [];
 foreach (members() as $m) $names[(int) $m['id']] = $m;
 $full = $st['count'] >= $st['goal'];
+$slot = in_array($_GET['slot'] ?? '', ['am', 'pm'], true) ? $_GET['slot'] : routine_slot_now();
+$routines = routines_of((int) $kid['id']);
+$checked = routine_checked((int) $kid['id'], today());
+$slotItems = array_values(array_filter($routines, fn($r) => $r['slot'] === $slot));
+$slotDone = count(array_filter($slotItems, fn($r) => isset($checked[(int) $r['id']])));
 ?>
 <?php if (count($kids) > 1): ?><nav class="chips" style="margin-bottom:10px"><?php foreach ($kids as $k): ?><a class="chip<?= (int) $k['id'] === (int) $kid['id'] ? ' on' : '' ?>" href="sticker.php?m=<?= (int) $k['id'] ?>"><?= h($k['emoji'] . ' ' . $k['name']) ?></a><?php endforeach; ?></nav><?php endif; ?>
+
+<section class="card rtcard">
+  <div class="card-head"><h2><?= ROUTINE_SLOTS[$slot][1] ?> <?= h($kid['name']) ?> <?= ROUTINE_SLOTS[$slot][0] ?></h2><span class="small muted"><?= $slotDone ?> / <?= count($slotItems) ?></span></div>
+  <div class="segmented dcat" style="margin-bottom:12px">
+    <?php foreach (ROUTINE_SLOTS as $k => [$sl, $si]): ?><a href="sticker.php?m=<?= (int) $kid['id'] ?>&slot=<?= $k ?>" class="<?= $k === $slot ? 'on' : '' ?>"><?= $si ?> <?= $sl ?></a><?php endforeach; ?>
+  </div>
+  <div class="rtgrid">
+    <?php foreach ($slotItems as $r): $on = isset($checked[(int) $r['id']]); ?>
+      <form method="post" class="rt-f"><?= csrf_field() ?><input type="hidden" name="action" value="rtoggle"><input type="hidden" name="member_id" value="<?= (int) $kid['id'] ?>"><input type="hidden" name="slot" value="<?= $slot ?>"><input type="hidden" name="rid" value="<?= (int) $r['id'] ?>">
+        <button class="rt<?= $on ? ' on' : '' ?>" aria-pressed="<?= $on ? 'true' : 'false' ?>"><span class="e"><?= h($r['emoji']) ?></span><span class="t"><?= h($r['title']) ?></span></button>
+      </form>
+    <?php endforeach; ?>
+  </div>
+  <p class="small muted" style="margin:10px 0 0"><?= $slotItems && $slotDone === count($slotItems) ? '🎉 다 했어요! 스티커 한 장이 붙었어요.' : '다 하면 스티커가 저절로 한 장 붙어요. 전광판에서도 누를 수 있어요.' ?></p>
+</section>
 
 <section class="card stboard">
   <div class="card-head"><h2><?= h($kid['emoji']) ?> <?= h($kid['name']) ?> 스티커판</h2><span class="small muted"><?= $st['count'] ?> / <?= $st['goal'] ?></span></div>
@@ -87,6 +120,21 @@ $full = $st['count'] >= $st['goal'];
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
+
+<details class="card fold" id="routine-edit"<?= isset($_GET['slot']) && str_contains($_SERVER['REQUEST_URI'] ?? '', 'routine') ? ' open' : '' ?>>
+  <summary><h2>✏️ 루틴 고치기</h2></summary>
+  <?php foreach (ROUTINE_SLOTS as $k => [$sl, $si]): ?>
+    <h3 style="margin:14px 0 6px"><?= $si ?> <?= $sl ?></h3>
+    <div class="chips">
+      <?php foreach (array_filter($routines, fn($r) => $r['slot'] === $k) as $r): ?><form method="post" class="rchip" data-confirm="「<?= h($r['title']) ?>」을(를) 뺄까요?"><?= csrf_field() ?><input type="hidden" name="action" value="rdel"><input type="hidden" name="member_id" value="<?= (int) $kid['id'] ?>"><input type="hidden" name="slot" value="<?= $k ?>"><input type="hidden" name="rid" value="<?= (int) $r['id'] ?>"><span><?= h($r['emoji'] . ' ' . $r['title']) ?></span><button aria-label="빼기">✕</button></form><?php endforeach; ?>
+    </div>
+  <?php endforeach; ?>
+  <form method="post" class="form" style="margin-top:12px"><?= csrf_field() ?><input type="hidden" name="action" value="radd"><input type="hidden" name="member_id" value="<?= (int) $kid['id'] ?>">
+    <div class="grid2"><label>언제<select name="slot"><?php foreach (ROUTINE_SLOTS as $k => [$sl, $si]): ?><option value="<?= $k ?>"<?= $k === $slot ? ' selected' : '' ?>><?= $si ?> <?= $sl ?></option><?php endforeach; ?></select></label><label>이모지<input name="emoji" maxlength="4" placeholder="💧"></label></div>
+    <label>할 것<input name="title" maxlength="30" required placeholder="예: 물 마시기, 신발 정리"></label>
+    <button class="btn primary wide">루틴에 넣기</button>
+  </form>
+</details>
 
 <details class="card fold">
   <summary><h2>⚙︎ 목표 · 선물 바꾸기</h2></summary>
