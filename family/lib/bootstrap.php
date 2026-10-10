@@ -704,7 +704,7 @@ function check_csrf(): void
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
     'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '오늘 저녁', '🍲'], ['sticker.php', '칭찬 스티커', '⭐'], ['anniv.php', '기념일', '🎂']]],
-    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
+    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['quotes.php', '아이 어록', '💬'], ['outing.php', '나들이 추천', '🧺']]],
     'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meals.php', '식단', '🍚'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['growth.php', '성장', '🌱'], ['report.php', '리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
 ];
@@ -718,7 +718,7 @@ const NAV_PAGES = [
     'todo.php' => ['family', 'todo.php'], 'shop.php' => ['family', 'shop.php'],
     'table.php' => ['family', 'table.php'], 'meals.php' => ['health', 'meals.php'], 'meal_edit.php' => ['health', 'meals.php'],
     'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
-    'outing.php' => ['diary', 'outing.php'], 'diary_share.php' => ['diary', 'diary.php'],
+    'outing.php' => ['diary', 'outing.php'], 'quotes.php' => ['diary', 'quotes.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
     'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'sticker.php' => ['family', 'sticker.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],

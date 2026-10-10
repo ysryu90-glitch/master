@@ -388,6 +388,7 @@ $mem = $memId ? diary_entry((int) $memId) : null;
       <a href="diary_edit.php?cat=daily"><span class="ic">📔</span><b>일기</b><span>사진 · 한 줄</span></a>
       <?php if ($kid0): ?><a href="sick.php?m=<?= (int) $kid0['id'] ?>"><span class="ic">🌡</span><b>체온 · 해열제</b><span><?= h($kid0['name']) ?> 아플 때</span></a><?php endif; ?>
       <a href="todo.php"><span class="ic">✅</span><b>할 일</b><span>나 · 가족에게</span></a>
+      <?php if ($kid0): ?><a href="sticker.php?m=<?= (int) $kid0['id'] ?>"><span class="ic">⭐</span><b>칭찬 스티커</b><span><?= h($kid0['name']) ?> 잘한 일</span></a><?php endif; ?>
       <a href="shop.php"><span class="ic">🛒</span><b>장보기</b><span>살 것 적기</span></a>
     </div>
   </div>
