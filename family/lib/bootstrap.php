@@ -761,7 +761,7 @@ const NAV_PAGES = [
     'outing.php' => ['diary', 'outing.php'], 'quotes.php' => ['diary', 'quotes.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
-    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'sticker.php' => ['family', 'sticker.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'notes.php' => ['more', 'more.php'], 'shortcut.php' => ['health', 'health.php'],
+    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'sticker.php' => ['family', 'sticker.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'notes.php' => ['more', 'more.php'], 'pack.php' => ['family', 'shop.php'], 'shortcut.php' => ['health', 'health.php'],
 ];
 
 /** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */

@@ -51,6 +51,7 @@ $frequent = array_values(array_diff($frequent, array_column($todo, 'name')));
 
 page_start('장보기', 'family');
 ?>
+<div class="segmented dcat" style="margin-bottom:14px"><a href="shop.php" class="on">🛒 장보기</a><a href="pack.php">🎒 챙길 것</a></div>
 <form method="post" class="tadd" id="quickadd">
   <?= csrf_field() ?><input type="hidden" name="action" value="add">
   <input name="names" placeholder="살 것 추가 · 예: 두부, 우유, 계란" autocomplete="off" enterkeyhint="done" required>

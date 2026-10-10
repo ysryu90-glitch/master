@@ -268,6 +268,7 @@ $allDays = array_merge($days, $nextWeekend);
   <?php endif; ?>
   <?php if (!empty($plansByDay[$d])): ?>
     <div class="planrow" style="border:0;padding-top:0"><b class="d">📌 가기로 한 곳</b><span class="chips"><?php foreach ($plansByDay[$d] as $pl): ?><form method="post" class="planchip" data-confirm="<?= h($pl['name']) ?> 나들이를 취소할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= (int) $pl['id'] ?>"><span><?= h($pl['name']) ?></span><button aria-label="취소" title="취소">✕</button></form><?php endforeach; ?></span></div>
+    <p class="small" style="margin:-4px 0 10px"><a href="pack.php">🎒 나들이 준비물 챙기기 ›</a></p>
   <?php endif; ?>
   <?php if ($ctx['events']): ?>
     <p class="small">📅 <?= h(implode(' · ', array_map(fn($e) => ($e['all_day'] ? '' : substr($e['start_at'], 11, 5) . ' ') . $e['title'], $ctx['events']))) ?></p>
