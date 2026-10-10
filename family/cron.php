@@ -86,6 +86,8 @@ foreach (members('adult') as $m) {
         $doneN = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 1 AND done_at > DATE_SUB(NOW(), INTERVAL 7 DAY)')->fetchColumn();
         $parts = ['함께한 저녁 ' . $together . '번'];
         if ($doneN) $parts[] = '끝낸 할 일 ' . $doneN . '개';
+        $stN = (int) db()->query('SELECT COUNT(*) FROM stickers WHERE created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)')->fetchColumn();
+        if ($stN) $parts[] = '칭찬 스티커 ' . $stN . '개';
         $log[] = "$m[name] 주간 리포트 → " . push_to_member($id, '📊 이번 주 가족 리포트', implode(' · ', $parts) . ' · 한 주를 돌아봐요', 'report.php', 'weekly');
     }
 

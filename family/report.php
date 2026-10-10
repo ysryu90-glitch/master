@@ -125,6 +125,18 @@ page_start('주간 리포트', 'family');
 <?php endif; ?>
 
 <?php
+// 이번 주 칭찬 스티커
+$stmt = db()->prepare('SELECT s.member_id, m.name, m.emoji, COUNT(*) n, GROUP_CONCAT(NULLIF(s.reason, "") ORDER BY s.id SEPARATOR "|") reasons FROM stickers s JOIN members m ON m.id = s.member_id WHERE DATE(s.created_at) BETWEEN ? AND ? GROUP BY s.member_id');
+$stmt->execute([$monday, $sunday]);
+foreach ($stmt->fetchAll() as $sk):
+    $rs = array_count_values(array_filter(explode('|', (string) $sk['reasons']))); arsort($rs); ?>
+<section class="card">
+  <div class="card-head"><h2>⭐ <?= h($sk['name']) ?> 칭찬 스티커 <?= (int) $sk['n'] ?>개</h2><a class="more" href="sticker.php?m=<?= (int) $sk['member_id'] ?>">스티커판 ›</a></div>
+  <?php if ($rs): ?><div class="chips"><?php foreach (array_slice($rs, 0, 6, true) as $r => $c): ?><span class="chip"><?= h($r) ?><?= $c > 1 ? ' ×' . $c : '' ?></span><?php endforeach; ?></div><?php endif; ?>
+</section>
+<?php endforeach; ?>
+
+<?php
 // 이번 주 할 일: 누가 몇 개 했는지 · 남은 것
 $stmt = db()->prepare('SELECT done_by, COUNT(*) n FROM todos WHERE done = 1 AND DATE(done_at) BETWEEN ? AND ? GROUP BY done_by ORDER BY n DESC');
 $stmt->execute([$monday, $sunday]);
