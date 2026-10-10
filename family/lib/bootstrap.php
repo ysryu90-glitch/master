@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -525,6 +525,8 @@ function migrate(PDO $pdo): void
     $pdo->exec('ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS recurring TINYINT NOT NULL DEFAULT 0');
     $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS occ VARCHAR(30) NOT NULL DEFAULT ''");
     $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS note VARCHAR(500) NOT NULL DEFAULT ''");
+    // 반복 할 일을 번갈아 (다 하면 다음 차례는 다른 사람)
+    $pdo->exec('ALTER TABLE todos ADD COLUMN IF NOT EXISTS rotate TINYINT NOT NULL DEFAULT 0');
     $pdo->prepare("REPLACE INTO settings (k, v) VALUES ('schema_version', ?)")->execute([(string) SCHEMA_VERSION]);
 }
 

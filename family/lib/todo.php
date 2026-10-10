@@ -103,8 +103,17 @@ function todo_toggle(int $id, int $meId): ?array
         $step = ['daily' => '+1 day', 'weekly' => '+1 week', 'monthly' => '+1 month'][$t['repeat_rule']];
         $next = date('Y-m-d', strtotime($base . ' ' . $step));
         while ($next < today()) $next = date('Y-m-d', strtotime($next . ' ' . $step)); // 오래 밀린 반복은 오늘 이후로
-        db()->prepare('INSERT INTO todos (title, note, owner_id, due_day, due_time, repeat_rule, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())')
-            ->execute([$t['title'], $t['note'], $t['owner_id'], $next, $t['due_time'], $t['repeat_rule'], $t['created_by']]);
+        // 번갈아: 다음 차례는 다른 어른 (같이 · 아이 몫이면 그대로)
+        $owner = $t['owner_id'];
+        if (!empty($t['rotate']) && $owner) {
+            $others = array_values(array_filter(members('adult'), fn($a) => (int) $a['id'] !== (int) $owner));
+            if ($others) {
+                $owner = (int) $others[0]['id'];
+                todo_notify([$owner], '🔄 다음은 ' . $others[0]['name'] . '님 차례예요', $t['title'] . ' · ' . date('n/j', strtotime($next)) . ($t['due_time'] ? ' ' . $t['due_time'] : ''), 'todo');
+            }
+        }
+        db()->prepare('INSERT INTO todos (title, note, owner_id, due_day, due_time, repeat_rule, rotate, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())')
+            ->execute([$t['title'], $t['note'], $owner, $next, $t['due_time'], $t['repeat_rule'], (int) ($t['rotate'] ?? 0), $t['created_by']]);
     }
     return $t + ['now_done' => true, 'next' => $next];
 }

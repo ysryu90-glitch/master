@@ -27,13 +27,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $owner = post('owner') === 'both' ? null : ((int) post('owner') ?: (int) $me['id']);
             $repeat = isset(TODO_REPEATS[post('repeat')]) ? post('repeat') : '';
             if ($repeat && !$day) $day = today();
+            $rotate = $repeat && post('rotate') ? 1 : 0;
             if ($id) {
-                db()->prepare('UPDATE todos SET title = ?, note = ?, owner_id = ?, due_day = ?, due_time = ?, repeat_rule = ? WHERE id = ?')
-                    ->execute([mb_substr($title, 0, 200), mb_substr(post('note'), 0, 500), $owner, $day, $time, $repeat, $id]);
+                db()->prepare('UPDATE todos SET title = ?, note = ?, owner_id = ?, due_day = ?, due_time = ?, repeat_rule = ?, rotate = ? WHERE id = ?')
+                    ->execute([mb_substr($title, 0, 200), mb_substr(post('note'), 0, 500), $owner, $day, $time, $repeat, $rotate, $id]);
                 flash('고쳤어요.');
             } else {
-                db()->prepare('INSERT INTO todos (title, note, owner_id, due_day, due_time, repeat_rule, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())')
-                    ->execute([mb_substr($title, 0, 200), mb_substr(post('note'), 0, 500), $owner, $day, $time, $repeat, $me['id']]);
+                db()->prepare('INSERT INTO todos (title, note, owner_id, due_day, due_time, repeat_rule, rotate, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())')
+                    ->execute([mb_substr($title, 0, 200), mb_substr(post('note'), 0, 500), $owner, $day, $time, $repeat, $rotate, $me['id']]);
                 // 가족에게 알림: 맡긴 사람에게 · 「같이」면 다른 사람 모두에게
                 $when = $day ? ' · ' . todo_day_label($day) . ($time ? ' ' . $time : '') : '';
                 if ($owner && $owner !== (int) $me['id']) todo_notify([$owner], '✅ ' . $me['name'] . '님이 부탁했어요', $title . $when);
@@ -80,7 +81,7 @@ foreach ($list as $t) {
     if ((int) $t['done']) $doneList[] = $t; else $groups[todo_bucket($t)][] = $t;
 }
 $openCount = count($list) - count($doneList);
-$f = $edit ?? ['id' => 0, 'title' => '', 'note' => '', 'owner_id' => $me['id'], 'due_day' => null, 'due_time' => null, 'repeat_rule' => ''];
+$f = $edit ?? ['id' => 0, 'title' => '', 'note' => '', 'owner_id' => $me['id'], 'due_day' => null, 'due_time' => null, 'repeat_rule' => '', 'rotate' => 0];
 
 function todo_row(array $t, array $names, int $meId, string $who): void
 {
@@ -94,7 +95,7 @@ function todo_row(array $t, array $names, int $meId, string $who): void
         <span class="tt"><?= h($t['title']) ?></span>
         <span class="tm">
           <?php if ($t['due_day']): ?><span class="<?= $late ? 'late' : '' ?>"><?= h(todo_day_label($t['due_day'])) ?><?= $t['due_time'] ? ' ' . h($t['due_time']) : '' ?></span><?php endif; ?>
-          <?php if ($t['repeat_rule']): ?><span>🔁 <?= h(TODO_REPEATS[$t['repeat_rule']] ?? '') ?></span><?php endif; ?>
+          <?php if ($t['repeat_rule']): ?><span>🔁 <?= h(TODO_REPEATS[$t['repeat_rule']] ?? '') ?><?= !empty($t['rotate']) ? ' · 번갈아' : '' ?></span><?php endif; ?>
           <?php if (!$t['owner_id']): ?><span class="who both">👨‍👩‍👧 같이</span><?php elseif ($owner): ?><span class="who<?= (int) $t['owner_id'] === $meId ? ' me' : '' ?>"><?= h($owner['emoji'] . ' ' . ((int) $t['owner_id'] === $meId ? '나' : $owner['name'])) ?></span><?php endif; ?>
           <?php if ($t['done'] && $t['done_by'] && isset($names[(int) $t['done_by']])): ?><span class="by">✓ <?= h($names[(int) $t['done_by']]['name']) ?> <?= h(date('H:i', strtotime($t['done_at']))) ?></span><?php elseif ($t['created_by'] && (int) $t['created_by'] !== $meId && isset($names[(int) $t['created_by']])): ?><span class="by"><?= h($names[(int) $t['created_by']]['name']) ?>님이 적음</span><?php endif; ?>
           <?php if ($t['note'] !== ''): ?><span>📝 <?= h(mb_strimwidth($t['note'], 0, 30, '…')) ?></span><?php endif; ?>
@@ -172,6 +173,7 @@ page_start('할 일', 'home');
         <option value="both"<?= !$f['owner_id'] ? ' selected' : '' ?>>👨‍👩‍👧 같이 (누구든)</option>
       </select></label>
       <label>반복<select name="repeat"><?php foreach (TODO_REPEATS as $k => $lbl): ?><option value="<?= $k ?>"<?= $f['repeat_rule'] === $k ? ' selected' : '' ?>><?= h($lbl) ?></option><?php endforeach; ?></select></label>
+      <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="rotate" value="1" style="width:auto;margin:0" <?= !empty($f['rotate']) ? 'checked' : '' ?>> 🔄 번갈아 하기 (반복할 때, 다 하면 다음은 다른 사람 차례)</label>
       <label>메모<input name="note" value="<?= h($f['note']) ?>" placeholder="예: 영수증 챙기기"></label>
       <button class="btn primary wide">저장</button>
     </form>
