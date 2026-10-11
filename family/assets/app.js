@@ -420,7 +420,12 @@
 
 /* 아래에서 올라오는 창 (data-open-sheet="id" 로 열고, 바깥 · ✕ · Esc 로 닫기) */
 (function () {
-  function close(sh) { sh.hidden = true; document.body.classList.remove('noscroll'); }
+  function close(sh) {
+    if (sh.classList.contains('closing') || sh.hidden) return;
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sh.classList.add('closing');
+    setTimeout(function () { sh.hidden = true; sh.classList.remove('closing'); document.body.classList.remove('noscroll'); }, reduce ? 0 : 260);
+  }
   document.addEventListener('click', function (e) {
     var op = e.target.closest('[data-open-sheet]');
     if (op) {
@@ -477,6 +482,7 @@
     if (dy <= 0 || window.scrollY > 0) { ind.style.opacity = 0; return; }
     var p = Math.min(dy / LIMIT, 1);
     ind.style.opacity = p; ind.style.transform = 'translate(-50%,' + Math.min(dy * 0.5, 50) + 'px) rotate(' + (p * 180) + 'deg)';
+    if (p >= 1 && !ind.classList.contains('ready') && window.haptic) haptic();
     ind.classList.toggle('ready', p >= 1);
   }, { passive: true });
   document.addEventListener('touchend', function () {
@@ -511,4 +517,105 @@
   var on = false;
   function f() { var s = window.scrollY > 4; if (s !== on) { on = s; document.body.classList.toggle('scrolled', s); } }
   window.addEventListener('scroll', f, { passive: true }); f();
+})();
+
+/* ═══════════ 애플 디테일: 햅틱 · 떠 있는 알림 · 작아지는 제목 · 탭 바운스 · 시트 끌어 닫기 · 쓸어서 뒤로 ═══════════ */
+(function () {
+  // 햅틱: 안드로이드는 진동, 아이폰(iOS 18+)은 스위치 체크박스를 누를 때 나는 탁 소리 같은 떨림을 빌려 씀
+  var hl = null;
+  window.haptic = function () {
+    try {
+      if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+      if (navigator.vibrate) { navigator.vibrate(8); return; }
+      if (!hl) {
+        hl = document.createElement('label'); hl.setAttribute('aria-hidden', 'true');
+        hl.style.cssText = 'position:fixed;left:-200px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+        var i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); i.tabIndex = -1;
+        hl.appendChild(i); document.body.appendChild(hl);
+      }
+      hl.click();
+    } catch (e) {}
+  };
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // 누를 때 햅틱: 체크 동그라미 · 루틴 · 아래 탭 · 시트 열기 · 스티커
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('.tcheck, .rt, .rtb, [data-open-sheet], .stadd .tadd-btn, .segmented label, .tabbar a');
+    if (!t) return;
+    haptic();
+    if (t.matches('.tabbar a') && !t.classList.contains('on')) {
+      document.querySelectorAll('.tabbar a.on').forEach(function (a) { a.classList.remove('on'); });
+      t.classList.add('on', 'bounce');
+    }
+  }, true);
+
+  // 떠 있는 알림: 위에서 내려와 3초 뒤 올라감, 누르거나 위로 밀면 바로 닫힘
+  var fl = document.querySelector('.page > .flash');
+  if (fl) {
+    document.body.appendChild(fl); fl.classList.add('toast'); fl.setAttribute('role', 'status');
+    if (/했어요|넣었어요|저장|붙였어요|기록|바꿨어요|정했어요/.test(fl.textContent)) setTimeout(haptic, 250);
+    var gone = false, hide = function () { if (gone) return; gone = true; fl.classList.add('out'); setTimeout(function () { fl.remove(); }, 400); };
+    var timer = setTimeout(hide, Math.min(6000, 2600 + fl.textContent.length * 40));
+    fl.addEventListener('click', hide);
+    var ty = null;
+    fl.addEventListener('touchstart', function (e) { ty = e.touches[0].clientY; clearTimeout(timer); }, { passive: true });
+    fl.addEventListener('touchmove', function (e) { if (ty !== null && e.touches[0].clientY - ty < -12) hide(); }, { passive: true });
+  }
+
+  // 스크롤하면 큰 제목이 가운데 작은 제목으로
+  var col = false;
+  function onScroll() { var c = window.scrollY > 36; if (c !== col) { col = c; document.body.classList.toggle('collapsed', c); } }
+  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+  // 시트: 손잡이 쪽을 아래로 끌면 닫힘
+  document.addEventListener('touchstart', function (e) {
+    var panel = e.target.closest && e.target.closest('.sheet:not(#form) .panel');
+    if (!panel || panel.scrollTop > 0 || (e.target.closest('input, textarea, select'))) return;
+    var y0 = e.touches[0].clientY, t0 = Date.now(), dy = 0;
+    function mv(ev) {
+      dy = Math.max(0, ev.touches[0].clientY - y0);
+      if (dy > 0 && panel.scrollTop <= 0) { panel.style.transition = 'none'; panel.style.transform = 'translateY(' + dy + 'px)'; }
+    }
+    function end() {
+      document.removeEventListener('touchmove', mv); document.removeEventListener('touchend', end);
+      var fast = dy / Math.max(1, Date.now() - t0) > 0.6;
+      if (dy > 110 || (fast && dy > 30)) {
+        haptic();
+        panel.style.transition = 'transform 0.25s cubic-bezier(.2,.8,.2,1)'; panel.style.transform = 'translateY(100%)';
+        setTimeout(function () { panel.style.transform = ''; panel.style.transition = ''; var sh = panel.closest('.sheet'); sh.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, 230);
+      } else {
+        panel.style.transition = 'transform 0.45s var(--spring)'; panel.style.transform = '';
+        setTimeout(function () { panel.style.transition = ''; }, 460);
+      }
+    }
+    document.addEventListener('touchmove', mv, { passive: true }); document.addEventListener('touchend', end);
+  }, { passive: true });
+
+  // 쓸어서 뒤로 가기: 뒤로 단추가 있는 화면에서 왼쪽 끝을 오른쪽으로 밀기
+  var back = document.querySelector('.topbar-title .back');
+  var shell = document.querySelector('.shell');
+  if (back && shell && !reduce && window.innerWidth < 960) {
+    var x0 = null, y0 = 0, dx = 0, t0 = 0, lock = null;
+    document.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1 || e.touches[0].clientX > 24 || document.querySelector('.sheet:not([hidden])')) return;
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; t0 = Date.now(); lock = null;
+    }, { passive: true });
+    document.addEventListener('touchmove', function (e) {
+      if (x0 === null) return;
+      var mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+      if (lock === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) lock = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+      if (lock !== 'x') return;
+      dx = Math.max(0, mx); shell.classList.add('swiping'); shell.style.transform = 'translateX(' + dx + 'px)';
+    }, { passive: true });
+    document.addEventListener('touchend', function () {
+      if (x0 === null) return;
+      var go = lock === 'x' && (dx > window.innerWidth * 0.33 || (dx > 40 && dx / Math.max(1, Date.now() - t0) > 0.5));
+      shell.classList.remove('swiping'); shell.classList.add('swipe-back');
+      if (go) { haptic(); shell.style.transform = 'translateX(100%)'; setTimeout(function () { back.click(); }, 220); }
+      else { shell.style.transform = ''; setTimeout(function () { shell.classList.remove('swipe-back'); }, 460); }
+      x0 = null; lock = null;
+    }, { passive: true });
+    // 뒤로 간 화면이 캐시에서 돌아오면 원래 자리로
+    window.addEventListener('pageshow', function () { shell.style.transform = ''; shell.classList.remove('swipe-back', 'swiping'); });
+  }
 })();
