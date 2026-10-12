@@ -27,6 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'answer') {
     redirect('index.php#question');
 }
 
+// 시작하기 체크리스트 닫기
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'onboard_hide') {
+    set_setting('onboard_hide_' . $me['id'], 1);
+    redirect('index.php');
+}
+
 // 오늘 저녁 출석 바로 바꾸기
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset(ATTENDANCE[post('status')])) {
     db()->prepare('REPLACE INTO dinner_attendance (day, member_id, status, late_time, updated_at) VALUES (?, ?, ?, ?, NOW())')
@@ -100,6 +106,41 @@ $laterTodos = (int) db()->query('SELECT COUNT(*) FROM todos WHERE done = 0 AND (
   <h1><?= $greet ?>, <?= h($me['name']) ?>님</h1>
   <?php if ($homeLoc): ?><div class="wxmini" data-weather='<?= h(json_encode($homeLoc, JSON_UNESCAPED_UNICODE)) ?>' data-compact><span class="muted small">날씨 불러오는 중…</span></div><?php endif; ?>
 </section>
+
+<?php
+// 🚀 시작하기: 새로 설치한 가족이 해 두면 좋은 것 (다 하거나 닫으면 사라짐)
+$onboard = [];
+if (!setting('onboard_hide_' . $me['id'])) {
+    require_once __DIR__ . '/lib/push.php';
+    $kid1 = members('child')[0] ?? null;
+    $st = db()->prepare('SELECT COUNT(*) FROM sessions WHERE member_id <> ? AND member_id IN (SELECT id FROM members WHERE role = \'adult\')');
+    $st->execute([$me['id']]);
+    $onboard = [
+        ['📲', '홈 화면에 추가하기', '사파리 공유 버튼 › 「홈 화면에 추가」', 'settings.php#notify', null],
+        ['🔔', '이 폰으로 알림 받기', '가족 소식 · 반복 알림 · 할 일 부탁이 와요', 'settings.php#notify', has_push((int) $me['id'])],
+        ['👫', '배우자도 로그인하기', '같은 주소로 들어와 자기 이름으로 로그인', 'more.php', (int) $st->fetchColumn() > 0],
+        ['🎂', ($kid1 ? $kid1['name'] . ' 생일' : '가족 생일') . ' 적기', 'D-day와 나이 · 개월이 보여요', 'anniv.php', (bool) db()->query("SELECT COUNT(*) FROM anniversaries WHERE kind = 'birthday'")->fetchColumn()],
+        ['⏰', '반복 알림 하나 만들기', '약 · 영양제 · 유산균 같은 매일 챙길 것', 'remind.php', (bool) db()->query('SELECT COUNT(*) FROM medications WHERE active = 1')->fetchColumn()],
+        ['📅', 'iCloud 캘린더 연결 (선택)', '가족 일정이 홈 · 전광판에 함께 보여요', 'settings.php#calendar', (bool) setting('icloud_user')],
+    ];
+    $left = array_filter($onboard, fn($o) => $o[4] !== true);
+    if (count($left) <= 1 && !array_filter($left, fn($o) => $o[4] === false)) $onboard = []; // 홈 화면 추가만 남으면(확인 불가) 숨김
+}
+?>
+<?php if ($onboard): $doneN = count(array_filter($onboard, fn($o) => $o[4] === true)); ?>
+<section class="card onboard">
+  <div class="card-head"><h2>🚀 시작하기 <span class="small muted"><?= $doneN ?>/<?= count($onboard) ?></span></h2>
+    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="onboard_hide"><button class="obx" aria-label="닫기">✕</button></form></div>
+  <div class="meter" style="height:6px;margin:-2px 0 8px"><i style="width:<?= $doneN / count($onboard) * 100 ?>%"></i></div>
+  <?php foreach ($onboard as [$ic, $t, $sub, $url, $ok]): ?>
+    <a class="obrow<?= $ok === true ? ' ok' : '' ?>"<?= $ok === null ? ' data-standalone' : '' ?> href="<?= h($url) ?>"><span class="obc"></span><span class="grow"><b><?= $ic ?> <?= h($t) ?></b><span class="small muted"><?= h($sub) ?></span></span><span class="chev">›</span></a>
+  <?php endforeach; ?>
+</section>
+<script>
+// 홈 화면 앱으로 열었으면 첫 줄 체크
+if (window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) document.querySelectorAll('[data-standalone]').forEach(function (a) { a.classList.add('ok'); });
+</script>
+<?php endif; ?>
 
 <?php
 $attHome = count(array_filter($att, fn($a) => in_array($a['status'], ['home', 'late'], true)));

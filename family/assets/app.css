@@ -1196,3 +1196,11 @@ a.fitem:active { background: var(--card-2); }
 body:has(main.bare) .topbar { display: none; }
 main.bare { padding-top: calc(20px + env(safe-area-inset-top)); }
 @media (min-width: 960px) { .home-cols > .memory { display: flex; } }
+/* 시작하기 체크리스트 */
+.onboard { background: linear-gradient(150deg, color-mix(in srgb, var(--blue) 9%, var(--card)), var(--card) 60%); }
+.onboard .obx { border: 0; background: var(--card-2); color: var(--sub); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 12px; }
+.obrow { display: flex; align-items: center; gap: 12px; padding: 10px 0; color: var(--text); text-decoration: none; border-top: var(--hair) solid var(--line); }
+.obrow b { display: block; font-size: 15px; }
+.obc { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--dim); }
+.obrow.ok .obc { border-color: var(--accent); background: var(--accent) no-repeat center / 13px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+.obrow.ok b { color: var(--sub); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--sub) 50%, transparent); }
