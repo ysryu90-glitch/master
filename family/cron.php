@@ -16,6 +16,7 @@ if (!hash_equals((string) (cfg()['secret'] ?? ''), (string) ($_GET['key'] ?? '')
 calendar_refresh_if_stale();
 require_once __DIR__ . '/lib/todo.php';
 require_once __DIR__ . '/lib/days.php';
+require_once __DIR__ . '/lib/question.php';
 
 $now = time();
 $today = today();
@@ -66,13 +67,15 @@ foreach (members('adult') as $m) {
         $tds = todos_due_today($id);
         foreach (anniv_upcoming(7) as $a) if (in_array($a['dday'], [0, 1, 7], true)) $parts[] = $a['emoji'] . ' ' . $a['label'] . ' ' . ($a['dday'] ? dday_text($a['dday']) : '오늘');
         if ($tds) $parts[] = '할 일 ' . count($tds) . '개' . (count($tds) <= 2 ? ': ' . implode(', ', array_map(fn($t) => $t['title'], $tds)) : '');
+        $myRem = array_filter(reminders_today(), fn($r) => (int) $r['member_id'] === $id || ($memberById[(int) $r['member_id']]['role'] ?? '') === 'child');
+        if ($myRem) $parts[] = '⏰ ' . implode(', ', array_map(fn($r) => $r['time'] . ' ' . $r['name'], array_slice(array_values($myRem), 0, 3)));
         $log[] = "$m[name] 아침 요약 → " . push_to_member($id, "☀️ 좋은 아침이에요, {$m['name']}님", implode(' · ', $parts), 'index.php', 'morning');
     }
 
     // 🍲 저녁 출석 묻기 (아직 안 정했을 때만)
     if ($prefs['dinner'] && due($prefs['dinner'], $now) && !isset(attendance($today)[$id]) && notify_once($id, 'dinner', $today)) {
         $plan = dinner_plan($today);
-        $log[] = "$m[name] 저녁 묻기 → " . push_to_member($id, '🍲 오늘 저녁 집에서 드세요?', ($plan ? "메뉴: {$plan['dish']} · " : '') . '눌러서 집에서 / 늦어요 / 따로를 알려 주세요', 'index.php', 'dinner');
+        $log[] = "$m[name] 저녁 묻기 → " . push_to_member($id, '🍲 오늘 저녁 집에서 드세요?', ($plan ? "메뉴: {$plan['dish']} · " : '') . '눌러서 집에서 / 늦어요 / 따로를 알려 주세요 · 오늘의 질문: ' . question_of_day(), 'index.php', 'dinner');
     }
 
     // 📊 일요일 저녁 주간 리포트
