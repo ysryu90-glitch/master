@@ -1,7 +1,6 @@
 <?php
 // 주말 나들이 추천: 날씨 · 미세먼지 · 연휴 · 가족 일정 · 컨디션 · 최근 다녀온 곳 · 부모님 댁 방문 간격을 함께 따져서
 require __DIR__ . '/lib/bootstrap.php';
-require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/weather.php';
 require __DIR__ . '/lib/places.php';
@@ -116,14 +115,7 @@ $parents = $locs['parents'] ?? default_locations()[2];
 $homeWx = daily_forecast((float) $home['lat'], (float) $home['lon']);
 $ptWx = daily_forecast((float) $parents['lat'], (float) $parents['lon']);
 
-// 컨디션: 오늘 부부 준비 점수 평균
-$scores = [];
-foreach (members('adult') as $a) {
-    $r = readiness_history((int) $a['id'], 1)[today()] ?? null;
-    if ($r) $scores[] = $r['score'];
-}
-$readiness = $scores ? array_sum($scores) / count($scores) : null;
-$tired = $readiness !== null && $readiness < 6;
+$tired = false;
 
 // 최근 다녀온 곳 · 찜 · 정한 곳
 $recent = [];
@@ -198,8 +190,7 @@ page_start('나들이 추천', 'family');
 
 <section class="card tonight">
   <h2>🧺 <?= h($blockLabel($days)) ?></h2>
-  <p class="small"><?= h(MONTH_THEMES[(int) date('n', strtotime($days[0] ?? today()))]) ?>
-    <?= $readiness !== null ? ' · 오늘 부부 컨디션 ' . number_format($readiness, 1) . ($tired ? ' (가볍게 다녀오기 추천)' : '') : '' ?></p>
+  <p class="small"><?= h(MONTH_THEMES[(int) date('n', strtotime($days[0] ?? today()))]) ?></p>
   <?php if ($parentsGap === null || $parentsGap >= 21): ?>
     <p class="small" style="margin-top:6px">👵 평택 부모님 댁에 <?= $parentsGap === null ? '다녀온 기록이 없어요' : "마지막으로 다녀온 지 {$parentsGap}일 됐어요" ?>. 아래에서 '이 날 부모님 댁 가요'를 누르면 평택 근처 코스로 추천해요.</p>
   <?php else: ?>

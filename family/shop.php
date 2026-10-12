@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('INSERT INTO shopping (name, created_by, created_at) VALUES (?, ?, NOW())')->execute([mb_substr($name, 0, 100), $me['id']]);
                 $added[] = $name;
             }
+            if ($added) activity('🛒', '장보기에 ' . implode(', ', array_slice($added, 0, 4)) . (count($added) > 4 ? ' 외 ' . (count($added) - 4) . '개' : '') . ' 넣었어요', 'shop.php');
             if ($added && post('tell')) {
                 require_once __DIR__ . '/lib/todo.php';
                 todo_notify(other_adults((int) $me['id']), '🛒 ' . $me['name'] . '님이 장보기에 넣었어요', implode(', ', $added), 'shop');

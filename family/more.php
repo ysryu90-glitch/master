@@ -12,7 +12,6 @@ $groups = [
     '설정' => [
         ['settings.php#profile', '🙂', '내 정보', '이름 · 목표 · 비밀번호'],
         ['settings.php#notify', '🔔', '알림', '이 기기에서 알림 받기 · 알림 종류'],
-        ['shortcut.php', '📲', '단축어 연결', '아이폰 건강 기록 자동으로 보내기'],
         ['settings.php#kid', '👧', '아이', '이름'],
         ['settings.php#home', '🏠', '우리집', '저녁 시간 · 위치'],
         ['settings.php#calendar', '📅', 'iCloud 캘린더', '연결 · 볼 캘린더 고르기'],

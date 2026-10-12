@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -505,6 +505,25 @@ function migrate(PDO $pdo): void
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL
         )",
+        // 가족 소식 (누가 무엇을 했는지)
+        "CREATE TABLE IF NOT EXISTS activity (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NULL,
+            icon VARCHAR(16) NOT NULL DEFAULT '',
+            text VARCHAR(200) NOT NULL,
+            url VARCHAR(200) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            KEY (created_at)
+        )",
+        // 오늘의 질문 (저녁 식탁 대화) 답
+        "CREATE TABLE IF NOT EXISTS question_answers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            day DATE NOT NULL,
+            member_id INT NOT NULL,
+            answer VARCHAR(300) NOT NULL,
+            created_at DATETIME NOT NULL,
+            UNIQUE KEY (day, member_id)
+        )",
         // 아이 성장 기록 (키 · 몸무게)
         "CREATE TABLE IF NOT EXISTS growth (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -536,6 +555,11 @@ function migrate(PDO $pdo): void
     $pdo->exec('ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS recurring TINYINT NOT NULL DEFAULT 0');
     $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS occ VARCHAR(30) NOT NULL DEFAULT ''");
     $pdo->exec("ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS note VARCHAR(500) NOT NULL DEFAULT ''");
+    // 반복 알림 (약 · 영양제 · 물 · 아이 유산균 …): 이모지 · 요일 · 메모, 누가 했는지
+    $pdo->exec("ALTER TABLE medications ADD COLUMN IF NOT EXISTS emoji VARCHAR(16) NOT NULL DEFAULT '💊'");
+    $pdo->exec("ALTER TABLE medications ADD COLUMN IF NOT EXISTS days VARCHAR(20) NOT NULL DEFAULT ''");
+    $pdo->exec("ALTER TABLE medications ADD COLUMN IF NOT EXISTS note VARCHAR(100) NOT NULL DEFAULT ''");
+    $pdo->exec('ALTER TABLE medication_logs ADD COLUMN IF NOT EXISTS taken_by INT NULL');
     // 메뉴 보관함: 지금까지 정했던 저녁 메뉴로 시작
     $pdo->exec("INSERT IGNORE INTO recipes (name, ingredients, created_at, updated_at) SELECT dish, MAX(ingredients), NOW(), NOW() FROM dinner_plans WHERE dish <> '' GROUP BY dish");
     // 반복 할 일을 번갈아 (다 하면 다음 차례는 다른 사람)
@@ -758,26 +782,39 @@ function check_csrf(): void
  */
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
-    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '식단', '🍲'], ['sticker.php', '루틴 · 스티커', '⭐'], ['anniv.php', '기념일', '🎂']]],
-    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['quotes.php', '아이 어록', '💬'], ['outing.php', '나들이 추천', '🧺']]],
-    'health' => ['건강', '❤️', 'health.php', [['health.php', '컨디션', '❤️'], ['meds.php', '약', '💊'], ['sick.php', '아플 때', '🤒'], ['growth.php', '성장', '🌱'], ['report.php', '리포트', '📊']]],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '식단', '🍲'], ['anniv.php', '기념일', '🎂']]],
+    'kid' => ['아이', '🧒', 'sticker.php', [['sticker.php', '루틴 · 스티커', '⭐'], ['growth.php', '성장', '🌱'], ['sick.php', '아플 때', '🤒'], ['quotes.php', '어록', '💬']]],
+    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
+    'alerts' => ['알림', '🔔', 'feed.php', [['feed.php', '소식', '🔔'], ['remind.php', '반복 알림', '⏰'], ['report.php', '주간 리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
 ];
 
 /** 아래 탭에 보이는 묶음 (더보기는 오른쪽 위 ☰ 버튼) */
-const TABBAR = ['home', 'family', 'diary', 'health'];
+const TABBAR = ['home', 'family', 'kid', 'diary', 'alerts'];
 
 /** 화면 → [묶음, 작은 탭 화면] (일기 쓰기 화면은 '일기' 탭에 속하는 식) */
 const NAV_PAGES = [
     'index.php' => ['home', 'index.php'],
-    'todo.php' => ['family', 'todo.php'], 'shop.php' => ['family', 'shop.php'],
-    'table.php' => ['family', 'table.php'],
-    'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'],
-    'outing.php' => ['diary', 'outing.php'], 'quotes.php' => ['diary', 'quotes.php'], 'diary_share.php' => ['diary', 'diary.php'],
-    'health.php' => ['health', 'health.php'], 'meds.php' => ['health', 'meds.php'], 'sick.php' => ['health', 'sick.php'], 'report.php' => ['health', 'report.php'],
-    'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'calendar.php' => ['family', 'calendar.php'],
-    'settings.php' => ['more', 'settings.php'], 'anniv.php' => ['family', 'anniv.php'], 'sticker.php' => ['family', 'sticker.php'], 'growth.php' => ['health', 'growth.php'], 'search.php' => ['more', 'more.php'], 'notes.php' => ['more', 'more.php'], 'pack.php' => ['family', 'shop.php'], 'recipes.php' => ['family', 'table.php'], 'shortcut.php' => ['health', 'health.php'],
+    'todo.php' => ['family', 'todo.php'], 'shop.php' => ['family', 'shop.php'], 'pack.php' => ['family', 'shop.php'],
+    'table.php' => ['family', 'table.php'], 'recipes.php' => ['family', 'table.php'], 'calendar.php' => ['family', 'calendar.php'], 'anniv.php' => ['family', 'anniv.php'],
+    'sticker.php' => ['kid', 'sticker.php'], 'growth.php' => ['kid', 'growth.php'], 'sick.php' => ['kid', 'sick.php'], 'quotes.php' => ['kid', 'quotes.php'],
+    'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'], 'diary_share.php' => ['diary', 'diary.php'],
+    'outing.php' => ['diary', 'outing.php'],
+    'feed.php' => ['alerts', 'feed.php'], 'remind.php' => ['alerts', 'remind.php'], 'meds.php' => ['alerts', 'remind.php'], 'report.php' => ['alerts', 'report.php'],
+    'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'settings.php' => ['more', 'settings.php'],
+    'search.php' => ['more', 'more.php'], 'notes.php' => ['more', 'more.php'],
 ];
+
+/** 메뉴 이름: 아이가 한 명이면 「아이」 대신 아이 이름 */
+function nav_label(string $key): string
+{
+    if ($key === 'kid') {
+        static $kids = null;
+        if ($kids === null) { try { $kids = members('child'); } catch (Throwable $e) { $kids = []; } }
+        if (count($kids) === 1) return mb_strimwidth($kids[0]['name'], 0, 8, '');
+    }
+    return NAV[$key][0];
+}
 
 /** 메뉴 아이콘 (선 아이콘, 고른 탭은 채움) */
 function nav_icon(string $key, bool $on = false): string
@@ -790,8 +827,10 @@ function nav_icon(string $key, bool $on = false): string
         'meal' => '<path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M17 21V3c-2.2 1.2-3.5 3.6-3.5 7v3H17"/>',
         'diary' => $on ? '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" fill="currentColor"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/>'
                        : '<path d="M5 19.5V4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zm0 0A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6"/>',
-        'health' => $on ? '<path d="M12 20s-7.5-4.5-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.5-7.5 10-7.5 10z" fill="currentColor"/>'
-                        : '<path d="M12 20s-7.5-4.5-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.5-7.5 10-7.5 10z"/><path d="M3 12h4l2-3 3 6 2-3h7"/>',
+        'kid' => $on ? '<circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M8.8 14.2c.8 1.2 1.9 1.8 3.2 1.8s2.4-.6 3.2-1.8" stroke="var(--card)"/><circle cx="9.3" cy="10.3" r="1" fill="var(--card)" stroke="none"/><circle cx="14.7" cy="10.3" r="1" fill="var(--card)" stroke="none"/><path d="M12 3c-1 1.3-1 2.6 0 3.6" stroke="var(--card)"/>'
+                     : '<circle cx="12" cy="12" r="9"/><path d="M8.8 14.2c.8 1.2 1.9 1.8 3.2 1.8s2.4-.6 3.2-1.8"/><circle cx="9.3" cy="10.3" r=".9" fill="currentColor" stroke="none"/><circle cx="14.7" cy="10.3" r=".9" fill="currentColor" stroke="none"/><path d="M12 3c-1 1.3-1 2.6 0 3.6"/>',
+        'alerts' => $on ? '<path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.6 2H4.4z" fill="currentColor"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>'
+                        : '<path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.6 2H4.4z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
         'more' => '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
         'menu' => '<path d="M4 7h16M4 12h16M4 17h16"/>',
         'search' => '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
@@ -852,16 +891,16 @@ function page_start(string $title, string $tab = '', array $options = []): void
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="assets/app.css?v=<?= asset_version('assets/app.css') ?>">
-<title><?= h($title) ?> · 우리집</title>
+<title><?= h($title) ?> · <?= h(family_name()) ?></title>
 </head>
 <?php [$group, $sub] = nav_current(); $nav = $me && $group !== ''; $back = $options['back'] ?? ''; $GLOBALS['page_back'] = $back; ?>
 <body class="<?= $nav ? ($back ? 'with-nav focus' : 'with-tabs with-nav') : '' ?>">
 <?php if ($nav): ?>
 <aside class="sidenav" aria-label="메뉴">
-  <a class="brand" href="index.php"><img src="assets/icon.png" alt="" width="28" height="28"> 우리집</a>
+  <a class="brand" href="index.php"><img src="assets/icon.png" alt="" width="28" height="28"> <?= h(family_name()) ?></a>
   <a class="g sidesearch" href="search.php"><span class="i"><?= nav_icon('search') ?></span>찾기</a>
   <?php foreach (NAV as $key => [$label, $icon, $href, $items]): ?>
-    <a class="g<?= $key === $group ? ' on' : '' ?>" href="<?= $href ?>"><span class="i"><?= nav_icon($key, $key === $group) ?></span><?= $label ?></a>
+    <a class="g<?= $key === $group ? ' on' : '' ?>" href="<?= $href ?>"><span class="i"><?= nav_icon($key, $key === $group) ?></span><?= h(nav_label($key)) ?></a>
     <?php if (count($items) > 1): ?><div class="subs"><?php foreach ($items as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $il ?></a><?php endforeach; ?></div><?php endif; ?>
   <?php endforeach; ?>
   <a class="me" href="settings.php"><?= h($me['emoji'] . ' ' . $me['name']) ?> · 설정</a>
@@ -891,10 +930,12 @@ function page_end(string $tab = ''): void
     echo '</main></div>';
     if (current_member() && $group !== '' && empty($GLOBALS['page_back'])) {
         echo '<nav class="tabbar" aria-label="메뉴">';
+        // 안 본 가족 소식이 있으면 알림 탭에 빨간 점
+        $dots = ['alerts' => $group !== 'alerts' && activity_unseen((int) current_member()['id']) > 0];
         foreach (TABBAR as $key) {
-            [$label, $icon] = NAV[$key];
+            $label = h(nav_label($key));
             $href = NAV[$key][2];
-            $icon = nav_icon($key, $key === $group);
+            $icon = nav_icon($key, $key === $group) . (!empty($dots[$key]) ? '<i class="dot"></i>' : '');
             echo '<a href="' . $href . '" class="' . ($key === $group ? 'on' : '') . '"' . ($key === $group ? ' aria-current="page"' : '') . '><span class="i">' . $icon . '</span>' . $label . '</a>';
         }
         echo '</nav>';
@@ -943,4 +984,35 @@ function locations(): array
 {
     $saved = setting('locations');
     return is_array($saved) && $saved ? $saved : default_locations();
+}
+
+// ───────── 가족 소식 (누가 무엇을 했는지, 알림 탭 「소식」) ─────────
+
+/** 소식 한 줄 남기기 (실패해도 원래 동작은 계속) */
+function activity(string $icon, string $text, string $url = '', ?int $memberId = null): void
+{
+    try {
+        $memberId = $memberId ?? (current_member()['id'] ?? null);
+        db()->prepare('INSERT INTO activity (member_id, icon, text, url, created_at) VALUES (?, ?, ?, ?, NOW())')
+            ->execute([$memberId, mb_substr($icon, 0, 16), mb_substr($text, 0, 200), mb_substr($url, 0, 200)]);
+    } catch (Throwable $e) {}
+}
+
+/** 내가 아직 안 본 다른 가족의 소식 수 */
+function activity_unseen(int $memberId): int
+{
+    try {
+        $seen = (int) setting('act_seen_' . $memberId, 0);
+        $st = db()->prepare('SELECT COUNT(*) FROM activity WHERE id > ? AND (member_id IS NULL OR member_id <> ?) AND created_at > DATE_SUB(NOW(), INTERVAL 14 DAY)');
+        $st->execute([$seen, $memberId]);
+        return (int) $st->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/** 가족 이름 (설정 › 우리집에서 바꿈, 예: 하린이네) */
+function family_name(): string
+{
+    try { return (string) (setting('family_name') ?: '우리집'); } catch (Throwable $e) { return '우리집'; }
 }

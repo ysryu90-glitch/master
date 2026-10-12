@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($title === '') redirect('pack.php');
             $pdo->prepare('INSERT INTO packlists (title, emoji, created_at) VALUES (?, ?, NOW())')->execute([$title, $emoji]);
             $lid = (int) $pdo->lastInsertId();
+            activity($emoji, '챙길 것 목록 「' . $title . '」 만들었어요', 'pack.php?l=' . $lid);
             foreach (PACK_TEMPLATES[$tpl] ?? [] as $i => $n) $pdo->prepare('INSERT INTO packitems (list_id, name, sort) VALUES (?, ?, ?)')->execute([$lid, $n, $i]);
             redirect('pack.php?l=' . $lid);
         case 'add':

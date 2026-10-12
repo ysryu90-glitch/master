@@ -201,3 +201,7 @@ html, body {
 .cheer b { font-size: 40px; color: #fde68a; }
 @keyframes cheerin { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cheerpop { 0% { transform: scale(0.3) rotate(-30deg); } 70% { transform: scale(1.15) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+
+/* 사람 줄: 얼굴 · 할 일 · 저녁 · 반복 알림, 오늘의 질문 */
+.person .pav { flex: none; width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, 0.06); display: flex; align-items: center; justify-content: center; font-size: 34px; }
+.person.qboard .who { font-size: 18px; }

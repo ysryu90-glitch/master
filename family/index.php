@@ -3,7 +3,7 @@ require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/days.php';
 require_once __DIR__ . '/lib/diary.php';
 require_once __DIR__ . '/lib/sticker.php';
-require __DIR__ . '/lib/readiness.php';
+require __DIR__ . '/lib/question.php';
 require __DIR__ . '/lib/calendar.php';
 require __DIR__ . '/lib/table.php';
 require __DIR__ . '/lib/care.php';
@@ -16,14 +16,15 @@ $me = require_login();
 check_csrf();
 $today = today();
 
-// 약 먹었어요
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'med_take') {
-    $stmt = db()->prepare('SELECT id FROM medications WHERE id = ? AND member_id = ?');
-    $stmt->execute([(int) post('med'), $me['id']]);
-    if ($stmt->fetchColumn()) {
-        db()->prepare('INSERT IGNORE INTO medication_logs (med_id, day, taken_at) VALUES (?, CURDATE(), NOW())')->execute([(int) post('med')]);
+// 오늘의 질문 답 (아이 몫은 부모가 대신)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'answer') {
+    $who = (int) post('member_id') ?: (int) $me['id'];
+    if (member($who)) {
+        $had = question_answers($today)[$who] ?? null;
+        question_save($today, $who, (string) post('answer'));
+        if (!$had && trim(post('answer')) !== '') activity('💭', (member($who)['name'] ?? '') . ': 「' . mb_strimwidth(trim(post('answer')), 0, 60, '…') . '」 (오늘의 질문)', 'index.php#question');
     }
-    redirect('index.php#meds');
+    redirect('index.php#question');
 }
 
 // 오늘 저녁 출석 바로 바꾸기
@@ -34,11 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset(ATTENDANCE[post('status')])) 
 }
 
 calendar_refresh_if_stale();
-$history = readiness_history((int) $me['id'], 7);
-$ready = $history[$today] ?? null;
-$rows = health_rows((int) $me['id'], 2);
-$todayRow = $rows[$today] ?? null;
-$counted = health_days_count((int) $me['id']);
 
 $plan = dinner_plan($today);
 $att = attendance($today);
@@ -47,16 +43,9 @@ $conflicts = dinner_conflicts($today);
 
 
 $others = array_filter(members('adult'), fn($m) => (int) $m['id'] !== (int) $me['id']);
-$meds = medications_of((int) $me['id']);
-
-// 건강 기록이 이틀 넘게 안 들어온 사람
-$stale = [];
-foreach (members('adult') as $a) {
-    $stmt = db()->prepare('SELECT MAX(updated_at) FROM health_days WHERE member_id = ?');
-    $stmt->execute([$a['id']]);
-    $lastAt = $stmt->fetchColumn();
-    if ($lastAt && strtotime($lastAt) < time() - 48 * 3600) $stale[] = [$a, $lastAt];
-}
+// 오늘 반복 알림: 내 몫 + 아이 몫 (가족 모두 같이 챙김)
+$kidIds = array_map(fn($k) => (int) $k['id'], members('child'));
+$meds = array_values(array_filter(reminders_today(), fn($r) => (int) $r['member_id'] === (int) $me['id'] || in_array((int) $r['member_id'], $kidIds, true)));
 
 // 아이가 최근 24시간 아팠으면
 $sickKids = [];
@@ -78,8 +67,7 @@ if ((int) date('N') >= 4) {
         foreach (locations() as $l) $locs[$l['role']] = $l;
         $home = $locs['home'] ?? default_locations()[0];
         $par = $locs['parents'] ?? default_locations()[2];
-        $readyScores = array_filter(array_map(fn($a) => (readiness_history((int) $a['id'], 1)[today()]['score'] ?? null), members('adult')), fn($v) => $v !== null);
-        $tiredNow = $readyScores && array_sum($readyScores) / count($readyScores) < 6;
+        $tiredNow = false;
         $recentVisits = [];
         foreach (db()->query("SELECT place_id, MAX(day) d FROM outing_logs WHERE kind = 'visit' AND day > DATE_SUB(CURDATE(), INTERVAL 30 DAY) GROUP BY place_id") as $r) {
             $recentVisits[$r['place_id']] = (int) round((strtotime(today()) - strtotime($r['d'])) / 86400);
@@ -142,14 +130,6 @@ foreach ($events as $ev) if ($ev['all_day'] || strtotime($ev['end_at']) > time()
   </a>
 </nav>
 
-<?php foreach ($stale as [$a, $lastAt]): ?>
-<a class="card alert" href="shortcut.php">
-  <span class="ai">⚠️</span>
-  <span class="grow"><b><?= h($a['name']) ?> 건강 기록이 <?= (int) floor((time() - strtotime($lastAt)) / 86400) ?>일째 없어요</b>
-  <span class="small muted">마지막 <?= h(date('n/j H:i', strtotime($lastAt))) ?> · 단축어 자동화를 확인해 주세요</span></span>
-  <span class="chev">›</span>
-</a>
-<?php endforeach; ?>
 
 <?php foreach ($sickKids as [$k, $t, $next]): ?>
 <a href="sick.php?m=<?= (int) $k['id'] ?>" class="card sickcard">
@@ -162,7 +142,7 @@ foreach ($events as $ev) if ($ev['all_day'] || strtotime($ev['end_at']) > time()
 <div class="home-cols">
 
 <section class="card todo" id="meds">
-  <div class="card-head"><h2>✅ 오늘 할 일</h2><a class="more" href="todo.php">전체<?= $laterTodos ? ' ' . ($laterTodos + count($myTodos)) : '' ?> ›</a></div>
+  <div class="card-head"><h2>✅ 오늘</h2><a class="more" href="todo.php">전체<?= $laterTodos ? ' ' . ($laterTodos + count($myTodos)) : '' ?> ›</a></div>
   <div id="todo" class="hometodos">
   <?php foreach ($myTodos as $t): ?>
     <div class="trow" data-id="<?= (int) $t['id'] ?>">
@@ -184,12 +164,14 @@ foreach ($events as $ev) if ($ev['all_day'] || strtotime($ev['end_at']) > time()
   <form method="post" action="todo.php" class="tadd mini"><?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="back" value="home"><input type="hidden" name="owner" value="<?= (int) $me['id'] ?>"><input type="hidden" name="day" value="<?= today() ?>">
     <input name="title" placeholder="＋ 오늘 할 일 적기" autocomplete="off" enterkeyhint="done" required></form>
   </div>
-  <?php foreach ($todoMeds as $med): ?>
-    <div class="todo-row">
-      <span class="ic">💊</span><span class="grow"><b><?= h($med['name']) ?></b> <span class="small muted"><?= h($med['time']) ?></span></span>
-      <form method="post" action="meds.php"><?= csrf_field() ?><input type="hidden" name="action" value="med_take"><input type="hidden" name="med" value="<?= (int) $med['id'] ?>"><input type="hidden" name="back" value="home"><button class="btn small primary">먹었어요</button></form>
+  <?php if ($todoMeds): ?><div class="hometodos rems">
+  <?php foreach ($todoMeds as $med): $for = $med['member_id'] != $me['id'] ? member((int) $med['member_id']) : null; ?>
+    <div class="trow">
+      <form method="post" action="remind.php" class="tcheck-f"><?= csrf_field() ?><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $med['id'] ?>"><button class="tcheck" aria-label="챙겼어요"></button></form>
+      <a class="tbody" href="remind.php"><span class="tt"><?= h($med['emoji']) ?> <?= $for ? h($for['name']) . ' ' : '' ?><?= h($med['name']) ?></span><span class="tm"><span class="<?= $med['time'] < date('H:i') ? 'late' : '' ?>"><?= h($med['time']) ?></span><?= $med['note'] !== '' ? '<span>' . h($med['note']) . '</span>' : '' ?></span></a>
     </div>
   <?php endforeach; ?>
+  </div><?php endif; ?>
   <?php if (!$myAtt): ?>
     <div class="todo-row col">
       <span class="grow"><span class="ic">🍲</span> <b>오늘 저녁 집에서 드세요?</b> <span class="small muted"><?= h(dinner_time()) ?></span></span>
@@ -219,47 +201,11 @@ foreach ($events as $ev) if ($ev['all_day'] || strtotime($ev['end_at']) > time()
     </a>
   <?php endif; endif; ?>
   <?php if (!$todoMeds && $myAtt && !$pendingDiary && !$myTodos): ?>
-    <p class="done">🎉 오늘 할 일을 다 했어요<?= $doneMeds ? ' · 💊 약 ' . $doneMeds . '개 먹음' : '' ?></p>
+    <p class="done">🎉 오늘 할 일을 다 했어요<?= $doneMeds ? ' · ⏰ 알림 ' . $doneMeds . '개 챙김' : '' ?></p>
   <?php elseif ($doneMeds): ?>
-    <p class="small muted" style="margin:8px 0 0">💊 오늘 약 <?= $doneMeds ?>개 먹음 · <a href="meds.php">약 기록 ›</a></p>
+    <p class="small muted" style="margin:8px 0 0">⏰ 오늘 알림 <?= $doneMeds ?>개 챙김 · <a href="remind.php">반복 알림 ›</a></p>
   <?php endif; ?>
 </section>
-
-<?php if ($ready): [$levelName, $levelClass, $levelMsg] = readiness_level($ready['score']); ?>
-<section class="readiness <?= $levelClass ?>">
-  <div class="label">오늘의 준비 점수<?= !empty($ready['calibrated']) ? ' · 공식 점수로 보정됨' : '' ?></div>
-  <div class="score"><?= number_format($ready['score'], 1) ?><small> / 10</small></div>
-  <div class="level"><?= h($levelName) ?></div>
-  <div class="msg"><?= h($levelMsg) ?></div>
-  <details class="why">
-    <summary>점수 근거 보기</summary>
-    <div class="components">
-      <?php foreach ($ready['components'] as $c): ?>
-        <div class="comp">
-          <div class="row"><span><?= h($c['title']) ?></span><span><?= $c['score'] < 40 ? '낮음' : ($c['score'] < 70 ? '보통' : '좋음') ?></span></div>
-          <div class="bar"><i style="width:<?= (int) $c['score'] ?>%"></i></div>
-          <div class="detail"><?= h($c['detail']) ?></div>
-        </div>
-      <?php endforeach; ?>
-    </div>
-  </details>
-</section>
-<?php elseif ($counted > 0 && $todayRow): ?>
-<section class="readiness none slim">
-  <div class="label">오늘의 준비 점수</div>
-  <?php if ($counted === 0): ?>
-    <div class="level">아직 건강 기록이 없어요</div>
-    <div class="msg">아이폰 단축어를 한 번 만들어 두면 매일 자동으로 들어와요.</div>
-    <p style="margin:6px 0 0"><a class="small" href="shortcut.php">단축어 연결하기 ›</a></p>
-  <?php elseif (!$todayRow): ?>
-    <div class="level">오늘 기록을 기다리는 중</div>
-    <div class="msg">아이폰 단축어가 실행되면 바로 계산돼요.</div>
-  <?php else: ?>
-    <div class="level">기준선을 모으는 중 (<?= min($counted, 7) ?>/7일)</div>
-    <div class="msg">평소 상태를 알아야 점수를 낼 수 있어서, 일주일쯤 기록이 쌓이면 점수가 나와요.</div>
-  <?php endif; ?>
-</section>
-<?php endif; ?>
 
 <?php
 // 이번 주: 오늘부터 7일 (일정 · 할 일 · 나들이)
@@ -329,6 +275,44 @@ $wdn = ['일', '월', '화', '수', '목', '금', '토'];
 </section>
 
 
+<?php $q = question_of_day(); $qa = question_answers($today); $qMembers = members(); ?>
+<section class="card qcard" id="question">
+  <div class="card-head"><h2>💬 오늘의 질문</h2><span class="small muted">저녁 식탁에서</span></div>
+  <p class="qtext"><?= h($q) ?></p>
+  <div class="qans">
+    <?php foreach ($qMembers as $m): $a = $qa[(int) $m['id']] ?? null; $canEdit = (int) $m['id'] === (int) $me['id'] || $m['role'] === 'child'; ?>
+      <div class="qrow<?= $a ? ' has' : '' ?>">
+        <span class="qav"><?= h($m['emoji']) ?></span>
+        <?php if ($canEdit): ?>
+          <form method="post" class="qform"><?= csrf_field() ?><input type="hidden" name="action" value="answer"><input type="hidden" name="member_id" value="<?= (int) $m['id'] ?>">
+            <input name="answer" value="<?= h($a['answer'] ?? '') ?>" maxlength="300" placeholder="<?= h($m['name']) ?><?= (int) $m['id'] === (int) $me['id'] ? '의 답' : '가 한 말 적어 주기' ?>" autocomplete="off" enterkeyhint="done" aria-label="<?= h($m['name']) ?> 답"></form>
+        <?php else: ?>
+          <span class="qa"><?= $a ? h($a['answer']) : '<span class="muted">' . h($m['name']) . ' 아직</span>' ?></span>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</section>
+
+<?php
+// 가족 소식 (다른 가족이 한 일, 최근 2일)
+$st = db()->prepare('SELECT * FROM activity WHERE (member_id IS NULL OR member_id <> ?) AND created_at > DATE_SUB(NOW(), INTERVAL 2 DAY) ORDER BY id DESC LIMIT 3');
+$st->execute([$me['id']]);
+$news = $st->fetchAll();
+$unseen = activity_unseen((int) $me['id']);
+?>
+<?php if ($news): ?>
+<section class="card">
+  <div class="card-head"><h2>🔔 가족 소식<?= $unseen ? ' <span class="badge">' . $unseen . '</span>' : '' ?></h2><a class="more" href="feed.php">전체 ›</a></div>
+  <div class="feed mini">
+    <?php foreach ($news as $r): $m = member((int) $r['member_id']); ?>
+      <a class="fitem" href="<?= h($r['url'] ?: 'feed.php') ?>"><span class="fav"><?= h($m['emoji'] ?? '🏠') ?><i><?= h($r['icon']) ?></i></span>
+        <span class="grow"><span class="ft"><b><?= h($m['name'] ?? '') ?></b> <?= h($r['text']) ?></span></span><span class="fago"><?= date('H:i', strtotime($r['created_at'])) ?></span></a>
+    <?php endforeach; ?>
+  </div>
+</section>
+<?php endif; ?>
+
 <?php
 // 📸 추억: 몇 년 전 이맘때(앞뒤 3일) 일기, 없으면 두 달 넘은 사진 일기 하나 (하루 동안 같은 것)
 $memId = db()->query("SELECT id FROM diary_entries WHERE YEAR(day) < YEAR(CURDATE())
@@ -344,25 +328,6 @@ $mem = $memId ? diary_entry((int) $memId) : null;
 </a>
 <?php endif; ?>
 
-<section class="card">
-  <div class="card-head"><h2>❤️ 오늘 건강</h2><a class="more" href="health.php">건강 ›</a></div>
-  <?php $hasToday = $todayRow && array_filter([$todayRow['steps'] ?? null, $todayRow['sleep_min'] ?? null, $todayRow['hrv'] ?? null, $todayRow['rhr'] ?? null], fn($v) => $v !== null && $v !== '');
-  if ($hasToday): ?>
-  <div class="minis">
-    <div><span class="k">걸음</span><b><?= num($todayRow['steps'] ?? null) ?></b></div>
-    <div><span class="k">수면</span><b><?= isset($todayRow['sleep_min']) ? intdiv((int) $todayRow['sleep_min'], 60) . '<small>h</small>' . ((int) $todayRow['sleep_min'] % 60) . '<small>m</small>' : '-' ?></b></div>
-    <div><span class="k">HRV</span><b><?= num($todayRow['hrv'] ?? null) ?><small>ms</small></b></div>
-    <div><span class="k">심박</span><b><?= num($todayRow['rhr'] ?? null) ?><small>bpm</small></b></div>
-  </div>
-  <?php elseif ($counted > 0): ?>
-    <a class="mealline" href="shortcut.php"><span>⌚️ 오늘 기록이 아직 안 왔어요</span><span class="grow"></span><span class="small muted">연결 확인 ›</span></a>
-  <?php else: ?>
-    <a class="mealline" href="shortcut.php"><span>⌚️ 건강 기록 연결하기</span><span class="grow"></span><span class="small muted">수면 · 걸음 ›</span></a>
-  <?php endif; ?>
-  <?php foreach ($others as $o): $oh = readiness_history((int) $o['id'], 1)[$today] ?? null; if (!$oh && !health_days_count((int) $o['id'])) continue; ?>
-    <p class="small muted" style="margin:10px 0 0"><?= h($o['emoji'] . ' ' . $o['name']) ?> 준비 점수: <b><?= $oh ? number_format($oh['score'], 1) . ' · ' . h(readiness_level($oh['score'])[0]) : '아직 없음' ?></b></p>
-  <?php endforeach; ?>
-</section>
 
 
 <?php if ($outing && $outing['picks']): $wd = ['일', '월', '화', '수', '목', '금', '토']; ?>

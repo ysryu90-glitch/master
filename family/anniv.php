@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($id) {
         db()->prepare('UPDATE anniversaries SET title = ?, emoji = ?, kind = ?, month = ?, day = ?, year = ? WHERE id = ?')->execute([$title, $emoji, $kind, (int) $m[2], (int) $m[3], $year, $id]);
     } else {
+        activity($emoji, '기념일 「' . $title . '」 추가', 'anniv.php');
         db()->prepare('INSERT INTO anniversaries (title, emoji, kind, month, day, year, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())')->execute([$title, $emoji, $kind, (int) $m[2], (int) $m[3], $year, $me['id']]);
     }
     flash('저장했어요. 일주일 전 · 하루 전 · 당일 아침에 알려 드려요.');

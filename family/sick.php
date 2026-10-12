@@ -22,12 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($t >= 34 && $t <= 43) {
                 db()->prepare("INSERT INTO sick_logs (member_id, at, kind, temp, note, created_by, created_at) VALUES (?, ?, 'temp', ?, ?, ?, NOW())")
                     ->execute([$kid['id'], $at, round($t, 1), mb_substr(post('note'), 0, 200), $me['id']]);
+                activity('🌡', $kid['name'] . ' 체온 ' . round($t, 1) . '° (' . date('H:i', strtotime($at)) . ')', 'sick.php?m=' . $kid['id']);
             }
             break;
         case 'med':
             if (isset(FEVER_MEDS[post('med')])) {
                 db()->prepare("INSERT INTO sick_logs (member_id, at, kind, med, dose, note, created_by, created_at) VALUES (?, ?, 'med', ?, ?, ?, ?, NOW())")
                     ->execute([$kid['id'], $at, post('med'), mb_substr(post('dose'), 0, 30), mb_substr(post('note'), 0, 200), $me['id']]);
+                activity('💊', $kid['name'] . ' ' . FEVER_MEDS[post('med')][0] . (post('dose') !== '' ? ' ' . mb_substr(post('dose'), 0, 30) : '') . ' 먹였어요 (' . date('H:i', strtotime($at)) . ')', 'sick.php?m=' . $kid['id']);
             }
             break;
         case 'note':
@@ -60,7 +62,7 @@ foreach ($logs as $l) if ($l['kind'] === 'med') { $lastDose = $l; break; }
 $lastByMed = [];
 foreach ($logs as $l) if ($l['kind'] === 'med' && isset(FEVER_MEDS[$l['med']]) && !isset($lastByMed[$l['med']])) $lastByMed[$l['med']] = $l;
 
-page_start('아플 때', 'family');
+page_start('아플 때', 'kid');
 ?>
 <style>
   .temp-big { font-size: 46px; font-weight: 800; letter-spacing: -1px; }

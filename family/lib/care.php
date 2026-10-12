@@ -5,11 +5,44 @@
 
 function medications_of(int $memberId): array
 {
-    $stmt = db()->prepare('SELECT m.*, l.taken_at FROM medications m
+    $stmt = db()->prepare('SELECT m.*, l.taken_at, l.taken_by FROM medications m
         LEFT JOIN medication_logs l ON l.med_id = m.id AND l.day = CURDATE()
-        WHERE m.member_id = ? AND m.active = 1 ORDER BY m.time, m.id');
-    $stmt->execute([$memberId]);
+        WHERE m.member_id = ? AND m.active = 1 AND (m.days = \'\' OR FIND_IN_SET(?, m.days)) ORDER BY m.time, m.id');
+    $stmt->execute([$memberId, (string) date('w')]);
     return $stmt->fetchAll();
+}
+
+// ───────── 반복 알림 (약 · 영양제 · 물 · 아이 유산균 …) ─────────
+
+const REMIND_PRESETS = [
+    ['💊', '약'], ['💊', '영양제'], ['🧴', '유산균'], ['💧', '물 한 잔'], ['🦷', '치실'], ['🧘', '스트레칭'], ['🐶', '반려동물 밥'], ['🪴', '화분 물 주기'],
+];
+const WEEKDAYS_KO = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** 오늘 울릴 모든 알림 (가족 모두, 시각 순) */
+function reminders_today(): array
+{
+    $stmt = db()->prepare('SELECT m.*, l.taken_at, l.taken_by FROM medications m
+        LEFT JOIN medication_logs l ON l.med_id = m.id AND l.day = CURDATE()
+        WHERE m.active = 1 AND (m.days = \'\' OR FIND_IN_SET(?, m.days)) ORDER BY m.time, m.id');
+    $stmt->execute([(string) date('w')]);
+    return $stmt->fetchAll();
+}
+
+function reminders_all(): array
+{
+    return db()->query('SELECT * FROM medications WHERE active = 1 ORDER BY member_id, time, id')->fetchAll();
+}
+
+/** "매일" · "평일" · "주말" · "월 · 수 · 금" */
+function remind_days_label(string $days): string
+{
+    if ($days === '') return '매일';
+    $d = array_map('intval', explode(',', $days));
+    sort($d);
+    if ($d === [1, 2, 3, 4, 5]) return '평일';
+    if ($d === [0, 6]) return '주말';
+    return implode(' · ', array_map(fn($x) => WEEKDAYS_KO[$x] ?? '', $d));
 }
 
 /** 최근 `$days`일 중 먹은 날 수 */

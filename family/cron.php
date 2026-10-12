@@ -3,7 +3,6 @@
 // http://127.0.0.1:8080/family/cron.php?key=(config.php 의 secret)
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/push.php';
-require __DIR__ . '/lib/readiness.php';
 require __DIR__ . '/lib/table.php';
 require __DIR__ . '/lib/care.php';
 require __DIR__ . '/lib/calendar.php';
@@ -30,30 +29,38 @@ function due(string $hhmm, int $now): bool
     return $now >= $at && $now < $at + 3 * 3600;
 }
 
+// ⏰ 반복 알림 (정한 시각 + 1시간 뒤 한 번 더). 어른 몫은 그 사람에게, 아이 몫은 부부 모두에게
+$adultsWithPush = array_values(array_filter(members('adult'), fn($a) => has_push((int) $a['id'])));
+$memberById = [];
+foreach (members() as $mm) $memberById[(int) $mm['id']] = $mm;
+foreach (reminders_today() as $rm) {
+    if ($rm['taken_at']) continue;
+    $for = $memberById[(int) $rm['member_id']] ?? null;
+    if (!$for) continue;
+    $to = $for['role'] === 'child' ? $adultsWithPush : array_filter($adultsWithPush, fn($a) => (int) $a['id'] === (int) $for['id']);
+    $label = $rm['emoji'] . ' ' . ($for['role'] === 'child' ? $for['name'] . ' ' : '') . $rm['name'];
+    $later = date('H:i', strtotime("$today {$rm['time']}:00") + 3600);
+    foreach ($to as $a) {
+        $aid = (int) $a['id'];
+        if (due($rm['time'], $now) && notify_once($aid, 'med', $rm['id'] . ':' . $today)) {
+            $log[] = "$a[name] 알림 → " . push_to_member($aid, $label . ' 챙길 시간이에요', $rm['time'] . ($rm['note'] !== '' ? ' · ' . $rm['note'] : '') . ' · 챙기고 동그라미를 눌러 주세요', 'remind.php', 'med' . $rm['id']);
+        }
+        if (due($later, $now) && notify_once($aid, 'med2', $rm['id'] . ':' . $today)) {
+            $log[] = "$a[name] 알림 다시 → " . push_to_member($aid, $label . ' 아직이에요', '잊지 말고 챙겨 주세요', 'remind.php', 'med' . $rm['id']);
+        }
+    }
+}
+
 foreach (members('adult') as $m) {
     $id = (int) $m['id'];
     if (!has_push($id)) continue; // 기기를 등록하지 않은 사람은 건너뜀 (등록하면 그날 알림부터 받아요)
     $prefs = notify_prefs($id);
 
-    // 💊 복약 (정각 + 1시간 뒤 한 번 더)
-    foreach (medications_of($id) as $med) {
-        if ($med['taken_at']) continue;
-        if (due($med['time'], $now) && notify_once($id, 'med', $med['id'] . ':' . $today)) {
-            $log[] = "$m[name] 약 알림 → " . push_to_member($id, "💊 {$med['name']} 드실 시간이에요", "{$med['time']} · 드시고 '먹었어요'를 눌러 주세요", 'index.php#meds', 'med' . $med['id']);
-        }
-        $later = date('H:i', strtotime("$today {$med['time']}:00") + 3600);
-        if (due($later, $now) && notify_once($id, 'med2', $med['id'] . ':' . $today)) {
-            $log[] = "$m[name] 약 재알림 → " . push_to_member($id, "💊 {$med['name']} 아직 안 드셨어요", '잊지 말고 챙겨 드세요', 'index.php#meds', 'med' . $med['id']);
-        }
-    }
-
     // ☀️ 아침 요약
     if ($prefs['morning'] && due($prefs['morning'], $now) && notify_once($id, 'morning', $today)) {
-        $r = readiness_history($id, 1)[$today] ?? null;
         $events = calendar_events($today, $today);
         $plan = dinner_plan($today);
         $parts = [];
-        $parts[] = $r ? sprintf('준비 점수 %.1f (%s)', $r['score'], readiness_level($r['score'])[0]) : '준비 점수는 단축어 실행 후 계산돼요';
         $parts[] = $events ? '일정 ' . count($events) . '개: ' . implode(', ', array_slice(array_map(fn($e) => ($e['all_day'] ? '' : substr($e['start_at'], 11, 5) . ' ') . $e['title'], $events), 0, 3)) : '오늘 일정 없음';
         if ($plan) $parts[] = '저녁 ' . $plan['dish'];
         $tds = todos_due_today($id);
@@ -66,16 +73,6 @@ foreach (members('adult') as $m) {
     if ($prefs['dinner'] && due($prefs['dinner'], $now) && !isset(attendance($today)[$id]) && notify_once($id, 'dinner', $today)) {
         $plan = dinner_plan($today);
         $log[] = "$m[name] 저녁 묻기 → " . push_to_member($id, '🍲 오늘 저녁 집에서 드세요?', ($plan ? "메뉴: {$plan['dish']} · " : '') . '눌러서 집에서 / 늦어요 / 따로를 알려 주세요', 'index.php', 'dinner');
-    }
-
-    // ⚠️ 건강 기록 끊김 (정오에 하루 한 번)
-    if ($prefs['stale'] && due('12:00', $now)) {
-        $stmt = db()->prepare('SELECT MAX(updated_at) FROM health_days WHERE member_id = ?');
-        $stmt->execute([$id]);
-        $last = $stmt->fetchColumn();
-        if ($last && strtotime($last) < $now - 48 * 3600 && notify_once($id, 'stale', $today)) {
-            $log[] = "$m[name] 기록 끊김 → " . push_to_member($id, '⚠️ 건강 기록이 안 들어와요', '마지막 기록: ' . date('n월 j일 H:i', strtotime($last)) . ' · 단축어 자동화를 확인해 주세요', 'shortcut.php', 'stale');
-        }
     }
 
     // 📊 일요일 저녁 주간 리포트

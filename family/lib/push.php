@@ -210,7 +210,6 @@ function notify_prefs(int $memberId): array
     return (is_array($saved) ? $saved : []) + [
         'morning' => '07:30',   // 아침 요약 (빈 값이면 끔)
         'dinner' => '16:00',    // 저녁 출석 묻기 (빈 값이면 끔)
-        'stale' => true,        // 건강 기록 끊김
         'weekly' => true,       // 일요일 저녁 주간 리포트
         'sick' => true,         // 아이 해열제 다음 복용 가능
         'todo' => true,         // 할 일 (정한 시각 · 부탁 · 다 했어요)

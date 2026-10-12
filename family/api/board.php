@@ -3,7 +3,7 @@
 require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/days.php';
 require dirname(__DIR__) . '/lib/sticker.php';
-require dirname(__DIR__) . '/lib/readiness.php';
+require dirname(__DIR__) . '/lib/question.php';
 require dirname(__DIR__) . '/lib/calendar.php';
 require dirname(__DIR__) . '/lib/table.php';
 require dirname(__DIR__) . '/lib/care.php';
@@ -43,25 +43,21 @@ $todos = array_map(fn($t) => ['title' => $t['title'], 'who' => $t['owner_id'] ? 
     db()->query("SELECT * FROM todos WHERE done = 0 AND due_day IS NOT NULL AND due_day <= CURDATE() ORDER BY due_day, due_time IS NULL, due_time, id LIMIT 12")->fetchAll());
 
 $people = [];
+$att = attendance($today);
+$remToday = reminders_today();
 foreach (members('adult') as $m) {
-    $row = health_rows((int) $m['id'], 2)[$today] ?? null;
-    $ready = readiness_history((int) $m['id'], 1)[$today] ?? null;
-    $level = $ready ? readiness_level($ready['score']) : null;
-    $meds = array_map(fn($x) => ['name' => $x['name'], 'time' => $x['time'], 'taken' => (bool) $x['taken_at']], medications_of((int) $m['id']));
-    $stmt = db()->prepare('SELECT MAX(updated_at) FROM health_days WHERE member_id = ?');
-    $stmt->execute([$m['id']]);
-    $lastHealth = $stmt->fetchColumn();
+    $mid = (int) $m['id'];
+    $st = db()->prepare('SELECT COUNT(*) FROM todos WHERE done = 0 AND due_day IS NOT NULL AND due_day <= CURDATE() AND (owner_id = ? OR owner_id IS NULL)');
+    $st->execute([$mid]);
     $people[] = [
-        'meds' => $meds,
-        'stale' => $lastHealth && strtotime($lastHealth) < time() - 48 * 3600,
         'name' => $m['name'], 'emoji' => $m['emoji'],
-        'readiness' => $ready ? $ready['score'] : null,
-        'level' => $level[0] ?? null, 'levelKey' => $level[1] ?? null,
-        'steps' => isset($row['steps']) ? (int) $row['steps'] : null,
-        'sleepMin' => isset($row['sleep_min']) ? (int) $row['sleep_min'] : null,
-        'updatedAt' => $row ? $iso($row['updated_at']) : null,
+        'todos' => (int) $st->fetchColumn(),
+        'dinner' => isset($att[$mid]) ? ATTENDANCE[$att[$mid]['status']][1] . ($att[$mid]['late_time'] ? ' ' . $att[$mid]['late_time'] : '') : null,
+        'meds' => array_values(array_map(fn($x) => ['name' => $x['emoji'] . ' ' . $x['name'], 'time' => $x['time'], 'taken' => (bool) $x['taken_at']], array_filter($remToday, fn($r) => (int) $r['member_id'] === $mid))),
     ];
 }
+$qa = question_answers($today);
+$question = ['q' => question_of_day(), 'answers' => array_values(array_map(fn($a) => ['emoji' => member((int) $a['member_id'])['emoji'] ?? '', 'text' => $a['answer']], $qa))];
 
 $sick = [];
 foreach (members('child') as $kid) {
@@ -103,6 +99,7 @@ $data = [
         fn($k) => $k['items'] && array_filter($k['items'], fn($r) => !$r['on']))),
     'ddays' => array_map(fn($a) => ['emoji' => $a['emoji'], 'label' => $a['label'], 'dday' => $a['dday']], array_slice(anniv_upcoming(14), 0, 2)),
     'people' => $people,
+    'question' => $question,
     'locations' => locations(),
 ];
 json_out(['ok' => true, 'version' => md5(json_encode($data, JSON_UNESCAPED_UNICODE)), 'csrf' => csrf_token()] + $data);

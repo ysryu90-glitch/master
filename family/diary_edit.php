@@ -66,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare('INSERT INTO diary_entries (category, day, place_id, place_name, title, body, kid_said, weather, again, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())')
             ->execute([...$fields, $me['id']]);
         $id = (int) $pdo->lastInsertId();
+        activity('📔', '일기 「' . mb_substr($title ?: $placeName ?: day_label($day), 0, 40) . '」을 썼어요', 'diary_view.php?id=' . $id);
     }
     $pdo->prepare('DELETE FROM diary_ratings WHERE entry_id = ?')->execute([$id]);
     $valid = array_column(members(), 'id');

@@ -23,15 +23,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
         flash('키(cm) · 몸무게(kg)를 확인해 주세요.');
     } elseif ($h || $w) {
         db()->prepare('INSERT INTO growth (member_id, day, height, weight, memo, created_at) VALUES (?, ?, ?, ?, ?, NOW())')->execute([$kid['id'], $day, $h, $w, mb_substr(trim(post('memo')), 0, 100)]);
+        activity('📏', $kid['name'] . ' ' . ($h ? $h . 'cm ' : '') . ($w ? $w . 'kg' : '') . ' 기록', 'growth.php');
         flash('기록했어요.');
     }
     redirect('growth.php?m=' . $kid['id']);
 }
 
-page_start('성장', 'health');
+page_start('성장', 'kid');
 if (!$kid): ?>
   <section class="card tempty"><div class="big">🌱</div><b>아이가 없어요</b><p class="small muted">설정 › 가족에서 아이를 추가하면 키 · 몸무게를 기록할 수 있어요.</p></section>
-<?php page_end('health'); exit; endif;
+<?php page_end('kid'); exit; endif;
 
 $rows = growth_rows((int) $kid['id']);
 $last = $rows ? end($rows) : null;
@@ -92,4 +93,4 @@ $diff = function (?array $cur, ?array $prev, string $k, string $u) {
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
-<?php page_end('health');
+<?php page_end('kid');

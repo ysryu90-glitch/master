@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
         case 'rtoggle':
             [$on, $complete, $gave] = routine_toggle((int) post('rid'), (int) $me['id']);
             if ($ajax) json_out(['ok' => true, 'checked' => $on, 'complete' => $complete, 'gave' => $gave]);
-            if ($gave) flash('🎉 루틴을 다 해서 스티커를 한 장 붙였어요!');
+            if ($gave) { flash('🎉 루틴을 다 해서 스티커를 한 장 붙였어요!'); activity('🌟', $kid['name'] . ' 루틴을 다 해서 스티커를 받았어요', 'sticker.php'); }
             redirect('sticker.php?m=' . $kidId . '&slot=' . (post('slot') === 'pm' ? 'pm' : 'am'));
         case 'radd':
             $t = mb_substr(trim(post('title')), 0, 30);
@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
         case 'add':
             $reason = mb_substr(trim(post('reason')), 0, 60);
             db()->prepare('INSERT INTO stickers (member_id, reason, created_by, created_at) VALUES (?, ?, ?, NOW())')->execute([$kidId, $reason, $me['id']]);
+            activity('⭐', $kid['name'] . '에게 스티커' . ($reason !== '' ? ' (' . $reason . ')' : ''), 'sticker.php');
             $st = sticker_state($kidId);
             if ($st['count'] >= $st['goal']) flash('🎉 ' . $kid['name'] . ' 스티커 ' . $st['goal'] . '개를 다 모았어요! 「' . ($st['reward'] ?: '선물') . '」 약속을 지켜 주세요.');
             else flash('⭐ ' . ($reason !== '' ? '「' . $reason . '」 ' : '') . '스티커를 붙였어요. ' . ($st['goal'] - $st['count']) . '개 남았어요.');
@@ -44,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
             $g['done'] = (int) ($g['done'] ?? 0) + 1;
             $goals[$kidId] = $g;
             set_setting('sticker_goals', $goals);
+            activity('🎁', $kid['name'] . ' 스티커판을 다 채워서 선물을 받았어요', 'sticker.php');
             flash('🎁 선물을 받았어요! 새 판을 시작해요.');
             break;
         case 'goal':
@@ -56,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
     redirect('sticker.php?m=' . $kidId);
 }
 
-page_start('루틴 · 스티커', 'family');
+page_start('루틴 · 스티커', 'kid');
 if (!$kid): ?>
   <section class="card tempty"><div class="big">⭐</div><b>아이가 없어요</b><p class="small muted">설정에서 아이를 추가해 주세요.</p></section>
 <?php page_end('family'); exit; endif;

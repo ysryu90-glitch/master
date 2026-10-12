@@ -25,17 +25,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (($name = trim($name)) !== '') $pdo->prepare('INSERT INTO shopping (name, created_by, created_at) VALUES (?, ?, NOW())')->execute([mb_substr($name, 0, 100), $me['id']]);
                     }
                 }
+                activity('🍲', day_label($day) . ' 저녁은 「' . mb_substr(post('dish'), 0, 40) . '」', 'table.php?day=' . $day);
                 flash('저녁 메뉴를 저장했어요.');
             }
             break;
         case 'autofill':
             $n = week_autofill(today(), date('Y-m-d', strtotime('+6 day')), (int) $me['id']);
+            if ($n) activity('✨', "이번 주 저녁 {$n}일을 정했어요", 'table.php#plan');
             flash($n ? "빈 {$n}일을 메뉴 보관함에서 채웠어요. 마음에 안 들면 그 날을 눌러 바꾸세요." : '채울 빈 날이 없어요.');
             $back = 'table.php#plan';
             break;
         case 'week_shop':
             $items = week_ingredients(today(), date('Y-m-d', strtotime('+6 day')));
             foreach ($items as $name) $pdo->prepare('INSERT INTO shopping (name, created_by, created_at) VALUES (?, ?, NOW())')->execute([mb_substr($name, 0, 100), $me['id']]);
+            if ($items) activity('🛒', '이번 주 저녁 재료 ' . count($items) . '가지를 장보기에 넣었어요', 'shop.php');
             flash($items ? '이번 주 재료 ' . count($items) . '가지를 장보기에 넣었어요.' : '새로 넣을 재료가 없어요 (이미 장보기에 있어요).');
             $back = 'table.php#plan';
             break;

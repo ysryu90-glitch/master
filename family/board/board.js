@@ -182,9 +182,6 @@
       }).join(' · ');
       tips.unshift('🤒 ' + k.name + (k.temp != null ? ' ' + k.temp.toFixed(1) + '° (' + hhmm(new Date(k.at)) + ')' : '') + (next ? ' · ' + next : ''));
     });
-    ((state.data && state.data.people) || []).forEach(function (p) {
-      if (p.stale) tips.push('⚠️ ' + p.name + ' 건강 기록이 이틀째 없어요');
-    });
 
     var box = $('notice');
     if (!tips.length) { box.className = 'notice hidden'; return; }
@@ -347,26 +344,23 @@
 
   function renderPeople() {
     var people = (state.data && state.data.people) || [];
+    var q = state.data && state.data.question;
     $('people').innerHTML = people.map(function (p) {
       var stats = [];
-      if (p.steps != null) stats.push('<span>걸음 <b>' + p.steps.toLocaleString() + '</b></span>');
-      if (p.sleepMin != null) stats.push('<span>수면 <b>' + Math.floor(p.sleepMin / 60) + '시간 ' + (p.sleepMin % 60) + '분</b></span>');
-      if (!stats.length) stats.push('<span>오늘 기록 기다리는 중</span>');
+      stats.push('<span>✅ 할 일 <b>' + (p.todos || 0) + '</b></span>');
+      if (p.dinner) stats.push('<span>🍲 <b>' + esc(p.dinner) + '</b></span>');
       (p.meds || []).forEach(function (m) {
-        stats.push('<span>💊 ' + esc(m.time) + ' <b>' + (m.taken ? '✓' : '아직') + '</b></span>');
+        stats.push('<span>' + esc(m.name) + ' <b>' + (m.taken ? '✓' : esc(m.time)) + '</b></span>');
       });
-      return '<div class="person">' + ring(p.readiness, p.levelKey) + '<div><div class="who">' + esc(p.emoji + ' ' + p.name) +
-        (p.level ? '<span class="lv lv-' + esc(p.levelKey) + '">' + esc(p.level) + '</span>' : '') + '</div>' +
+      return '<div class="person"><span class="pav">' + esc(p.emoji) + '</span><div><div class="who">' + esc(p.name) + '</div>' +
         '<div class="stats">' + stats.join('') + '</div></div></div>';
-    }).join('');
+    }).join('') + (q ? '<div class="person qboard"><span class="pav">💬</span><div><div class="who">' + esc(q.q) + '</div><div class="stats">' +
+      (q.answers.length ? q.answers.map(function (a) { return '<span>' + esc(a.emoji) + ' <b>' + esc(a.text) + '</b></span>'; }).join('') : '<span>저녁 먹으며 이야기해 봐요</span>') + '</div></div></div>' : '');
   }
 
   function renderStatus() {
-    var parts = ((state.data && state.data.people) || []).filter(function (p) { return p.updatedAt; }).map(function (p) {
-      return esc(p.name) + ' 건강 기록 ' + timeAgo(new Date(p.updatedAt));
-    });
-    var text = parts.join(' · ');
-    if (state.error) text = '<span class="warn">연결 확인 중 (' + esc(state.error) + ')</span>' + (text ? ' · ' + text : '');
+    var text = '';
+    if (state.error) text = '<span class="warn">연결 확인 중 (' + esc(state.error) + ')</span>';
     $('status').innerHTML = text;
   }
 

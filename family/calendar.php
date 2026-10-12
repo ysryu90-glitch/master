@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $connected) {
             caldav_create(post('calendar'), mb_substr(post('title'), 0, 200), valid_day(post('date')),
                 $allDay ? null : (post('start') ?: '09:00'), $allDay ? null : (post('end') ?: null), post('location'), post('note'));
             try { caldav_sync(); } catch (Throwable $e) { /* 넣기는 됐으니 받기 실패는 다음에 */ }
+            activity('📅', '일정 「' . mb_substr(post('title'), 0, 40) . '」 ' . date('n/j', strtotime(valid_day(post('date')))) . ' 추가', 'calendar.php?d=' . valid_day(post('date')));
             flash('일정을 추가했어요. 아이폰 캘린더에도 곧 보여요.');
         }
         // 보던 달 · 날짜로 돌아가기

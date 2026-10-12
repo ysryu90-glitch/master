@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 db()->prepare('INSERT INTO todos (title, note, owner_id, due_day, due_time, repeat_rule, rotate, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())')
                     ->execute([mb_substr($title, 0, 200), mb_substr(post('note'), 0, 500), $owner, $day, $time, $repeat, $rotate, $me['id']]);
+                activity('✅', (($owner && $owner !== (int) $me['id']) ? ($names[$owner]['name'] ?? '') . '에게 「' . $title . '」 부탁' : (!$owner ? '같이 할 일 「' . $title . '」 추가' : '할 일 「' . $title . '」 추가')), 'todo.php');
                 // 가족에게 알림: 맡긴 사람에게 · 「같이」면 다른 사람 모두에게
                 $when = $day ? ' · ' . todo_day_label($day) . ($time ? ' ' . $time : '') : '';
                 if ($owner && $owner !== (int) $me['id']) todo_notify([$owner], '✅ ' . $me['name'] . '님이 부탁했어요', $title . $when);
@@ -45,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect(post('back') === 'home' ? 'index.php#todo' : $back);
         case 'toggle':
             $r = todo_toggle($id, (int) $me['id']);
+            if ($r && $r['now_done']) activity('👏', '「' . $r['title'] . '」 끝냈어요', 'todo.php');
             if ($r && $r['now_done'] && (int) $r['created_by'] !== (int) $me['id']) {
                 todo_notify([(int) $r['created_by']], '👏 ' . $me['name'] . '님이 다 했어요', $r['title'], 'tododone');
             }

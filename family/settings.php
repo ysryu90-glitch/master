@@ -32,10 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('DELETE FROM sessions WHERE member_id = ? AND token_hash <> ?')->execute([$me['id'], hash('sha256', $_COOKIE[SESSION_COOKIE] ?? '')]);
                 $message = '비밀번호를 바꿨어요. 다른 기기는 다시 로그인해야 해요.';
                 break;
-            case 'token':
-                $pdo->prepare('UPDATE members SET shortcut_token = ? WHERE id = ?')->execute([bin2hex(random_bytes(16)), $me['id']]);
-                $message = '새 토큰을 만들었어요. 단축어의 토큰도 바꿔 주세요.';
-                break;
             case 'kid':
                 $kid = $pdo->query("SELECT id FROM members WHERE role = 'child' ORDER BY id LIMIT 1")->fetchColumn();
                 if (post('kid_name') === '') break;
@@ -68,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set_setting('notify_' . $me['id'], [
                     'morning' => post('morning_on') ? $time(post('morning')) : '',
                     'dinner' => post('dinner_on') ? $time(post('dinner')) : '',
-                    'stale' => (bool) post('stale'),
                     'weekly' => (bool) post('weekly'),
                     'sick' => (bool) post('sick'),
                     'todo' => (bool) post('todo'),
@@ -94,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 set_setting('locations', $locations);
                 if (preg_match('/^\d{2}:\d{2}$/', post('dinner_time'))) set_setting('dinner_time', post('dinner_time'));
+                if (trim(post('family_name')) !== '') set_setting('family_name', mb_substr(trim(post('family_name')), 0, 20));
                 $message = '저장했어요.';
                 break;
         }
@@ -107,9 +103,6 @@ $me = member((int) $me['id']);
 $kid = db()->query("SELECT * FROM members WHERE role = 'child' ORDER BY id LIMIT 1")->fetch() ?: null;
 $base = public_base();
 $prefs = notify_prefs((int) $me['id']);
-$stmt = db()->prepare('SELECT received_at, body FROM health_raw WHERE member_id = ? ORDER BY id DESC LIMIT 1');
-$stmt->execute([$me['id']]);
-$last = $stmt->fetch();
 $calendars = is_array(setting('icloud_calendars')) ? setting('icloud_calendars') : [];
 $selected = setting('icloud_selected', []);
 $currentLocations = [];
@@ -120,7 +113,7 @@ page_start('설정');
 <?php if ($error): ?><div class="flash" style="background:rgba(220,38,38,.1);color:var(--red)"><?= h($error) ?></div><?php endif; ?>
 
 <nav class="jump settabs" id="settabs" aria-label="설정 바로가기">
-  <a href="#profile">🙂 내 정보</a><a href="#notify">🔔 알림</a><a href="#shortcut">📲 단축어</a><a href="#kid">👧 아이</a>
+  <a href="#profile">🙂 내 정보</a><a href="#notify">🔔 알림</a><a href="#kid">👧 아이</a>
   <a href="#home">🏠 우리집</a><a href="#calendar">📅 캘린더</a><a href="#discover">🧺 나들이 데이터</a><a href="#board">📺 전광판</a>
 </nav>
 
@@ -160,30 +153,15 @@ page_start('설정');
   </div>
   <form method="post" class="form" style="margin-top:12px">
     <?= csrf_field() ?><input type="hidden" name="action" value="notify">
-    <div class="inline"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="morning_on" value="1" <?= $prefs['morning'] ? 'checked' : '' ?> style="width:auto;margin:0"> 아침 요약 (준비 점수 · 일정 · 저녁)</label>
+    <div class="inline"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="morning_on" value="1" <?= $prefs['morning'] ? 'checked' : '' ?> style="width:auto;margin:0"> 아침 요약 (일정 · 할 일 · 저녁 · 기념일)</label>
       <label><input type="time" name="morning" value="<?= h($prefs['morning'] ?: '07:30') ?>"></label></div>
     <div class="inline"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="dinner_on" value="1" <?= $prefs['dinner'] ? 'checked' : '' ?> style="width:auto;margin:0"> "오늘 저녁 집에서 드세요?"</label>
       <label><input type="time" name="dinner" value="<?= h($prefs['dinner'] ?: '16:00') ?>"></label></div>
-    <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="stale" value="1" <?= $prefs['stale'] ? 'checked' : '' ?> style="width:auto;margin:0"> 건강 기록이 이틀 넘게 안 들어오면</label>
     <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="weekly" value="1" <?= $prefs['weekly'] ? 'checked' : '' ?> style="width:auto;margin:0"> 일요일 저녁 8시 주간 가족 리포트</label>
     <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="sick" value="1" <?= $prefs['sick'] ? 'checked' : '' ?> style="width:auto;margin:0"> 아이 열날 때 해열제 다시 먹일 수 있는 시각</label>
     <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="todo" value="1" <?= $prefs['todo'] ? 'checked' : '' ?> style="width:auto;margin:0"> 할 일 (정한 시각 · 가족이 부탁할 때 · 다 했을 때)</label>
     <button class="btn primary">저장</button>
   </form>
-</section>
-
-<section class="card" id="shortcut">
-  <h2>📲 단축어 연결 (건강 기록)</h2>
-  <p class="small muted">아이폰 '단축어'가 애플워치·아이폰 건강 기록을 이 사이트로 보내요. 처음 한 번만 만들면 돼요.</p>
-  <div class="form">
-    <label><?= h($me['name']) ?> 전용 보낼 주소 (단축어에 붙여 넣기)<input readonly value="<?= h($base) ?>/api/health.php?token=<?= h($me['shortcut_token']) ?>" onclick="this.select()"></label>
-  </div>
-  <div class="btn-row">
-    <a class="btn primary" href="shortcut.php">단축어 만드는 방법 보기</a>
-    <form method="post" data-confirm="토큰을 새로 만들면 기존 단축어는 다시 설정해야 해요. 계속할까요?"><?= csrf_field() ?><input type="hidden" name="action" value="token"><button class="btn">토큰 새로 만들기</button></form>
-  </div>
-  <p class="small muted" style="margin-top:10px">마지막으로 받은 기록: <?= $last ? h(date('n월 j일 H:i', strtotime($last['received_at']))) : '아직 없음' ?></p>
-  <?php if ($last): ?><details class="fold"><summary>받은 내용 보기 (문제 확인용)</summary><pre class="small" style="white-space:pre-wrap;word-break:break-all"><?= h($last['body']) ?></pre></details><?php endif; ?>
 </section>
 
 <section class="card" id="kid">
@@ -199,6 +177,7 @@ page_start('설정');
   <h2>🏠 우리집</h2>
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="home">
+    <label>가족 이름 (화면 · 로그인 · 리포트에 보여요)<input name="family_name" maxlength="20" value="<?= h(family_name()) ?>" placeholder="예: 하린이네"></label>
     <div class="grid3">
       <?php foreach ($roles as $role => $title): ?>
         <label><?= $title ?><select name="loc_<?= $role ?>">
