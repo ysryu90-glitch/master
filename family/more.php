@@ -10,7 +10,7 @@ $groups = [
         ['diary_share.php', '🔗', '일기 공유', '할머니 · 할아버지께 보내는 링크'],
     ],
     '설정' => [
-        ['settings.php#profile', '🙂', '내 정보', '이름 · 목표 · 비밀번호'],
+        ['settings.php#profile', '🙂', '내 정보', '이름 · 이모지 · 비밀번호'],
         ['settings.php#notify', '🔔', '알림', '이 기기에서 알림 받기 · 알림 종류'],
         ['settings.php#kid', '👧', '아이', '이름'],
         ['settings.php#home', '🏠', '우리집', '저녁 시간 · 위치'],
@@ -26,7 +26,7 @@ page_start('더보기', 'more');
 ?>
 <section class="card me-card">
   <span class="av"><?= h($me['emoji']) ?></span>
-  <span class="grow"><b><?= h($me['name']) ?></b><span class="small muted">우리집 · 로그인 중</span></span>
+  <span class="grow"><b><?= h($me['name']) ?></b><span class="small muted"><?= h(family_name()) ?> · 로그인 중</span></span>
   <a class="btn small" href="settings.php#profile">내 정보</a>
 </section>
 <?php foreach ($groups as $title => $links): ?>
@@ -41,5 +41,5 @@ page_start('더보기', 'more');
   <?php endforeach; ?>
 </div>
 <?php endforeach; ?>
-<p class="small muted" style="margin:16px 4px 0">모든 기록(건강 · 일기와 사진 · 식단 · 설정)은 NAS의 MariaDB(family_board)에 저장돼요.</p>
+<p class="small muted" style="margin:16px 4px 0">모든 기록(할 일 · 일정 · 일기와 사진 · 식단 · 아이 기록 · 설정)은 우리 집 NAS에만 저장돼요. 외부 서비스로 보내지 않아요.</p>
 <?php page_end('more');

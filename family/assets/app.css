@@ -1195,3 +1195,4 @@ a.fitem:active { background: var(--card-2); }
 .emopick label:active span { transform: scale(0.9); }
 body:has(main.bare) .topbar { display: none; }
 main.bare { padding-top: calc(20px + env(safe-area-inset-top)); }
+@media (min-width: 960px) { .home-cols > .memory { display: flex; } }
