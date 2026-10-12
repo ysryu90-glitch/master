@@ -24,23 +24,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-page_start('로그인');
+page_start('로그인', '', ['class' => 'bare']);
 ?>
-<section class="card login">
-  <div class="login-logo"><img src="assets/icon.png" alt="" width="72" height="72" style="border-radius:17px;display:block;margin:0 auto"></div>
-  <h2>우리집</h2>
-  <p class="small muted" style="margin:-2px 0 18px">우리 가족 할 일 · 일정 · 일기 · 건강</p>
-  <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
-  <form method="post" class="form">
-    <input type="hidden" name="next" value="<?= h($next) ?>">
-    <div class="segmented">
-      <?php foreach (members('adult') as $i => $m): ?>
-        <label><input type="radio" name="member" value="<?= (int) $m['id'] ?>" <?= ((int) post('member', 0) === (int) $m['id'] || (!post('member') && $i === 0)) ? 'checked' : '' ?>><span><?= h($m['emoji'] . ' ' . $m['name']) ?></span></label>
-      <?php endforeach; ?>
-    </div>
-    <label>비밀번호<input name="password" type="password" autocomplete="current-password" required autofocus></label>
-    <button class="btn primary wide">로그인</button>
-    <p class="muted small">한 번 로그인하면 이 기기에서 180일 동안 유지돼요.</p>
-  </form>
-</section>
+<div class="lwrap">
+  <div class="lhero">
+    <img src="assets/icon.png" alt="" width="84" height="84" class="licon">
+    <h1><?= h(family_name()) ?></h1>
+    <p>할 일 · 일정 · 식단 · 일기 · 아이 기록을<br>가족이 함께 보는 우리만의 공간</p>
+  </div>
+  <section class="card login">
+    <?php if ($error): ?><p class="error" role="alert"><?= h($error) ?></p><?php endif; ?>
+    <form method="post" class="form">
+      <input type="hidden" name="next" value="<?= h($next) ?>">
+      <div class="lwho">
+        <?php foreach (members('adult') as $i => $m): ?>
+          <label><input type="radio" name="member" value="<?= (int) $m['id'] ?>" <?= ((int) post('member', 0) === (int) $m['id'] || (!post('member') && $i === 0)) ? 'checked' : '' ?>><span><i><?= h($m['emoji']) ?></i><?= h($m['name']) ?></span></label>
+        <?php endforeach; ?>
+      </div>
+      <label>비밀번호<input name="password" type="password" autocomplete="current-password" required autofocus></label>
+      <button class="btn primary wide">로그인</button>
+      <p class="muted small" style="text-align:center;margin:12px 0 0">한 번 로그인하면 이 기기에서 180일 동안 유지돼요.</p>
+    </form>
+  </section>
+</div>
 <?php page_end();

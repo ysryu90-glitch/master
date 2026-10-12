@@ -50,7 +50,7 @@ page_start('찾기', 'more', ['back' => 'index.php']);
 </form>
 
 <?php if ($q === ''): ?>
-  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「하린」처럼 적으면 일기 · 할 일 · 일정 · 수첩 · 장보기에서 한꺼번에 찾아요.</p></section>
+  <section class="card tempty"><div class="big">🔍</div><b>무엇이든 찾아보세요</b><p class="small muted">「서울숲」 「치과」 「코스트코」 「아이 이름」처럼 적으면 일기 · 할 일 · 일정 · 수첩 · 장보기에서 한꺼번에 찾아요.</p></section>
 <?php elseif (!$total): ?>
   <section class="card tempty"><div class="big">🤔</div><b>「<?= h($q) ?>」 찾은 것이 없어요</b></section>
 <?php else: ?>

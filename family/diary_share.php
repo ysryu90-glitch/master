@@ -59,7 +59,7 @@ page_start('일기 공유', 'family');
     <input type="hidden" name="kind" value="<?= $entry ? 'entry' : 'album' ?>">
     <?php if ($entry): ?><input type="hidden" name="entry" value="<?= (int) $entry['id'] ?>"><?php endif; ?>
     <?php if (!$entry): ?>
-      <label>앨범 이름<input name="title" maxlength="100" placeholder="예: 하린이네 일기장"></label>
+      <label>앨범 이름<input name="title" maxlength="100" placeholder="예: <?= h(family_name()) ?> 일기장"></label>
       <div class="segmented" style="margin-bottom:12px">
         <label><input type="radio" name="album_all" value="1" checked><span>모든 일기 (새 일기도)</span></label>
         <label><input type="radio" name="album_all" value="0"><span>고른 일기만</span></label>

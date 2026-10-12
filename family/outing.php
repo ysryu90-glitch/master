@@ -129,10 +129,12 @@ $visits = db()->query("SELECT l.* FROM outing_logs l WHERE l.kind = 'visit' AND 
 $recentDiary = diary_entries(null, 8, 'outing');
 $pendingDiary = diary_pending_plans();
 
-// 부모님 댁 마지막 방문 (기록 + 지난 캘린더에서 '평택 · 부모님' 일정)
+// 부모님 댁 마지막 방문 (기록 + 지난 캘린더에서 '부모님 댁 지역 이름 · 부모님' 일정)
+$ptName = (string) ($parents['name'] ?? '부모님 댁');
+$homeName = (string) ($home['name'] ?? '집');
 $parentsLast = (string) setting('parents_last_visit', '');
-$stmt = db()->prepare("SELECT MAX(DATE(start_at)) FROM calendar_events WHERE start_at < NOW() AND (title LIKE '%평택%' OR title LIKE '%부모님%' OR title LIKE '%시댁%' OR title LIKE '%친정%')");
-$stmt->execute();
+$stmt = db()->prepare("SELECT MAX(DATE(start_at)) FROM calendar_events WHERE start_at < NOW() AND (title LIKE ? OR title LIKE '%부모님%' OR title LIKE '%시댁%' OR title LIKE '%친정%')");
+$stmt->execute(['%' . $ptName . '%']);
 $calLast = (string) $stmt->fetchColumn();
 if ($calLast && $calLast > $parentsLast) { $parentsLast = $calLast; set_setting('parents_last_visit', $calLast); }
 $parentsGap = $parentsLast ? (int) round((strtotime(today()) - strtotime($parentsLast)) / 86400) : null;
@@ -192,7 +194,7 @@ page_start('나들이 추천', 'family');
   <h2>🧺 <?= h($blockLabel($days)) ?></h2>
   <p class="small"><?= h(MONTH_THEMES[(int) date('n', strtotime($days[0] ?? today()))]) ?></p>
   <?php if ($parentsGap === null || $parentsGap >= 21): ?>
-    <p class="small" style="margin-top:6px">👵 평택 부모님 댁에 <?= $parentsGap === null ? '다녀온 기록이 없어요' : "마지막으로 다녀온 지 {$parentsGap}일 됐어요" ?>. 아래에서 '이 날 부모님 댁 가요'를 누르면 평택 근처 코스로 추천해요.</p>
+    <p class="small" style="margin-top:6px">👵 부모님 댁(<?= h($ptName) ?>)에 <?= $parentsGap === null ? '다녀온 기록이 없어요' : "마지막으로 다녀온 지 {$parentsGap}일 됐어요" ?>. 아래에서 '이 날 부모님 댁 가요'를 누르면 <?= h($ptName) ?> 근처 코스로 추천해요.</p>
   <?php else: ?>
     <p class="small muted" style="margin-top:6px">👵 부모님 댁 마지막 방문: <?= $parentsGap ?>일 전</p>
   <?php endif; ?>
@@ -289,7 +291,7 @@ $allDays = array_merge($days, $nextWeekend);
   <?php endif; ?>
   <div style="margin-top:10px">
     <?php if ($ctx['parentsDay'] && $ptDay === $d): ?>
-      <a class="btn small" href="outing.php">평택 말고 집 근처로 보기</a>
+      <a class="btn small" href="outing.php"><?= h($ptName) ?> 말고 집 근처로 보기</a>
     <?php elseif (!$ctx['parentsDay']): ?>
       <a class="btn small" href="outing.php?pt=<?= $d ?>">👵 이 날 부모님 댁 가요</a>
     <?php endif; ?>
@@ -353,7 +355,7 @@ $allDays = array_merge($days, $nextWeekend);
       <div class="grid3">
         <label>종류<select name="type"><option value="in">실내</option><option value="out">야외</option><option value="mix">실내외</option></select></label>
         <label>집에서 (분)<input name="minutes" type="number" value="15" min="5" max="180"></label>
-        <label>지역<select name="area"><option value="home">집 근처</option><option value="pyeongtaek">평택</option></select></label>
+        <label>지역<select name="area"><option value="home">집 근처</option><option value="pyeongtaek">부모님 댁 근처 (<?= h($ptName) ?>)</option></select></label>
       </div>
       <label>특히 좋은 달 (선택)</label>
       <div class="chips" style="margin-bottom:12px"><?php for ($m = 1; $m <= 12; $m++): ?><label class="chip" style="margin:0"><input type="checkbox" name="best[]" value="<?= $m ?>" style="width:auto;margin:0 4px 0 0;display:inline"><?= $m ?>월</label><?php endfor; ?></div>
@@ -404,5 +406,5 @@ $allDays = array_merge($days, $nextWeekend);
   <p style="margin:12px 0 0"><a class="btn small" href="diary.php?c=outing">📔 나들이 일기 모아 보기 ›</a></p>
 </section>
 
-<p class="small muted">날씨 · 미세먼지는 은평구(부모님 댁 가는 날은 평택) 예보 기준이에요. 이동 시간은 차로 대략적인 값이고, 운영 시간과 예약은 가기 전에 꼭 확인해 주세요.</p>
+<p class="small muted">날씨 · 미세먼지는 <?= h($homeName) ?>(부모님 댁 가는 날은 <?= h($ptName) ?>) 예보 기준이에요. 이동 시간은 차로 대략적인 값이고, 운영 시간과 예약은 가기 전에 꼭 확인해 주세요.</p>
 <?php page_end('family');

@@ -149,7 +149,7 @@ page_start('설정');
     </div>
     <div id="push-results"></div>
     <div id="push-devices"></div>
-    <p class="small muted" style="margin-top:8px">아이폰은 사파리 공유 › <b>홈 화면에 추가</b>한 아이콘으로 열어야 알림을 켤 수 있어요 (iOS 16.4 이상). 엄마 · 아빠 휴대폰에서 각각 켜 주세요.</p>
+    <p class="small muted" style="margin-top:8px">아이폰은 사파리 공유 › <b>홈 화면에 추가</b>한 아이콘으로 열어야 알림을 켤 수 있어요 (iOS 16.4 이상). 가족 각자 휴대폰에서 켜 주세요.</p>
   </div>
   <form method="post" class="form" style="margin-top:12px">
     <?= csrf_field() ?><input type="hidden" name="action" value="notify">

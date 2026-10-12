@@ -125,7 +125,7 @@ page_start('할 일', 'home');
     <label><input type="radio" name="owner" value="both"<?= $defOwner === 'both' ? ' checked' : '' ?>><span>👨‍👩‍👧 같이</span></label>
   </div>
 </form>
-<p class="small muted" style="margin:-2px 6px 14px">「내일 · 금요일 · 10/15」로 시작하면 그 날짜로 · 엄마에게 맡기면 엄마 폰으로 알림이 가요.</p>
+<p class="small muted" style="margin:-2px 6px 14px">「내일 · 금요일 · 10/15」로 시작하면 그 날짜로 <?php $oth = array_values(array_filter($adults ?? members('adult'), fn($a) => (int) $a['id'] !== (int) $me['id']))[0]['name'] ?? '가족'; ?> · <?= h($oth) ?>에게 맡기면 <?= h($oth) ?> 폰으로 알림이 가요.</p>
 
 <nav class="chips scrollx tfilter" style="margin:0 -16px 6px;padding:0 16px">
   <a class="chip<?= $who === 'all' ? ' on' : '' ?>" href="todo.php">전체 <small><?= array_sum($counts) ?></small></a>
