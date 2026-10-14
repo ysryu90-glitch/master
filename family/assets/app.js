@@ -650,3 +650,25 @@
     if (row && !e.target.closest('.tdel')) { e.preventDefault(); e.stopPropagation(); row.classList.remove('swiped'); open = null; }
   }, true);
 })();
+
+/* 숫자가 0부터 올라가며 나타나기 (홈 한눈에 · 주간 리포트 · 성장) */
+(function () {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('.glance b, .rstats b, .gstats b').forEach(function (el) {
+    var node = el.firstChild;
+    if (!node || node.nodeType !== 3) return;
+    var m = node.nodeValue.trim().match(/^(\d+(?:\.\d+)?)$/);
+    if (!m) return;
+    var target = parseFloat(m[1]), dec = (m[1].split('.')[1] || '').length;
+    if (target === 0) return;
+    var t0 = null, dur = Math.min(900, 400 + target * 20);
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      node.nodeValue = (target * e).toFixed(dec);
+      if (p < 1) requestAnimationFrame(step);
+    }
+    node.nodeValue = (0).toFixed(dec);
+    requestAnimationFrame(step);
+  });
+})();

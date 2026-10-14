@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
         case 'radd':
             $t = mb_substr(trim(post('title')), 0, 30);
             $slot = post('slot') === 'pm' ? 'pm' : 'am';
-            if ($t !== '') db()->prepare('INSERT INTO routines (member_id, slot, title, emoji, sort) VALUES (?, ?, ?, ?, 99)')->execute([$kidId, $slot, $t, mb_substr(trim(post('emoji')), 0, 4) ?: '✅']);
+            if ($t !== '') db()->prepare('INSERT INTO routines (member_id, slot, title, emoji, sort) VALUES (?, ?, ?, ?, 99)')->execute([$kidId, $slot, $t, clean_emoji((string) post('emoji'), '✅')]);
             redirect('sticker.php?m=' . $kidId . '&slot=' . $slot . '#routine-edit');
         case 'rdel':
             db()->prepare('DELETE FROM routines WHERE id = ? AND member_id = ?')->execute([(int) post('rid'), $kidId]);

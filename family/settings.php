@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch (post('action')) {
             case 'profile':
                 $pdo->prepare('UPDATE members SET name = ?, emoji = ? WHERE id = ?')
-                    ->execute([mb_substr(post('name') ?: $me['name'], 0, 40), mb_substr(post('emoji'), 0, 8), $me['id']]);
+                    ->execute([mb_substr(post('name') ?: $me['name'], 0, 40), clean_emoji((string) post('emoji'), $me['emoji']), $me['id']]);
                 $message = '내 정보를 저장했어요.';
                 break;
             case 'password':

@@ -1016,3 +1016,11 @@ function family_name(): string
 {
     try { return (string) (setting('family_name') ?: '우리집'); } catch (Throwable $e) { return '우리집'; }
 }
+
+/** 이모지 칸 값 거르기: 그림 문자가 아니면 기본값 */
+function clean_emoji(string $v, string $default): string
+{
+    $v = trim($v);
+    if ($v === '' || preg_match('/[\p{L}\p{N}]/u', $v)) return $default;
+    return mb_substr($v, 0, 8);
+}

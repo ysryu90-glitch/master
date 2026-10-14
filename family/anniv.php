@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('anniv.php');
     }
     $year = post('noyear') ? null : (int) $m[1];
-    $emoji = mb_substr(trim(post('emoji')), 0, 4) ?: ANNIV_KINDS[$kind][1];
+    $emoji = clean_emoji((string) post('emoji'), ANNIV_KINDS[$kind][1]);
     if ($id) {
         db()->prepare('UPDATE anniversaries SET title = ?, emoji = ?, kind = ?, month = ?, day = ?, year = ? WHERE id = ?')->execute([$title, $emoji, $kind, (int) $m[2], (int) $m[3], $year, $id]);
     } else {

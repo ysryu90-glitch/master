@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $days = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['days'] ?? [])), fn($d) => $d >= 0 && $d <= 6)));
             sort($days);
             $days = count($days) === 7 || !$days ? '' : implode(',', $days);
-            $emoji = mb_substr(trim(post('emoji')), 0, 4) ?: '⏰';
+            $emoji = clean_emoji((string) post('emoji'), '⏰');
             $note = mb_substr(trim(post('note')), 0, 100);
             if ($rm) {
                 $pdo->prepare('UPDATE medications SET name = ?, time = ?, member_id = ?, days = ?, emoji = ?, note = ? WHERE id = ?')->execute([$name, $time, $who, $days, $emoji, $note, $id]);
