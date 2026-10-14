@@ -11,6 +11,7 @@ function anniv_upcoming(int $days = 400, ?string $today = null): array
     $out = [];
     try { $rows = db()->query('SELECT * FROM anniversaries')->fetchAll(); } catch (Throwable $e) { return []; }
     foreach ($rows as $a) {
+        $a['emoji'] = clean_emoji((string) $a['emoji'], ANNIV_KINDS[$a['kind']][1] ?? '🎉');
         $y = (int) date('Y', $t0);
         foreach ([$y, $y + 1] as $yy) {
             $m = (int) $a['month'];
