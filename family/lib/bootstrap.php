@@ -782,37 +782,43 @@ function check_csrf(): void
  */
 const NAV = [
     'home' => ['홈', '🏠', 'index.php', []],
-    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['calendar.php', '일정', '📅'], ['shop.php', '장보기', '🛒'], ['table.php', '식단', '🍲'], ['anniv.php', '기념일', '🎂']]],
-    'kid' => ['아이', '🧒', 'sticker.php', [['sticker.php', '루틴 · 스티커', '⭐'], ['growth.php', '성장', '🌱'], ['sick.php', '아플 때', '🤒'], ['quotes.php', '어록', '💬']]],
-    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['outing.php', '나들이 추천', '🧺']]],
+    'family' => ['가족', '👨‍👩‍👧', 'todo.php', [['todo.php', '할 일', '✅'], ['shop.php', '장보기', '🛒'], ['table.php', '식단', '🍲']]],
+    'calendar' => ['일정', '📅', 'calendar.php', [['calendar.php', '달력', '📅'], ['anniv.php', '기념일', '🎂']]],
+    'diary' => ['일기', '📔', 'diary.php', [['diary.php', '일기', '📔'], ['kid.php', '아이', '🧒'], ['outing.php', '나들이', '🧺']]],
     'alerts' => ['알림', '🔔', 'feed.php', [['feed.php', '소식', '🔔'], ['remind.php', '반복 알림', '⏰'], ['report.php', '주간 리포트', '📊']]],
     'more' => ['더보기', '☰', 'more.php', [['more.php', '더보기', '☰'], ['settings.php', '설정', '⚙︎']]],
 ];
 
 /** 아래 탭에 보이는 묶음 (더보기는 오른쪽 위 ☰ 버튼) */
-const TABBAR = ['home', 'family', 'kid', 'diary', 'alerts'];
+const TABBAR = ['home', 'family', 'calendar', 'diary', 'alerts'];
 
 /** 화면 → [묶음, 작은 탭 화면] (일기 쓰기 화면은 '일기' 탭에 속하는 식) */
 const NAV_PAGES = [
     'index.php' => ['home', 'index.php'],
     'todo.php' => ['family', 'todo.php'], 'shop.php' => ['family', 'shop.php'], 'pack.php' => ['family', 'shop.php'],
-    'table.php' => ['family', 'table.php'], 'recipes.php' => ['family', 'table.php'], 'calendar.php' => ['family', 'calendar.php'], 'anniv.php' => ['family', 'anniv.php'],
-    'sticker.php' => ['kid', 'sticker.php'], 'growth.php' => ['kid', 'growth.php'], 'sick.php' => ['kid', 'sick.php'], 'quotes.php' => ['kid', 'quotes.php'],
+    'table.php' => ['family', 'table.php'], 'recipes.php' => ['family', 'table.php'],
+    'calendar.php' => ['calendar', 'calendar.php'], 'anniv.php' => ['calendar', 'anniv.php'],
     'diary.php' => ['diary', 'diary.php'], 'diary_view.php' => ['diary', 'diary.php'], 'diary_edit.php' => ['diary', 'diary.php'], 'diary_share.php' => ['diary', 'diary.php'],
     'outing.php' => ['diary', 'outing.php'],
+    'kid.php' => ['diary', 'kid.php'], 'sticker.php' => ['diary', 'kid.php'], 'growth.php' => ['diary', 'kid.php'], 'sick.php' => ['diary', 'kid.php'], 'quotes.php' => ['diary', 'kid.php'],
     'feed.php' => ['alerts', 'feed.php'], 'remind.php' => ['alerts', 'remind.php'], 'meds.php' => ['alerts', 'remind.php'], 'report.php' => ['alerts', 'report.php'],
     'more.php' => ['more', 'more.php'], 'family.php' => ['more', 'more.php'], 'settings.php' => ['more', 'settings.php'],
     'search.php' => ['more', 'more.php'], 'notes.php' => ['more', 'more.php'],
 ];
 
-/** 메뉴 이름: 아이가 한 명이면 「아이」 대신 아이 이름 */
-function nav_label(string $key): string
+/** 작은 탭 이름: 아이 화면은 아이 이름으로 (아이가 한 명일 때) */
+function nav_sub_label(string $href, string $label): string
 {
-    if ($key === 'kid') {
+    if ($href === 'kid.php') {
         static $kids = null;
         if ($kids === null) { try { $kids = members('child'); } catch (Throwable $e) { $kids = []; } }
         if (count($kids) === 1) return mb_strimwidth($kids[0]['name'], 0, 8, '');
     }
+    return $label;
+}
+
+function nav_label(string $key): string
+{
     return NAV[$key][0];
 }
 
@@ -827,6 +833,8 @@ function nav_icon(string $key, bool $on = false): string
         'meal' => '<path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M17 21V3c-2.2 1.2-3.5 3.6-3.5 7v3H17"/>',
         'diary' => $on ? '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" fill="currentColor"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/>'
                        : '<path d="M5 19.5V4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zm0 0A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6"/>',
+        'calendar' => $on ? '<rect x="3.5" y="5" width="17" height="15.5" rx="3" fill="currentColor"/><path d="M8 3v4M16 3v4" /><path d="M3.5 10h17" stroke="var(--card)"/><circle cx="8.5" cy="14.5" r="1.2" fill="var(--card)" stroke="none"/><circle cx="12" cy="14.5" r="1.2" fill="var(--card)" stroke="none"/>'
+                          : '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/><circle cx="8.5" cy="14.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="14.5" r="1" fill="currentColor" stroke="none"/>',
         'kid' => $on ? '<circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M8.8 14.2c.8 1.2 1.9 1.8 3.2 1.8s2.4-.6 3.2-1.8" stroke="var(--card)"/><circle cx="9.3" cy="10.3" r="1" fill="var(--card)" stroke="none"/><circle cx="14.7" cy="10.3" r="1" fill="var(--card)" stroke="none"/><path d="M12 3c-1 1.3-1 2.6 0 3.6" stroke="var(--card)"/>'
                      : '<circle cx="12" cy="12" r="9"/><path d="M8.8 14.2c.8 1.2 1.9 1.8 3.2 1.8s2.4-.6 3.2-1.8"/><circle cx="9.3" cy="10.3" r=".9" fill="currentColor" stroke="none"/><circle cx="14.7" cy="10.3" r=".9" fill="currentColor" stroke="none"/><path d="M12 3c-1 1.3-1 2.6 0 3.6"/>',
         'alerts' => $on ? '<path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.6 2H4.4z" fill="currentColor"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>'
@@ -901,7 +909,7 @@ function page_start(string $title, string $tab = '', array $options = []): void
   <a class="g sidesearch" href="search.php"><span class="i"><?= nav_icon('search') ?></span>찾기</a>
   <?php foreach (NAV as $key => [$label, $icon, $href, $items]): ?>
     <a class="g<?= $key === $group ? ' on' : '' ?>" href="<?= $href ?>"><span class="i"><?= nav_icon($key, $key === $group) ?></span><?= h(nav_label($key)) ?></a>
-    <?php if (count($items) > 1): ?><div class="subs"><?php foreach ($items as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $il ?></a><?php endforeach; ?></div><?php endif; ?>
+    <?php if (count($items) > 1): ?><div class="subs"><?php foreach ($items as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= h(nav_sub_label($ih, $il)) ?></a><?php endforeach; ?></div><?php endif; ?>
   <?php endforeach; ?>
   <a class="me" href="settings.php"><?= h($me['emoji'] . ' ' . $me['name']) ?> · 설정</a>
 </aside>
@@ -916,7 +924,7 @@ function page_start(string $title, string $tab = '', array $options = []): void
 </header>
 <?php if ($nav && !$back && count(NAV[$group][3]) > 1): ?>
 <nav class="subnav" aria-label="<?= h(NAV[$group][0]) ?> 메뉴">
-  <?php foreach (NAV[$group][3] as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= $il ?></a><?php endforeach; ?>
+  <?php foreach (NAV[$group][3] as [$ih, $il, $ii]): ?><a class="<?= $ih === $sub ? 'on' : '' ?>" href="<?= $ih ?>"><?= h(nav_sub_label($ih, $il)) ?></a><?php endforeach; ?>
 </nav>
 <?php endif; ?>
 <main class="page<?= $options['class'] ?? '' ? ' ' . h($options['class']) : '' ?>">

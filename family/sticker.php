@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $kid) {
             flash('목표를 바꿨어요.');
             break;
     }
-    redirect('sticker.php?m=' . $kidId);
+    redirect(post('back') === 'kid' ? 'kid.php?m=' . $kidId : 'sticker.php?m=' . $kidId);
 }
 
 page_start('루틴 · 스티커', 'kid');

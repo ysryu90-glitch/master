@@ -1418,3 +1418,24 @@ input, textarea, select, .bubble, .qa, pre { word-break: normal; }
 .btn.wide { padding-top: 10px; padding-bottom: 10px; }
 .jump.settabs { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 24px; }
 .jump.settabs a { white-space: nowrap; }
+/* 아이 허브 */
+.kidhero { display: flex; align-items: center; gap: 14px; background: linear-gradient(150deg, color-mix(in srgb, var(--orange) 12%, var(--card)), var(--card) 65%); }
+.kidhero .kav { flex: none; width: 60px; height: 60px; border-radius: 50%; background: var(--card); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08); display: flex; align-items: center; justify-content: center; font-size: 34px; }
+.kidhero h2 { font-size: 22px; }
+.minibar { height: 8px; border-radius: 4px; background: var(--card-2); overflow: hidden; }
+.minibar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #fbbf24, #f59e0b); transition: width 0.6s var(--spring); }
+.praise { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.praise form { margin: 0; }
+.pbtn { width: 100%; min-height: 46px; border: 0; border-radius: 14px; background: color-mix(in srgb, #fbbf24 14%, var(--card-2)); color: var(--text); font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; transition: transform 0.45s var(--spring); }
+.pbtn:active { transform: scale(0.94); transition-duration: 0.1s; }
+.kidgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.ktile { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 14px 15px 13px; background: var(--card); border-radius: 20px; color: var(--text); text-decoration: none; min-width: 0; transition: transform 0.45s var(--spring); }
+.ktile:active { transform: scale(0.97); transition-duration: 0.1s; }
+.ktile .ki { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: var(--card-2); }
+.ktile .kk { font-size: 13px; font-weight: 600; color: var(--sub); padding-right: 36px; }
+.ktile b { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; margin-top: 6px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ktile b small { font-size: 14px; font-weight: 600; color: var(--sub); margin-left: 2px; }
+.ktile b.txt { font-size: 19px; }
+.ktile b.quote { font-size: 15px; font-weight: 700; white-space: normal; line-height: 1.35; }
+.ktile .ks { font-size: 12.5px; color: var(--sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ktile.warn { box-shadow: inset 0 0 0 2px var(--orange); }
