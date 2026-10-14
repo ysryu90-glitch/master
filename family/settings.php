@@ -237,7 +237,7 @@ page_start('설정');
 
 <section class="card">
   <a class="btn danger" href="logout.php">로그아웃</a>
-  <p class="small muted" style="margin-top:8px">모든 기록(건강 · 일기와 사진 · 식단 · 설정)은 NAS의 MariaDB(family_board)에 저장돼요.</p>
+  <p class="small muted" style="margin-top:8px">모든 기록(할 일 · 일정 · 일기와 사진 · 식단 · 아이 기록 · 설정)은 우리 집 NAS에만 저장돼요.</p>
 </section>
 <script>
 (function () {

@@ -1344,3 +1344,77 @@ main.bare { padding-top: calc(20px + env(safe-area-inset-top)); }
   .swipable:hover > .tdel, .swipable > .tdel:focus-within { opacity: 1; }
 }
 .card.tlist, .card.rows { overflow: hidden; }
+
+/* ═══════════ 부드러운 디자인 (최종): 한글 줄바꿈 · 버튼 · 칩 · 입력칸 · 카드 ═══════════ */
+/* 한글이 단어 중간에서 끊기지 않게 (예: 「챙기/기」), 아주 긴 글자만 어디서든 줄바꿈 */
+body { word-break: keep-all; overflow-wrap: anywhere; }
+input, textarea, select, .bubble, .qa, pre { word-break: normal; }
+
+/* 버튼: 높이 · 둥글기 통일, 글자 가운데, 줄바꿈 없음 */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 46px; padding: 0 18px; border: 0; border-radius: 15px;
+  font: inherit; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.2; white-space: nowrap; text-decoration: none;
+  background: var(--card-2); color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 60%, transparent);
+}
+.btn.small { min-height: 36px; padding: 0 13px; font-size: 14px; border-radius: 12px; }
+.btn.wide { width: 100%; min-height: 54px; font-size: 16.5px; font-weight: 700; border-radius: 17px; }
+.btn.primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+  color: #fff; box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.btn.orange { background: var(--orange-soft); color: var(--orange); box-shadow: none; }
+.btn.danger { background: color-mix(in srgb, var(--red) 9%, transparent); color: var(--red); box-shadow: none; }
+.btn.taken { background: var(--accent-soft); color: var(--accent-ink); box-shadow: none; }
+.btn:disabled { opacity: 0.45; box-shadow: none; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn-row > form { margin: 0; }
+@media (prefers-color-scheme: dark) { .btn.primary { color: #062113; } }
+
+/* 칩: 알약 모양, 같은 높이, 고르면 강조색 테두리 */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px;
+  font: inherit; font-size: 14px; font-weight: 600; line-height: 1.2; white-space: nowrap; text-decoration: none;
+  background: var(--card-2); color: var(--text); cursor: pointer;
+}
+.chip.on { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.page > .chips .chip:not(.on), .page > nav.chips .chip:not(.on) { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+/* 옆으로 넘기는 칩 줄: 끝이 잘려 보이지 않게 부드럽게 사라짐 */
+.chips.scrollx { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 24px; }
+
+/* 입력칸: 회색으로 채운 둥근 칸, 고르면 강조색 테두리 */
+.form input:not([type=checkbox]):not([type=radio]):not([type=file]), .form select, .form textarea {
+  min-height: 50px; border-radius: 14px; border: 1.5px solid transparent; background: var(--card-2); font-size: 16px;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.form textarea { min-height: 110px; padding-top: 12px; }
+.form input:focus, .form select:focus, .form textarea:focus { border-color: var(--accent); background: var(--card); box-shadow: 0 0 0 4px var(--accent-soft); outline: none; }
+.form label { font-size: 13px; font-weight: 600; color: var(--sub); }
+.form input[type=checkbox], input[type=checkbox] { accent-color: var(--accent); width: 20px; height: 20px; }
+
+/* 카드 제목 줄: 긴 제목이 오른쪽 링크를 밀어내지 않게 */
+.card-head { gap: 10px; }
+.card-head h2 { min-width: 0; }
+.card-head .more { flex: none; white-space: nowrap; }
+.card-head .more::after { content: none; }
+
+/* 아이 루틴 · 체크 타일: 글자가 길어도 예쁘게 두 줄 */
+.rt .t { line-height: 1.25; }
+.rt { min-height: 64px; }
+
+/* 목록 줄의 글자 겹침 방지 */
+.trow .tbody, .row .grow, .fitem .grow { min-width: 0; }
+.tm { flex-wrap: wrap; row-gap: 2px; }
+
+/* 할 일 「오늘로 · 내일로」 같은 작은 버튼 묶음 */
+.tmove button { min-height: 30px; padding: 0 10px; border-radius: 10px; font-size: 12.5px; font-weight: 650; white-space: nowrap; }
+
+/* 시트 안 여백 · 둥글기 */
+.sheet .panel { border-radius: 26px 26px 0 0; padding: 10px 20px calc(22px + env(safe-area-inset-bottom)); }
+.sheet .panel::before { width: 38px; height: 5px; background: color-mix(in srgb, var(--dim) 45%, transparent); margin: 0 auto 14px; }
+.sheet-head h2 { font-size: 20px; letter-spacing: -0.02em; }
+.btn.wide, .btn:not(.small) { white-space: normal; text-align: center; text-wrap: balance; }
+.btn.wide { padding-top: 10px; padding-bottom: 10px; }
+.jump.settabs { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 24px; }
+.jump.settabs a { white-space: nowrap; }
