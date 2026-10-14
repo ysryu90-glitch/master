@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_X_FORWARDE
     exit;
 }
 
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 const SESSION_COOKIE = 'fam_sid';
 const SESSION_DAYS = 180;
 
@@ -560,6 +560,11 @@ function migrate(PDO $pdo): void
     $pdo->exec("ALTER TABLE medications ADD COLUMN IF NOT EXISTS days VARCHAR(20) NOT NULL DEFAULT ''");
     $pdo->exec("ALTER TABLE medications ADD COLUMN IF NOT EXISTS note VARCHAR(100) NOT NULL DEFAULT ''");
     $pdo->exec('ALTER TABLE medication_logs ADD COLUMN IF NOT EXISTS taken_by INT NULL');
+    // 아이 이름 바로잡기: 「하린」으로 잘못 들어간 것을 「소연」으로 (아이 · 기념일 · 할 일 · 알림 · 소식 · 일기 제목)
+    $pdo->exec("UPDATE members SET name = '소연' WHERE role = 'child' AND name = '하린'");
+    foreach (['anniversaries' => 'title', 'todos' => 'title', 'medications' => 'name', 'activity' => 'text', 'diary_entries' => 'title'] as $t => $c) {
+        $pdo->exec("UPDATE $t SET $c = REPLACE($c, '하린', '소연') WHERE $c LIKE '%하린%'");
+    }
     // 메뉴 보관함: 지금까지 정했던 저녁 메뉴로 시작
     $pdo->exec("INSERT IGNORE INTO recipes (name, ingredients, created_at, updated_at) SELECT dish, MAX(ingredients), NOW(), NOW() FROM dinner_plans WHERE dish <> '' GROUP BY dish");
     // 반복 할 일을 번갈아 (다 하면 다음 차례는 다른 사람)
@@ -1019,7 +1024,7 @@ function activity_unseen(int $memberId): int
     }
 }
 
-/** 가족 이름 (설정 › 우리집에서 바꿈, 예: 하린이네) */
+/** 가족 이름 (설정 › 우리집에서 바꿈, 예: 소연이네) */
 function family_name(): string
 {
     try { return (string) (setting('family_name') ?: '우리집'); } catch (Throwable $e) { return '우리집'; }

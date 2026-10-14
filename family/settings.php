@@ -177,7 +177,7 @@ page_start('설정');
   <h2>🏠 우리집</h2>
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="home">
-    <label>가족 이름 (화면 · 로그인 · 리포트에 보여요)<input name="family_name" maxlength="20" value="<?= h(family_name()) ?>" placeholder="예: 하린이네"></label>
+    <label>가족 이름 (화면 · 로그인 · 리포트에 보여요)<input name="family_name" maxlength="20" value="<?= h(family_name()) ?>" placeholder="예: 소연이네"></label>
     <div class="grid3">
       <?php foreach ($roles as $role => $title): ?>
         <label><?= $title ?><select name="loc_<?= $role ?>">
