@@ -437,6 +437,8 @@
     var x = e.target.closest('.sheet:not(#form) [data-sheet-close]');
     if (x) { e.preventDefault(); close(x.closest('.sheet')); }
   });
+  // 서버가 열어 둔 시트(고치기 화면)면 뒤 화면 스크롤 막기
+  if (document.querySelector('.sheet:not([hidden])')) document.body.classList.add('noscroll');
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     document.querySelectorAll('.sheet:not([hidden]):not(#form)').forEach(close);
@@ -618,4 +620,33 @@
     // 뒤로 간 화면이 캐시에서 돌아오면 원래 자리로
     window.addEventListener('pageshow', function () { shell.style.transform = ''; shell.classList.remove('swipe-back', 'swiping'); });
   }
+})();
+
+/* 밀어서 지우기: ✕(삭제) 폼이 있는 줄을 왼쪽으로 밀면 「삭제」가 드러남 */
+(function () {
+  var rows = document.querySelectorAll('.trow, .row');
+  rows.forEach(function (r) { if (r.querySelector(':scope > form.tdel')) r.classList.add('swipable'); });
+  if (!window.matchMedia || !matchMedia('(hover: none) and (pointer: coarse)').matches) return;
+  var open = null;
+  function closeOpen(except) { if (open && open !== except) { open.classList.remove('swiped'); open = null; } }
+  document.addEventListener('touchstart', function (e) {
+    var row = e.target.closest && e.target.closest('.swipable');
+    if (!row || e.target.closest('.tdel')) { if (!(e.target.closest && e.target.closest('.tdel'))) closeOpen(null); return; }
+    closeOpen(row);
+    var x0 = e.touches[0].clientX, y0 = e.touches[0].clientY, lock = null;
+    function mv(ev) {
+      var dx = ev.touches[0].clientX - x0, dy = ev.touches[0].clientY - y0;
+      if (lock === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (lock !== 'x') return;
+      if (dx < -36 && !row.classList.contains('swiped')) { row.classList.add('swiped'); open = row; if (window.haptic) haptic(); }
+      if (dx > 24 && row.classList.contains('swiped')) { row.classList.remove('swiped'); open = null; }
+    }
+    function end() { document.removeEventListener('touchmove', mv); document.removeEventListener('touchend', end); }
+    document.addEventListener('touchmove', mv, { passive: true }); document.addEventListener('touchend', end);
+  }, { passive: true });
+  // 열린 줄을 누르면 닫기만 (링크로 넘어가지 않게)
+  document.addEventListener('click', function (e) {
+    var row = e.target.closest && e.target.closest('.swipable.swiped');
+    if (row && !e.target.closest('.tdel')) { e.preventDefault(); e.stopPropagation(); row.classList.remove('swiped'); open = null; }
+  }, true);
 })();

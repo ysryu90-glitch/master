@@ -93,10 +93,12 @@ page_start('챙길 것', 'family');
       <?php endforeach; ?>
     </div>
   <?php else: ?>
-    <section class="card tempty"><div class="big">🎒</div><b>매번 챙기는 것을 목록으로</b><p class="small muted">여행 짐 · 나들이 준비물을 한 번 만들어 두면, 다음엔 「체크 풀고 다시 쓰기」로 그대로 써요. 부부가 같이 체크해서 겹치거나 빠지지 않아요.</p></section>
+    <section class="card tempty"><div class="big">🎒</div><b>매번 챙기는 것을 목록으로</b><p class="small muted">＋를 눌러 여행 짐 · 나들이 준비물 목록을 한 번 만들어 두면, 다음엔 「체크 풀고 다시 쓰기」로 그대로 써요. 부부가 같이 체크해서 겹치거나 빠지지 않아요.</p></section>
   <?php endif; ?>
-  <section class="card">
-    <h2>＋ 새 목록</h2>
+  <button type="button" class="lfab" data-open-sheet="newlist" aria-label="새 목록">＋</button>
+  <div class="sheet" id="newlist" hidden role="dialog" aria-modal="true" aria-labelledby="newlist-title">
+    <div class="panel">
+      <div class="sheet-head"><h2 id="newlist-title">새 목록</h2><button type="button" class="x" data-sheet-close aria-label="닫기">✕</button></div>
     <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="new">
       <div class="segmented" style="flex-wrap:wrap">
         <?php $first = true; foreach (array_keys(PACK_TEMPLATES) as $t): ?><label style="flex:1 0 45%"><input type="radio" name="template" value="<?= h($t) ?>"<?= $first ? ' checked' : '' ?>><span><?= h($t) ?></span></label><?php $first = false; endforeach; ?>
@@ -105,6 +107,7 @@ page_start('챙길 것', 'family');
       <label>이름 (비우면 고른 것 이름)<input name="title" maxlength="40" placeholder="예: 강릉 1박 여행"></label>
       <button class="btn primary wide">만들기</button>
     </form>
-  </section>
+      </div>
+  </div>
 <?php endif; ?>
 <?php page_end('family');

@@ -68,7 +68,7 @@ page_start('메뉴 보관함', 'family', ['back' => 'table.php#plan']);
           <form method="post" style="display:flex;gap:6px;align-items:center"><?= csrf_field() ?><input type="hidden" name="action" value="plan"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
             <select name="day" style="width:auto;margin:0;padding:6px 10px"><?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("+$i day")); ?><option value="<?= $d ?>"><?= $i === 0 ? '오늘' : ($i === 1 ? '내일' : date('n/j', strtotime($d)) . ' ' . weekday_short($d)) ?></option><?php endfor; ?></select>
             <button class="btn small primary">저녁으로</button></form>
-          <a class="btn small" href="recipes.php?edit=<?= (int) $r['id'] ?>#form">✏️ 고치기</a>
+          <a class="btn small" href="recipes.php?edit=<?= (int) $r['id'] ?>">✏️ 고치기</a>
         </div>
       </div>
     </details>
@@ -76,8 +76,10 @@ page_start('메뉴 보관함', 'family', ['back' => 'table.php#plan']);
   <?php if (!$list): ?><p class="small muted" style="padding:14px 18px;margin:0">찾는 메뉴가 없어요.</p><?php endif; ?>
 </div>
 
-<section class="card" id="form">
-  <h2><?= $edit ? '✏️ ' . h($edit['name']) . ' 고치기' : '＋ 메뉴 넣기' ?></h2>
+<button type="button" class="lfab" data-open-sheet="editor" aria-label="메뉴 넣기">＋</button>
+<div class="sheet" id="editor"<?= $edit ? '' : ' hidden' ?> role="dialog" aria-modal="true" aria-labelledby="editor-title">
+  <div class="panel">
+    <div class="sheet-head"><h2 id="editor-title"><?= $edit ? h($edit['name']) . ' 고치기' : '메뉴 넣기' ?></h2><?php if ($edit): ?><a class="x" href="recipes.php" aria-label="닫기">✕</a><?php else: ?><button type="button" class="x" data-sheet-close aria-label="닫기">✕</button><?php endif; ?></div>
   <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) ($edit['id'] ?? 0) ?>">
     <label>메뉴 (여러 개면 · 로)<input name="name" required maxlength="100" value="<?= h($edit['name'] ?? '') ?>" placeholder="예: 된장찌개 · 계란말이"></label>
     <label>재료 (쉼표로)<input name="ingredients" maxlength="500" value="<?= h($edit['ingredients'] ?? '') ?>" placeholder="예: 두부, 애호박, 감자"></label>
@@ -87,5 +89,7 @@ page_start('메뉴 보관함', 'family', ['back' => 'table.php#plan']);
     <button class="btn primary wide">저장</button>
   </form>
   <?php if ($edit): ?><form method="post" data-confirm="「<?= h($edit['name']) ?>」을(를) 보관함에서 뺄까요?" style="margin-top:10px"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $edit['id'] ?>"><button class="btn small danger">🗑 보관함에서 빼기</button></form><?php endif; ?>
-</section>
+
+  </div>
+</div>
 <?php page_end('family');

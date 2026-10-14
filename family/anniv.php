@@ -54,15 +54,17 @@ page_start('기념일', 'family');
   <h3 class="listhead">다가오는 날 <span><?= count($list) ?></span></h3>
   <div class="card rows">
     <?php foreach ($list as $a): ?>
-      <a class="row" href="anniv.php?edit=<?= (int) $a['id'] ?>#form"><span class="ic"><?= h($a['emoji']) ?></span>
+      <a class="row" href="anniv.php?edit=<?= (int) $a['id'] ?>"><span class="ic"><?= h($a['emoji']) ?></span>
         <span class="grow"><span class="t"><?= h($a['label']) ?></span><span class="s"><?= date('Y.n.j', strtotime($a['date'])) ?> (<?= weekday_short($a['date']) ?>)</span></span>
         <b class="ddsm<?= $a['dday'] <= 7 ? ' soon' : '' ?>"><?= dday_text($a['dday']) ?></b></a>
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
 
-<section class="card" id="form">
-  <h2><?= $edit ? '✏️ 고치기' : '＋ 챙길 날 추가' ?></h2>
+<button type="button" class="lfab" data-open-sheet="editor" aria-label="챙길 날 추가">＋</button>
+<div class="sheet" id="editor"<?= $edit ? '' : ' hidden' ?> role="dialog" aria-modal="true" aria-labelledby="editor-title">
+  <div class="panel">
+    <div class="sheet-head"><h2 id="editor-title"><?= $edit ? '고치기' : '챙길 날 추가' ?></h2><?php if ($edit): ?><a class="x" href="anniv.php" aria-label="닫기">✕</a><?php else: ?><button type="button" class="x" data-sheet-close aria-label="닫기">✕</button><?php endif; ?></div>
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) ($edit['id'] ?? 0) ?>">
     <div class="segmented" style="margin-bottom:12px">
@@ -78,5 +80,7 @@ page_start('기념일', 'family');
     <form method="post" data-confirm="<?= h($edit['title']) ?>을(를) 지울까요?" style="margin-top:10px"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $edit['id'] ?>"><button class="btn small danger">🗑 지우기</button> <a class="btn small" href="anniv.php">취소</a></form>
   <?php endif; ?>
   <p class="small muted" style="margin:10px 0 0">생일은 「<?= h($kidName) ?> 생일」처럼 이름을 넣으면 성장 기록에 나이(개월)도 같이 보여요. 음력 날짜는 올해 양력 날짜로 적어 주세요.</p>
-</section>
+
+  </div>
+</div>
 <?php page_end('family');

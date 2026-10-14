@@ -1329,3 +1329,18 @@ main.bare { padding-top: calc(20px + env(safe-area-inset-top)); }
 .obc { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--dim); }
 .obrow.ok .obc { border-color: var(--accent); background: var(--accent) no-repeat center / 13px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
 .obrow.ok b { color: var(--sub); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--sub) 50%, transparent); }
+/* 밀어서 지우기 (휴대폰): ✕ 대신 줄을 왼쪽으로 밀면 빨간 「삭제」 */
+@media (hover: none) and (pointer: coarse) {
+  .swipable { position: relative; overflow: hidden; }
+  .swipable > :not(.tdel) { transition: transform 0.45s var(--spring); }
+  .swipable > .tdel { position: absolute; top: 0; right: 0; bottom: 0; width: 84px; height: 100% !important; align-self: stretch !important; margin: 0 !important; display: flex; align-items: stretch; transform: translateX(100%); transition: transform 0.45s var(--spring); }
+  .swipable > .tdel button { width: 100% !important; height: 100% !important; border-radius: 0 !important; background: var(--red); color: #fff; font-size: 0; }
+  .swipable > .tdel button::after { content: '삭제'; font-size: 15px; font-weight: 700; }
+  .swipable.swiped > :not(.tdel) { transform: translateX(-84px); }
+  .swipable.swiped > .tdel { transform: translateX(0); }
+}
+@media (hover: hover) {
+  .swipable > .tdel { opacity: 0; transition: opacity 0.15s; }
+  .swipable:hover > .tdel, .swipable > .tdel:focus-within { opacity: 1; }
+}
+.card.tlist, .card.rows { overflow: hidden; }

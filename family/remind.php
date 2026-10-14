@@ -75,7 +75,7 @@ page_start('반복 알림', 'alerts');
     <?php foreach ($today as $r): $for = $names[(int) $r['member_id']] ?? null; $by = $names[(int) $r['taken_by']] ?? null; $late = !$r['taken_at'] && $r['time'] < $nowHm; ?>
       <div class="trow<?= $r['taken_at'] ? ' done' : '' ?>">
         <form method="post" action="remind.php" class="tcheck-f"><?= csrf_field() ?><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>"><button class="tcheck" aria-label="챙겼어요"></button></form>
-        <a class="tbody" href="remind.php?edit=<?= (int) $r['id'] ?>#form"><span class="tt"><?= h($r['emoji']) ?> <?= h($r['name']) ?></span>
+        <a class="tbody" href="remind.php?edit=<?= (int) $r['id'] ?>"><span class="tt"><?= h($r['emoji']) ?> <?= h($r['name']) ?></span>
           <span class="tm"><span class="<?= $late ? 'late' : '' ?>"><?= h($r['time']) ?></span><?php if ($for): ?><span class="who"><?= h($for['emoji'] . ' ' . $for['name']) ?></span><?php endif; ?><?php if ($r['taken_at']): ?><span>✓ <?= $by ? h($by['name']) . ' ' : '' ?><?= date('H:i', strtotime($r['taken_at'])) ?></span><?php endif; ?><?= $r['note'] !== '' ? '<span>' . h($r['note']) . '</span>' : '' ?></span></a>
       </div>
     <?php endforeach; ?>
@@ -87,7 +87,7 @@ page_start('반복 알림', 'alerts');
   <h3 class="listhead">모든 알림 <span><?= count($all) ?></span></h3>
   <div class="card rows">
     <?php foreach ($all as $r): $for = $names[(int) $r['member_id']] ?? null; ?>
-      <a class="row" href="remind.php?edit=<?= (int) $r['id'] ?>#form"><span class="ic"><?= h($r['emoji']) ?></span>
+      <a class="row" href="remind.php?edit=<?= (int) $r['id'] ?>"><span class="ic"><?= h($r['emoji']) ?></span>
         <span class="grow"><span class="t"><?= h($r['name']) ?></span><span class="s"><?= h(remind_days_label($r['days'])) ?> <?= h($r['time']) ?><?= $for ? ' · ' . h($for['emoji'] . ' ' . $for['name']) : '' ?></span></span><span class="chev">›</span></a>
     <?php endforeach; ?>
   </div>
@@ -95,8 +95,10 @@ page_start('반복 알림', 'alerts');
   <section class="card tempty"><div class="big">⏰</div><b>매일 챙길 것을 알림으로</b><p class="small muted">약 · 영양제 · 아이 유산균 · 물 한 잔처럼 매일(또는 정한 요일) 같은 시각에 챙길 것을 적어 두면, 그 시각에 폰으로 알려 드려요. 1시간 뒤에도 안 챙겼으면 한 번 더 알려요.</p></section>
 <?php endif; ?>
 
-<section class="card" id="form">
-  <h2><?= $edit ? '✏️ 알림 고치기' : '＋ 알림 만들기' ?></h2>
+<button type="button" class="lfab" data-open-sheet="editor" aria-label="알림 만들기">＋</button>
+<div class="sheet" id="editor"<?= $edit ? '' : ' hidden' ?> role="dialog" aria-modal="true" aria-labelledby="editor-title">
+  <div class="panel">
+    <div class="sheet-head"><h2 id="editor-title"><?= $edit ? '알림 고치기' : '새 알림' ?></h2><?php if ($edit): ?><a class="x" href="remind.php" aria-label="닫기">✕</a><?php else: ?><button type="button" class="x" data-sheet-close aria-label="닫기">✕</button><?php endif; ?></div>
   <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= (int) ($edit['id'] ?? 0) ?>">
     <?php if (!$edit): ?>
       <div class="chips scrollx" style="margin:0 0 10px"><?php foreach (REMIND_PRESETS as [$e, $n]): ?><button type="button" class="chip" onclick="var f=this.form;f.emoji.value='<?= $e ?>';f.name.value='<?= h($n) ?>';f.name.focus()"><?= $e ?> <?= h($n) ?></button><?php endforeach; ?></div>
@@ -122,5 +124,7 @@ page_start('반복 알림', 'alerts');
     <form method="post" data-confirm="이 알림을 뺄까요?" style="margin-top:10px"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $edit['id'] ?>"><button class="btn small danger">🗑 알림 빼기</button> <a class="btn small" href="remind.php">취소</a></form>
   <?php endif; ?>
   <p class="small muted" style="margin:10px 0 0">알림은 이 사이트를 홈 화면에 추가하고 <a href="settings.php#notify">알림을 켠 폰</a>으로 와요.</p>
-</section>
+
+  </div>
+</div>
 <?php page_end('alerts');
